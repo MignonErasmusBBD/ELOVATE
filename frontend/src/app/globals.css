@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+:root {
+  --page: #faf9fc;
+  --surface: #ffffff;
+  --ink: #1e1b33;
+  --coral: #ff6b4a;
+  --text-secondary: #5a5670;
+  --border-ui: #e4e2ec;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-coral: var(--coral);
+  --color-text-secondary: var(--text-secondary);
+  --color-border-ui: var(--border-ui);
+  --font-sans: var(--font-poppins);
+}
+
+@layer base {
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  *:focus {
+    outline: none;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  .focus-coral:focus-visible {
+    outline-color: var(--coral);
+  }
+}
+
+@layer components {
+  .brand-panel {
+    background:
+      radial-gradient(
+        120% 80% at 20% 15%,
+        rgb(255 107 74 / 0.14) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        90% 70% at 85% 75%,
+        rgb(255 107 74 / 0.08) 0%,
+        transparent 50%
+      ),
+      linear-gradient(165deg, #241f3d 0%, var(--ink) 42%, #161328 100%);
+  }
+
+  .brand-panel-header,
+  .brand-panel-mark,
+  .brand-panel-footer {
+    animation: brand-panel-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .brand-panel-mark {
+    animation-delay: 90ms;
+  }
+
+  .brand-panel-footer {
+    animation-delay: 160ms;
+  }
+}
+
+@keyframes brand-panel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-panel-header,
+  .brand-panel-mark,
+  .brand-panel-footer {
+    animation: none;
+  }
+}
