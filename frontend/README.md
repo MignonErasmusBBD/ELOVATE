@@ -42,7 +42,6 @@ pnpm lint
 | --- | --- |
 | `/` and `/login` | Sign in UI |
 | `/signup` | Create account UI |
-| `/reset-password` | Reset password UI |
 | `/student` | Stub |
 | `/educator` | Stub |
 

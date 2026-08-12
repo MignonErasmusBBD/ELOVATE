@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { FieldError } from "@/components/ui/FieldError";
 import { Input } from "@/components/ui/Input";
@@ -42,7 +42,7 @@ export function SignInForm() {
     });
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
     const nextErrors = validateAll();
@@ -138,15 +138,6 @@ export function SignInForm() {
           {errors.password ? (
             <FieldError id="password-error" message={errors.password} />
           ) : null}
-        </div>
-
-        <div className="flex justify-end">
-          <Link
-            href="/reset-password"
-            className="text-sm font-medium text-ink underline-offset-2 hover:underline"
-          >
-            Forgot Password?
-          </Link>
         </div>
 
         <Button type="submit" className="mt-1">
