@@ -50,4 +50,5 @@ pnpm lint
 - `src/app` — routes
 - `src/features` — feature modules (`login`, `student`, `educator`)
 - `src/components` — shared UI and icons
+- `src/helpers` — reusable helpers (validation, form errors)
 - `public` — static assets (brand SVGs)

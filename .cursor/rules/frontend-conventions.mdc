@@ -1,0 +1,17 @@
+---
+description: Elovate frontend coding conventions for agents
+globs: frontend/**/*
+alwaysApply: false
+---
+
+# Frontend conventions
+
+When working under `frontend/`:
+
+- Prefer semantic HTML (`section`, `header`, `footer`, `main`, `aside`, `figure`, `fieldset`, `p`, `span`) over generic `div`s. Use `div` only when no semantic element fits.
+- Use descriptive variable and function names (`emailAddress`, `fieldErrors`, `hasAttemptedSubmit`).
+- Prefer `undefined` over `null` for absent values. Do not mix `null` and `undefined`.
+- Do not coerce values with casts like `Boolean(errors.name)`, `!!value`, `as SomeType`, `Number(...)`, or `String(...)`. Use explicit checks instead (`errors.name !== undefined`).
+- Put reusable helpers in `frontend/src/helpers/` (validation, form error utilities) instead of copying logic between components.
+- Keep feature UI in `frontend/src/features/<area>/` and shared primitives in `frontend/src/components/`.
+- Also respect `frontend/AGENTS.md` (includes Next.js local-docs guidance).

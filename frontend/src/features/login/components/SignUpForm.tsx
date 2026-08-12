@@ -4,19 +4,24 @@ import Link from "next/link";
 import { useState, type SubmitEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { FieldError } from "@/components/ui/FieldError";
+import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { LockIcon } from "@/components/icons/LockIcon";
 import { MailIcon } from "@/components/icons/MailIcon";
 import {
-  hasErrors,
+  clearFieldError,
+  focusFirstInvalidField,
+  hasFieldErrors,
+} from "@/helpers/formErrors";
+import {
   validateConfirmPassword,
   validateEmail,
   validatePassword,
   validateRequiredName,
-} from "@/features/login/lib/validation";
+} from "@/helpers/validation";
 
-type FieldErrors = {
+type SignUpFieldErrors = {
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -24,68 +29,69 @@ type FieldErrors = {
   confirmPassword?: string;
 };
 
+const SIGN_UP_FIELD_ORDER = [
+  "firstName",
+  "lastName",
+  "email",
+  "password",
+  "confirmPassword",
+] as const;
+
+const SIGN_UP_FIELD_ELEMENT_IDS: Record<
+  (typeof SIGN_UP_FIELD_ORDER)[number],
+  string
+> = {
+  firstName: "firstName",
+  lastName: "lastName",
+  email: "signup-email",
+  password: "signup-password",
+  confirmPassword: "confirmPassword",
+};
+
 export function SignUpForm() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [errors, setErrors] = useState<FieldErrors>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [emailAddress, setEmailAddress] = useState("");
+  const [passwordValue, setPasswordValue] = useState("");
+  const [confirmPasswordValue, setConfirmPasswordValue] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
+    useState(false);
+  const [fieldErrors, setFieldErrors] = useState<SignUpFieldErrors>({});
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
-  function validateAll(): FieldErrors {
+  function buildFieldErrors(): SignUpFieldErrors {
     return {
       firstName: validateRequiredName(firstName, "First name"),
       lastName: validateRequiredName(lastName, "Last name"),
-      email: validateEmail(email),
-      password: validatePassword(password),
-      confirmPassword: validateConfirmPassword(password, confirmPassword),
+      email: validateEmail(emailAddress),
+      password: validatePassword(passwordValue),
+      confirmPassword: validateConfirmPassword(
+        passwordValue,
+        confirmPasswordValue,
+      ),
     };
   }
 
-  function clearError(field: keyof FieldErrors) {
-    setErrors((current) => {
-      if (!current[field]) return current;
-      const next = { ...current };
-      delete next[field];
-      return next;
-    });
-  }
+  function handleSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
+    submitEvent.preventDefault();
+    setHasAttemptedSubmit(true);
 
-  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitted(true);
-    const nextErrors = validateAll();
-    setErrors(nextErrors);
+    const nextFieldErrors = buildFieldErrors();
+    setFieldErrors(nextFieldErrors);
 
-    if (hasErrors(nextErrors)) {
-      const ids: Record<keyof FieldErrors, string> = {
-        firstName: "firstName",
-        lastName: "lastName",
-        email: "signup-email",
-        password: "signup-password",
-        confirmPassword: "confirmPassword",
-      };
-      const order: (keyof FieldErrors)[] = [
-        "firstName",
-        "lastName",
-        "email",
-        "password",
-        "confirmPassword",
-      ];
-      const first = order.find((field) => nextErrors[field]);
-      if (first) {
-        event.currentTarget
-          .querySelector<HTMLElement>(`#${ids[first]}`)
-          ?.focus();
-      }
+    if (hasFieldErrors(nextFieldErrors)) {
+      focusFirstInvalidField(
+        submitEvent.currentTarget,
+        nextFieldErrors,
+        SIGN_UP_FIELD_ORDER,
+        SIGN_UP_FIELD_ELEMENT_IDS,
+      );
     }
   }
 
   return (
-    <div className="flex w-full max-w-md flex-col">
+    <section className="flex w-full max-w-md flex-col">
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
           Create Account
@@ -96,7 +102,7 @@ export function SignUpForm() {
       </header>
 
       <form className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
-        <div className="flex flex-col gap-2">
+        <FormField>
           <Label htmlFor="firstName">First Name</Label>
           <Input
             id="firstName"
@@ -105,26 +111,35 @@ export function SignUpForm() {
             autoComplete="given-name"
             placeholder="Design"
             value={firstName}
-            invalid={Boolean(errors.firstName)}
-            onChange={(event) => {
-              setFirstName(event.target.value);
-              clearError("firstName");
+            invalid={fieldErrors.firstName !== undefined}
+            onChange={(changeEvent) => {
+              setFirstName(changeEvent.target.value);
+              setFieldErrors((currentFieldErrors) =>
+                clearFieldError(currentFieldErrors, "firstName"),
+              );
             }}
             onBlur={() => {
-              if (!submitted && !firstName) return;
-              setErrors((current) => ({
-                ...current,
+              if (!hasAttemptedSubmit && !firstName) {
+                return;
+              }
+
+              setFieldErrors((currentFieldErrors) => ({
+                ...currentFieldErrors,
                 firstName: validateRequiredName(firstName, "First name"),
               }));
             }}
-            aria-describedby={errors.firstName ? "firstName-error" : undefined}
+            aria-describedby={
+              fieldErrors.firstName !== undefined
+                ? "firstName-error"
+                : undefined
+            }
           />
-          {errors.firstName ? (
-            <FieldError id="firstName-error" message={errors.firstName} />
-          ) : null}
-        </div>
+          {fieldErrors.firstName !== undefined ? (
+            <FieldError id="firstName-error" message={fieldErrors.firstName} />
+          ) : undefined}
+        </FormField>
 
-        <div className="flex flex-col gap-2">
+        <FormField>
           <Label htmlFor="lastName">Last Name</Label>
           <Input
             id="lastName"
@@ -133,26 +148,33 @@ export function SignUpForm() {
             autoComplete="family-name"
             placeholder="Withdesigners"
             value={lastName}
-            invalid={Boolean(errors.lastName)}
-            onChange={(event) => {
-              setLastName(event.target.value);
-              clearError("lastName");
+            invalid={fieldErrors.lastName !== undefined}
+            onChange={(changeEvent) => {
+              setLastName(changeEvent.target.value);
+              setFieldErrors((currentFieldErrors) =>
+                clearFieldError(currentFieldErrors, "lastName"),
+              );
             }}
             onBlur={() => {
-              if (!submitted && !lastName) return;
-              setErrors((current) => ({
-                ...current,
+              if (!hasAttemptedSubmit && !lastName) {
+                return;
+              }
+
+              setFieldErrors((currentFieldErrors) => ({
+                ...currentFieldErrors,
                 lastName: validateRequiredName(lastName, "Last name"),
               }));
             }}
-            aria-describedby={errors.lastName ? "lastName-error" : undefined}
+            aria-describedby={
+              fieldErrors.lastName !== undefined ? "lastName-error" : undefined
+            }
           />
-          {errors.lastName ? (
-            <FieldError id="lastName-error" message={errors.lastName} />
-          ) : null}
-        </div>
+          {fieldErrors.lastName !== undefined ? (
+            <FieldError id="lastName-error" message={fieldErrors.lastName} />
+          ) : undefined}
+        </FormField>
 
-        <div className="flex flex-col gap-2">
+        <FormField>
           <Label htmlFor="signup-email">Email Address</Label>
           <Input
             id="signup-email"
@@ -160,58 +182,82 @@ export function SignUpForm() {
             type="email"
             autoComplete="email"
             placeholder="designwithdesigners@gmail.com"
-            value={email}
-            invalid={Boolean(errors.email)}
-            onChange={(event) => {
-              setEmail(event.target.value);
-              clearError("email");
+            value={emailAddress}
+            invalid={fieldErrors.email !== undefined}
+            onChange={(changeEvent) => {
+              setEmailAddress(changeEvent.target.value);
+              setFieldErrors((currentFieldErrors) =>
+                clearFieldError(currentFieldErrors, "email"),
+              );
             }}
             onBlur={() => {
-              if (!submitted && !email) return;
-              setErrors((current) => ({
-                ...current,
-                email: validateEmail(email),
+              if (!hasAttemptedSubmit && !emailAddress) {
+                return;
+              }
+
+              setFieldErrors((currentFieldErrors) => ({
+                ...currentFieldErrors,
+                email: validateEmail(emailAddress),
               }));
             }}
-            aria-describedby={errors.email ? "signup-email-error" : undefined}
+            aria-describedby={
+              fieldErrors.email !== undefined ? "signup-email-error" : undefined
+            }
             startIcon={<MailIcon className="h-5 w-5" />}
           />
-          {errors.email ? (
-            <FieldError id="signup-email-error" message={errors.email} />
-          ) : null}
-        </div>
+          {fieldErrors.email !== undefined ? (
+            <FieldError id="signup-email-error" message={fieldErrors.email} />
+          ) : undefined}
+        </FormField>
 
-        <div className="flex flex-col gap-2">
+        <FormField>
           <Label htmlFor="signup-password">Password</Label>
           <Input
             id="signup-password"
             name="password"
-            type={showPassword ? "text" : "password"}
+            type={isPasswordVisible ? "text" : "password"}
             autoComplete="new-password"
-            value={password}
-            invalid={Boolean(errors.password)}
-            onChange={(event) => {
-              setPassword(event.target.value);
-              clearError("password");
-              if (errors.confirmPassword && confirmPassword) {
-                setErrors((current) => ({
-                  ...current,
-                  confirmPassword: validateConfirmPassword(
-                    event.target.value,
-                    confirmPassword,
-                  ),
-                }));
-              }
+            value={passwordValue}
+            invalid={fieldErrors.password !== undefined}
+            onChange={(changeEvent) => {
+              const nextPasswordValue = changeEvent.target.value;
+              setPasswordValue(nextPasswordValue);
+              setFieldErrors((currentFieldErrors) => {
+                const updatedFieldErrors = clearFieldError(
+                  currentFieldErrors,
+                  "password",
+                );
+
+                if (
+                  currentFieldErrors.confirmPassword !== undefined &&
+                  confirmPasswordValue
+                ) {
+                  return {
+                    ...updatedFieldErrors,
+                    confirmPassword: validateConfirmPassword(
+                      nextPasswordValue,
+                      confirmPasswordValue,
+                    ),
+                  };
+                }
+
+                return updatedFieldErrors;
+              });
             }}
             onBlur={() => {
-              if (!submitted && !password) return;
-              setErrors((current) => ({
-                ...current,
-                password: validatePassword(password),
+              if (!hasAttemptedSubmit && !passwordValue) {
+                return;
+              }
+
+              setFieldErrors((currentFieldErrors) => ({
+                ...currentFieldErrors,
+                password: validatePassword(passwordValue),
               }));
             }}
             aria-describedby={
-              errors.password ? "signup-password-error" : undefined
+              fieldErrors.password !== undefined
+                ? "signup-password-error"
+                : undefined
             }
             startIcon={<LockIcon className="h-5 w-5" />}
             endAdornment={
@@ -219,44 +265,58 @@ export function SignUpForm() {
                 variant="ghost"
                 type="button"
                 className="text-xs"
-                onClick={() => setShowPassword((current) => !current)}
-                aria-pressed={showPassword}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() =>
+                  setIsPasswordVisible((currentlyVisible) => !currentlyVisible)
+                }
+                aria-pressed={isPasswordVisible}
+                aria-label={
+                  isPasswordVisible ? "Hide password" : "Show password"
+                }
               >
-                {showPassword ? "Hide" : "Show"}
+                {isPasswordVisible ? "Hide" : "Show"}
               </Button>
             }
           />
-          {errors.password ? (
-            <FieldError id="signup-password-error" message={errors.password} />
-          ) : null}
-        </div>
+          {fieldErrors.password !== undefined ? (
+            <FieldError
+              id="signup-password-error"
+              message={fieldErrors.password}
+            />
+          ) : undefined}
+        </FormField>
 
-        <div className="flex flex-col gap-2">
+        <FormField>
           <Label htmlFor="confirmPassword">Confirm Password</Label>
           <Input
             id="confirmPassword"
             name="confirmPassword"
-            type={showConfirmPassword ? "text" : "password"}
+            type={isConfirmPasswordVisible ? "text" : "password"}
             autoComplete="new-password"
-            value={confirmPassword}
-            invalid={Boolean(errors.confirmPassword)}
-            onChange={(event) => {
-              setConfirmPassword(event.target.value);
-              clearError("confirmPassword");
+            value={confirmPasswordValue}
+            invalid={fieldErrors.confirmPassword !== undefined}
+            onChange={(changeEvent) => {
+              setConfirmPasswordValue(changeEvent.target.value);
+              setFieldErrors((currentFieldErrors) =>
+                clearFieldError(currentFieldErrors, "confirmPassword"),
+              );
             }}
             onBlur={() => {
-              if (!submitted && !confirmPassword) return;
-              setErrors((current) => ({
-                ...current,
+              if (!hasAttemptedSubmit && !confirmPasswordValue) {
+                return;
+              }
+
+              setFieldErrors((currentFieldErrors) => ({
+                ...currentFieldErrors,
                 confirmPassword: validateConfirmPassword(
-                  password,
-                  confirmPassword,
+                  passwordValue,
+                  confirmPasswordValue,
                 ),
               }));
             }}
             aria-describedby={
-              errors.confirmPassword ? "confirmPassword-error" : undefined
+              fieldErrors.confirmPassword !== undefined
+                ? "confirmPassword-error"
+                : undefined
             }
             startIcon={<LockIcon className="h-5 w-5" />}
             endAdornment={
@@ -264,25 +324,29 @@ export function SignUpForm() {
                 variant="ghost"
                 type="button"
                 className="text-xs"
-                onClick={() => setShowConfirmPassword((current) => !current)}
-                aria-pressed={showConfirmPassword}
+                onClick={() =>
+                  setIsConfirmPasswordVisible(
+                    (currentlyVisible) => !currentlyVisible,
+                  )
+                }
+                aria-pressed={isConfirmPasswordVisible}
                 aria-label={
-                  showConfirmPassword
+                  isConfirmPasswordVisible
                     ? "Hide confirm password"
                     : "Show confirm password"
                 }
               >
-                {showConfirmPassword ? "Hide" : "Show"}
+                {isConfirmPasswordVisible ? "Hide" : "Show"}
               </Button>
             }
           />
-          {errors.confirmPassword ? (
+          {fieldErrors.confirmPassword !== undefined ? (
             <FieldError
               id="confirmPassword-error"
-              message={errors.confirmPassword}
+              message={fieldErrors.confirmPassword}
             />
-          ) : null}
-        </div>
+          ) : undefined}
+        </FormField>
 
         <Button type="submit" className="mt-1">
           Sign Up
@@ -298,6 +362,6 @@ export function SignUpForm() {
           Log in
         </Link>
       </p>
-    </div>
+    </section>
   );
 }

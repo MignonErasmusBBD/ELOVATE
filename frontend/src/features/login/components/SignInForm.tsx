@@ -4,63 +4,57 @@ import Link from "next/link";
 import { useState, type SubmitEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { FieldError } from "@/components/ui/FieldError";
+import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { LockIcon } from "@/components/icons/LockIcon";
 import { MailIcon } from "@/components/icons/MailIcon";
 import {
-  hasErrors,
-  validateEmail,
-  validatePassword,
-} from "@/features/login/lib/validation";
+  clearFieldError,
+  focusFirstInvalidField,
+  hasFieldErrors,
+} from "@/helpers/formErrors";
+import { validateEmail, validatePassword } from "@/helpers/validation";
 
-type FieldErrors = {
+type SignInFieldErrors = {
   email?: string;
   password?: string;
 };
 
-export function SignInForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState<FieldErrors>({});
-  const [submitted, setSubmitted] = useState(false);
+const SIGN_IN_FIELD_ORDER = ["email", "password"] as const;
 
-  function validateAll(): FieldErrors {
+export function SignInForm() {
+  const [emailAddress, setEmailAddress] = useState("");
+  const [passwordValue, setPasswordValue] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<SignInFieldErrors>({});
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+
+  function buildFieldErrors(): SignInFieldErrors {
     return {
-      email: validateEmail(email),
-      password: validatePassword(password),
+      email: validateEmail(emailAddress),
+      password: validatePassword(passwordValue),
     };
   }
 
-  function clearError(field: keyof FieldErrors) {
-    setErrors((current) => {
-      if (!current[field]) return current;
-      const next = { ...current };
-      delete next[field];
-      return next;
-    });
-  }
+  function handleSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
+    submitEvent.preventDefault();
+    setHasAttemptedSubmit(true);
 
-  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitted(true);
-    const nextErrors = validateAll();
-    setErrors(nextErrors);
+    const nextFieldErrors = buildFieldErrors();
+    setFieldErrors(nextFieldErrors);
 
-    if (hasErrors(nextErrors)) {
-      const order: (keyof FieldErrors)[] = ["email", "password"];
-      const first = order.find((field) => nextErrors[field]);
-      if (first) {
-        event.currentTarget
-          .querySelector<HTMLElement>(`#${first}`)
-          ?.focus();
-      }
+    if (hasFieldErrors(nextFieldErrors)) {
+      focusFirstInvalidField(
+        submitEvent.currentTarget,
+        nextFieldErrors,
+        SIGN_IN_FIELD_ORDER,
+      );
     }
   }
 
   return (
-    <div className="flex w-full max-w-md flex-col">
+    <section className="flex w-full max-w-md flex-col">
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
           Welcome Back
@@ -71,7 +65,7 @@ export function SignInForm() {
       </header>
 
       <form className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
-        <div className="flex flex-col gap-2">
+        <FormField>
           <Label htmlFor="email">Email Address</Label>
           <Input
             id="email"
@@ -79,66 +73,84 @@ export function SignInForm() {
             type="email"
             autoComplete="email"
             placeholder="designwithdesigners@gmail.com"
-            value={email}
-            invalid={Boolean(errors.email)}
-            onChange={(event) => {
-              setEmail(event.target.value);
-              clearError("email");
+            value={emailAddress}
+            invalid={fieldErrors.email !== undefined}
+            onChange={(changeEvent) => {
+              setEmailAddress(changeEvent.target.value);
+              setFieldErrors((currentFieldErrors) =>
+                clearFieldError(currentFieldErrors, "email"),
+              );
             }}
             onBlur={() => {
-              if (!submitted && !email) return;
-              setErrors((current) => ({
-                ...current,
-                email: validateEmail(email),
+              if (!hasAttemptedSubmit && !emailAddress) {
+                return;
+              }
+
+              setFieldErrors((currentFieldErrors) => ({
+                ...currentFieldErrors,
+                email: validateEmail(emailAddress),
               }));
             }}
-            aria-describedby={errors.email ? "email-error" : undefined}
+            aria-describedby={
+              fieldErrors.email !== undefined ? "email-error" : undefined
+            }
             startIcon={<MailIcon className="h-5 w-5" />}
           />
-          {errors.email ? (
-            <FieldError id="email-error" message={errors.email} />
-          ) : null}
-        </div>
+          {fieldErrors.email !== undefined ? (
+            <FieldError id="email-error" message={fieldErrors.email} />
+          ) : undefined}
+        </FormField>
 
-        <div className="flex flex-col gap-2">
+        <FormField>
           <Label htmlFor="password">Password</Label>
           <Input
             id="password"
             name="password"
-            type={showPassword ? "text" : "password"}
+            type={isPasswordVisible ? "text" : "password"}
             autoComplete="current-password"
-            value={password}
-            invalid={Boolean(errors.password)}
-            onChange={(event) => {
-              setPassword(event.target.value);
-              clearError("password");
+            value={passwordValue}
+            invalid={fieldErrors.password !== undefined}
+            onChange={(changeEvent) => {
+              setPasswordValue(changeEvent.target.value);
+              setFieldErrors((currentFieldErrors) =>
+                clearFieldError(currentFieldErrors, "password"),
+              );
             }}
             onBlur={() => {
-              if (!submitted && !password) return;
-              setErrors((current) => ({
-                ...current,
-                password: validatePassword(password),
+              if (!hasAttemptedSubmit && !passwordValue) {
+                return;
+              }
+
+              setFieldErrors((currentFieldErrors) => ({
+                ...currentFieldErrors,
+                password: validatePassword(passwordValue),
               }));
             }}
-            aria-describedby={errors.password ? "password-error" : undefined}
+            aria-describedby={
+              fieldErrors.password !== undefined ? "password-error" : undefined
+            }
             startIcon={<LockIcon className="h-5 w-5" />}
             endAdornment={
               <Button
                 variant="ghost"
                 type="button"
                 className="text-xs"
-                onClick={() => setShowPassword((current) => !current)}
-                aria-pressed={showPassword}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() =>
+                  setIsPasswordVisible((currentlyVisible) => !currentlyVisible)
+                }
+                aria-pressed={isPasswordVisible}
+                aria-label={
+                  isPasswordVisible ? "Hide password" : "Show password"
+                }
               >
-                {showPassword ? "Hide" : "Show"}
+                {isPasswordVisible ? "Hide" : "Show"}
               </Button>
             }
           />
-          {errors.password ? (
-            <FieldError id="password-error" message={errors.password} />
-          ) : null}
-        </div>
+          {fieldErrors.password !== undefined ? (
+            <FieldError id="password-error" message={fieldErrors.password} />
+          ) : undefined}
+        </FormField>
 
         <Button type="submit" className="mt-1">
           Log In
@@ -154,6 +166,6 @@ export function SignInForm() {
           Sign up now
         </Link>
       </p>
-    </div>
+    </section>
   );
 }
