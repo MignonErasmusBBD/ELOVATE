@@ -1,15 +1,38 @@
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// RFC 5322 "Official Standard" pattern (emailregex.com) with case-insensitive domain.
+const RFC5322_EMAIL_PATTERN =
+  /^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])$/i;
+
+const RFC5322_MAX_EMAIL_LENGTH = 254;
+const RFC5322_MAX_LOCAL_PART_LENGTH = 64;
+
+function isRfc5322EmailAddress(emailAddress: string): boolean {
+  if (emailAddress.length > RFC5322_MAX_EMAIL_LENGTH) {
+    return false;
+  }
+
+  const atSeparatorIndex = emailAddress.indexOf("@");
+  if (
+    atSeparatorIndex === -1 ||
+    atSeparatorIndex > RFC5322_MAX_LOCAL_PART_LENGTH
+  ) {
+    return false;
+  }
+
+  return RFC5322_EMAIL_PATTERN.test(emailAddress);
+}
 
 export function requiredMessage(fieldLabel: string) {
   return `${fieldLabel} is required.`;
 }
 
 export function validateEmail(emailAddress: string): string | undefined {
-  if (!emailAddress.trim()) {
+  const trimmedEmailAddress = emailAddress.trim();
+
+  if (!trimmedEmailAddress) {
     return requiredMessage("Email address");
   }
 
-  if (!EMAIL_PATTERN.test(emailAddress.trim())) {
+  if (!isRfc5322EmailAddress(trimmedEmailAddress)) {
     return "Enter a valid email address.";
   }
 
