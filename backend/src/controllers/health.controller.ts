@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { PostgresService } from './postgres.service';
+import { PostgresService } from '../services/postgres.service';
 
 @ApiTags('Health')
 @Controller('health')

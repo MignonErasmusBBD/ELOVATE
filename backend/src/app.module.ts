@@ -1,19 +1,19 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AnalyticsController } from './controllers/analytics.controller';
+import { AuthController } from './controllers/auth.controller';
+import { CoursesController } from './controllers/courses.controller';
+import { EnrollmentsController } from './controllers/enrollments.controller';
+import { HealthController } from './controllers/health.controller';
+import { InterventionsController } from './controllers/interventions.controller';
+import { LookupsController } from './controllers/lookups.controller';
+import { OrganizationsController } from './controllers/organizations.controller';
+import { QuestionsController } from './controllers/questions.controller';
+import { QuizzesController } from './controllers/quizzes.controller';
+import { RbacController } from './controllers/rbac.controller';
+import { UsersController } from './controllers/users.controller';
 import { envFilePaths } from './helpers/env';
-import { HealthController } from './health.controller';
-import { AuthController } from './auth.controller';
-import { OrganizationsController } from './organizations.controller';
-import { UsersController } from './users.controller';
-import { RbacController } from './rbac.controller';
-import { CoursesController } from './courses.controller';
-import { QuestionsController } from './questions.controller';
-import { EnrollmentsController } from './enrollments.controller';
-import { QuizzesController } from './quizzes.controller';
-import { AnalyticsController } from './analytics.controller';
-import { LookupsController } from './lookups.controller';
-import { InterventionsController } from './interventions.controller';
-import { PostgresService } from './postgres.service';
+import { PostgresService } from './services/postgres.service';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: envFilePaths })],

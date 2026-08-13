@@ -5,7 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { Pool } from 'pg';
-import { postgresUrlFromEnv } from './helpers/env';
+import { postgresUrlFromEnv } from '../helpers/env';
 
 @Injectable()
 export class PostgresService implements OnModuleInit, OnModuleDestroy {

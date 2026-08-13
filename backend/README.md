@@ -19,6 +19,18 @@ Copy repo-root `.env.example` to `.env` once. Nest loads that file (no `backend/
 
 `AUTH_DEV_BYPASS=true` lets you try routes without a JWT. **Never set this in a real deploy.**
 
+## Layout
+
+```
+src/
+  main.ts
+  app.module.ts
+  controllers/   HTTP routes (Swagger contracts; most still TODO)
+  services/      Postgres pool today; feature services when a TODO is implemented
+  guards/        Auth
+  helpers/       Shared env / URL helpers
+```
+
 ## Env (repo root `.env` only)
 
 Nest and Flyway share the same file. Nest turns `FLYWAY_URL` + `FLYWAY_USER` + `FLYWAY_PASSWORD` into a Postgres URL (or uses `DATABASE_URL` if you set it).
