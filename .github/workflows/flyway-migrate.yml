@@ -1,0 +1,26 @@
+name: Flyway Migrate
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "migrations/V*.sql"
+
+jobs:
+  migrate:
+    name: Run Flyway migrations against NeonDB
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Flyway migrate
+        run: |
+          docker run --rm \
+            -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
+            -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
+            -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
+            -v "${{ github.workspace }}/migrations:/flyway/sql" \
+            flyway/flyway:10-alpine migrate
