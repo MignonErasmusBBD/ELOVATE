@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type SubmitEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { FieldError } from "@/components/ui/FieldError";
@@ -49,6 +50,7 @@ const SIGN_UP_FIELD_ELEMENT_IDS: Record<
 };
 
 export function SignUpForm() {
+  const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [emailAddress, setEmailAddress] = useState("");
@@ -87,7 +89,10 @@ export function SignUpForm() {
         SIGN_UP_FIELD_ORDER,
         SIGN_UP_FIELD_ELEMENT_IDS,
       );
+      return;
     }
+
+    router.push("/courses");
   }
 
   return (
