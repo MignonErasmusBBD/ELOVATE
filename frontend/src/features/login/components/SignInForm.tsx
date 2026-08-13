@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type SubmitEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { FieldError } from "@/components/ui/FieldError";
@@ -24,6 +25,7 @@ type SignInFieldErrors = {
 const SIGN_IN_FIELD_ORDER = ["email", "password"] as const;
 
 export function SignInForm() {
+  const router = useRouter();
   const [emailAddress, setEmailAddress] = useState("");
   const [passwordValue, setPasswordValue] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -50,7 +52,10 @@ export function SignInForm() {
         nextFieldErrors,
         SIGN_IN_FIELD_ORDER,
       );
+      return;
     }
+
+    router.push("/courses");
   }
 
   return (
