@@ -101,7 +101,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Create course',
     description:
-      'TODO: insert courses (course_visibility_id from course_visibilities).\nPermission: course.community.create (catalog_admin, org_admin, educator) OR course.private.create (org_admin, educator).',
+      'TODO: insert courses (course_visibility_id from course_visibilities).\nPermission: course.community.create (community_admin, org_admin, educator) OR course.private.create (org_admin, educator).',
   })
   create(@Body() _dto: CreateCourseDto) {
     return { message: 'TODO' };
@@ -121,7 +121,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Publish to community',
     description:
-      'TODO: set course_visibility_id to community (id 2).\nPermission: course.community.publish (catalog_admin, org_admin, educator).',
+      'TODO: set course_visibility_id to community (id 2).\nPermission: course.community.publish (community_admin, org_admin, educator).',
   })
   publish(@Param('id') id: string) {
     return { id, visibility: 'community', message: 'TODO' };
@@ -179,7 +179,7 @@ export class CoursesController {
   @Post(':id/sections')
   @ApiOperation({
     summary: 'Add section',
-    description: 'TODO: insert course_sections.\nPermission: course.section.write (catalog_admin, org_admin, educator).',
+    description: 'TODO: insert course_sections.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
   addSection(@Param('id') id: string, @Body() _dto: CreateSectionDto) {
     return { courseId: id, message: 'TODO' };
@@ -188,7 +188,7 @@ export class CoursesController {
   @Patch(':id/sections/:sectionId')
   @ApiOperation({
     summary: 'Update section',
-    description: 'TODO: update course_sections.\nPermission: course.section.write (catalog_admin, org_admin, educator).',
+    description: 'TODO: update course_sections.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
   updateSection(
     @Param('id') id: string,
@@ -202,7 +202,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Delete section',
     description:
-      'TODO: delete unused course_sections (authoring only). Do not use this to retire a course — deactivate the course instead.\nPermission: course.section.write (catalog_admin, org_admin, educator).',
+      'TODO: delete unused course_sections (authoring only). Do not use this to retire a course — deactivate the course instead.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
   removeSection(@Param('id') id: string, @Param('sectionId') sectionId: string) {
     return { courseId: id, sectionId, message: 'TODO' };
@@ -220,7 +220,7 @@ export class CoursesController {
   @Post(':id/topics')
   @ApiOperation({
     summary: 'Add topic',
-    description: 'TODO: insert topics.\nPermission: course.section.write (catalog_admin, org_admin, educator).',
+    description: 'TODO: insert topics.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
   addTopic(@Param('id') id: string, @Body() _dto: CreateTopicDto) {
     return { courseId: id, message: 'TODO' };
@@ -229,7 +229,7 @@ export class CoursesController {
   @Patch(':id/topics/:topicId')
   @ApiOperation({
     summary: 'Rename topic',
-    description: 'TODO: update topics.\nPermission: course.section.write (catalog_admin, org_admin, educator).',
+    description: 'TODO: update topics.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
   updateTopic(
     @Param('id') id: string,
@@ -243,7 +243,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Delete topic',
     description:
-      'TODO: delete unused topics + question_topics (authoring only). Do not use this to retire a course.\nPermission: course.section.write (catalog_admin, org_admin, educator).',
+      'TODO: delete unused topics + question_topics (authoring only). Do not use this to retire a course.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
   removeTopic(@Param('id') id: string, @Param('topicId') topicId: string) {
     return { courseId: id, topicId, message: 'TODO' };

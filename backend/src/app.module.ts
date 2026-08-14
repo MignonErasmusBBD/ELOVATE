@@ -13,11 +13,21 @@ import { QuizzesController } from './controllers/quizzes.controller';
 import { RbacController } from './controllers/rbac.controller';
 import { UsersController } from './controllers/users.controller';
 import { envFilePaths } from './helpers/env';
+import { AuthGuard } from './guards/auth.guard';
+import { AuthContextService } from './services/auth-context.service';
 import { PostgresService } from './services/postgres.service';
+import { RbacService } from './services/rbac.service';
+import { UsersService } from './services/users.service';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: envFilePaths })],
-  providers: [PostgresService],
+  providers: [
+    PostgresService,
+    AuthContextService,
+    AuthGuard,
+    UsersService,
+    RbacService,
+  ],
   controllers: [
     HealthController,
     AuthController,

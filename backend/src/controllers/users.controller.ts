@@ -1,22 +1,16 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiProperty,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
 import { AuthGuard } from '../guards/auth.guard';
-
-class InviteDto {
-  @ApiProperty()
-  @IsEmail()
-  email: string;
-
-  @ApiProperty({ description: 'Organisation to invite into' })
-  @IsString()
-  organizationId: string;
-
-  @ApiProperty({ required: false, example: 'educator' })
-  @IsOptional()
-  @IsString()
-  roleName?: string;
-}
+import { AuthUser, CurrentUser } from '../helpers/auth-user';
+import { optionalText } from '../helpers/values';
+import { UsersService } from '../services/users.service';
 
 class UpdateUserDto {
   @ApiProperty({ required: false })
@@ -30,22 +24,25 @@ class UpdateUserDto {
 @UseGuards(AuthGuard)
 @Controller('users')
 export class UsersController {
+  constructor(private readonly users: UsersService) {}
+
   @Get('me')
   @ApiOperation({
     summary: 'Current profile + roles',
-    description: 'TODO: users + user_roles + role_permissions.\nPermission: user.read.self (all roles).',
+    description:
+      'users + user_roles + permission codes (union of role_permissions).\nPermission: user.read.self (all roles).',
   })
-  me() {
-    return { message: 'TODO' };
+  me(@CurrentUser() actor: AuthUser) {
+    return this.users.readOwnProfile(actor);
   }
 
   @Patch('me')
   @ApiOperation({
     summary: 'Update own profile',
-    description: 'TODO: update users.full_name.\nPermission: user.update.self (all roles).',
+    description: 'Update users.full_name.\nPermission: user.update.self (all roles).',
   })
-  updateMe(@Body() _dto: UpdateUserDto) {
-    return { message: 'TODO' };
+  updateMe(@CurrentUser() actor: AuthUser, @Body() dto: UpdateUserDto) {
+    return this.users.updateOwnProfile(actor, dto.fullName);
   }
 
   @Get()
@@ -56,61 +53,65 @@ export class UsersController {
   @ApiOperation({
     summary: 'List users',
     description:
-      'TODO: select users, filter by organizationId / role / search / status.\nOrg Admin: own org only. Platform Admin: any org (or omit organizationId for all).\nPermission: user.read.org (platform_admin, org_admin, educator) or user.read.all (platform_admin).',
+      'Select users, filter by organizationId / role / search / status. Org-scoped callers are limited to their organisation.\nPermission: user.read.org or user.read.all.',
   })
   list(
+    @CurrentUser() actor: AuthUser,
     @Query('organizationId') organizationId?: string,
     @Query('role') role?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
   ) {
-    return { organizationId, role, search, status, items: [], message: 'TODO' };
-  }
-
-  @Post('invite')
-  @ApiOperation({
-    summary: 'Invite user into an organisation',
-    description:
-      'TODO: insert users (organization_id) + user_roles learner, optional extra role.\nPermission: user.invite (org_admin). Extra role also needs role.assign.',
-  })
-  invite(@Body() _dto: InviteDto) {
-    return { message: 'TODO' };
+    return this.users.list(actor, {
+      organizationId: optionalText(organizationId),
+      role: optionalText(role),
+      search: optionalText(search),
+      status: optionalText(status),
+    });
   }
 
   @Get(':id')
   @ApiOperation({
     summary: 'Get user by id',
-    description: 'TODO: select users + roles.\nPermission: user.read.org (same org) or user.read.all or user.read.self.',
+    description:
+      'Select users + roles.\nPermission: user.read.org (same org) or user.read.all or user.read.self.',
   })
-  getOne(@Param('id') id: string) {
-    return { id, message: 'TODO' };
+  getOne(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.users.getOne(actor, id);
   }
 
   @Patch(':id')
   @ApiOperation({
     summary: 'Update a user in the organisation',
-    description: 'TODO: update users.full_name.\nPermission: user.update.org (org_admin).',
+    description: 'Update users.full_name.\nPermission: user.update.org (org_admin).',
   })
-  update(@Param('id') id: string, @Body() _dto: UpdateUserDto) {
-    return { id, message: 'TODO' };
+  update(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+  ) {
+    return this.users.update(actor, id, dto.fullName);
   }
 
   @Post(':id/deactivate')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Deactivate a user',
     description:
-      'TODO: users has no status column in V2 — needs a migration. Never hard-delete a user.\nPermission: user.deactivate (org_admin).',
+      'Set user_status_id to deactivated. Never hard-delete a user.\nPermission: user.deactivate (org_admin).',
   })
-  deactivate(@Param('id') id: string) {
-    return { id, status: 'deactivated', message: 'TODO: missing users.status in V2' };
+  deactivate(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.users.setStatus(actor, id, 'deactivated');
   }
 
   @Post(':id/activate')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Activate a deactivated user',
-    description: 'TODO: set status back to active (same missing column).\nPermission: user.deactivate (org_admin).',
+    description:
+      'Set user_status_id back to active.\nPermission: user.deactivate (org_admin).',
   })
-  activate(@Param('id') id: string) {
-    return { id, status: 'active', message: 'TODO: missing users.status in V2' };
+  activate(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.users.setStatus(actor, id, 'active');
   }
 }

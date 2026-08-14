@@ -11,18 +11,24 @@ export class HealthController {
   @ApiOperation({
     summary: 'Liveness + database ping',
     description:
-      'Public. Confirms the API is up and the Postgres pool can query `roles`. Uses the repo-root `.env`. Does not require a JWT.',
+      'Public. Confirms the API is up and the Postgres pool can query `roles` and `permissions`. Uses the repo-root `.env`. Does not require a JWT.',
   })
   async check() {
     try {
-      const result = await this.postgres.query<{ roles: number }>(
-        'SELECT COUNT(*)::int AS roles FROM roles',
+      const result = await this.postgres.query<{
+        roles: number;
+        permissions: number;
+      }>(
+        `SELECT
+           (SELECT COUNT(*)::int FROM roles) AS roles,
+           (SELECT COUNT(*)::int FROM permissions) AS permissions`,
       );
-      const roleCount = result.rows[0]?.roles;
+      const row = result.rows[0];
       return {
         status: 'ok',
         database: 'connected',
-        roles: roleCount !== undefined ? roleCount : undefined,
+        roles: row === undefined ? undefined : row.roles,
+        permissions: row === undefined ? undefined : row.permissions,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'database error';
