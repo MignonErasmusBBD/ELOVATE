@@ -8,6 +8,7 @@ import { FieldError } from "@/components/ui/FieldError";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
 import { LockIcon } from "@/components/icons/LockIcon";
 import { MailIcon } from "@/components/icons/MailIcon";
 import {
@@ -16,10 +17,12 @@ import {
   hasFieldErrors,
 } from "@/helpers/formErrors";
 import { validateEmail, validatePassword } from "@/helpers/validation";
+import { authClient } from "@/lib/auth-client";
 
 type SignInFieldErrors = {
   email?: string;
   password?: string;
+  form?: string;
 };
 
 const SIGN_IN_FIELD_ORDER = ["email", "password"] as const;
@@ -31,6 +34,7 @@ export function SignInForm() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<SignInFieldErrors>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function buildFieldErrors(): SignInFieldErrors {
     return {
@@ -39,7 +43,7 @@ export function SignInForm() {
     };
   }
 
-  function handleSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
     setHasAttemptedSubmit(true);
 
@@ -55,7 +59,20 @@ export function SignInForm() {
       return;
     }
 
-    router.push("/courses");
+    setIsSubmitting(true);
+    const result = await authClient.signIn.email({
+      email: emailAddress,
+      password: passwordValue,
+      callbackURL: "/dashboard",
+    });
+    setIsSubmitting(false);
+
+    if (result.error) {
+      setFieldErrors({ form: result.error.message ?? "Invalid email or password." });
+      return;
+    }
+
+    router.push("/dashboard");
   }
 
   return (
@@ -69,7 +86,24 @@ export function SignInForm() {
         </p>
       </header>
 
-      <form className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
+      <div className="flex flex-col gap-4">
+        <button
+          type="button"
+          onClick={() => authClient.signIn.social({ provider: "google", callbackURL: "/dashboard" })}
+          className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-ui bg-surface px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-page focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        >
+          <GoogleIcon className="h-5 w-5 shrink-0" />
+          Continue with Google
+        </button>
+
+        <div className="flex items-center gap-3">
+          <hr className="flex-1 border-t border-border-ui" />
+          <span className="text-xs text-text-secondary">or continue with email</span>
+          <hr className="flex-1 border-t border-border-ui" />
+        </div>
+      </div>
+
+      <form className="mt-4 flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
         <FormField>
           <Label htmlFor="email">Email Address</Label>
           <Input
@@ -157,8 +191,12 @@ export function SignInForm() {
           ) : undefined}
         </FormField>
 
-        <Button type="submit" className="mt-1">
-          Log In
+        {fieldErrors.form !== undefined ? (
+          <p role="alert" className="text-sm text-red-600">{fieldErrors.form}</p>
+        ) : undefined}
+
+        <Button type="submit" className="mt-1" disabled={isSubmitting}>
+          {isSubmitting ? "Signing in…" : "Log In"}
         </Button>
       </form>
 
