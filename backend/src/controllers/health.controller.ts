@@ -1,11 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { PostgresService } from '../services/postgres.service';
+import { RbacCatalogueRepository } from '../repositories/rbac-catalogue.repository';
 
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
-  constructor(private readonly postgres: PostgresService) {}
+  constructor(private readonly catalogue: RbacCatalogueRepository) {}
 
   @Get()
   @ApiOperation({
@@ -15,20 +15,12 @@ export class HealthController {
   })
   async check() {
     try {
-      const result = await this.postgres.query<{
-        roles: number;
-        permissions: number;
-      }>(
-        `SELECT
-           (SELECT COUNT(*)::int FROM roles) AS roles,
-           (SELECT COUNT(*)::int FROM permissions) AS permissions`,
-      );
-      const row = result.rows[0];
+      const counts = await this.catalogue.catalogueCounts();
       return {
         status: 'ok',
         database: 'connected',
-        roles: row === undefined ? undefined : row.roles,
-        permissions: row === undefined ? undefined : row.permissions,
+        roles: counts === undefined ? undefined : counts.roles,
+        permissions: counts === undefined ? undefined : counts.permissions,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'database error';

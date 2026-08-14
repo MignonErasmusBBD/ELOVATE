@@ -14,6 +14,9 @@ import { RbacController } from './controllers/rbac.controller';
 import { UsersController } from './controllers/users.controller';
 import { envFilePaths } from './helpers/env';
 import { AuthGuard } from './guards/auth.guard';
+import { RbacCatalogueRepository } from './repositories/rbac-catalogue.repository';
+import { RbacRepository } from './repositories/rbac.repository';
+import { UsersRepository } from './repositories/users.repository';
 import { AuthContextService } from './services/auth-context.service';
 import { PostgresService } from './services/postgres.service';
 import { RbacService } from './services/rbac.service';
@@ -23,6 +26,9 @@ import { UsersService } from './services/users.service';
   imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: envFilePaths })],
   providers: [
     PostgresService,
+    UsersRepository,
+    RbacRepository,
+    RbacCatalogueRepository,
     AuthContextService,
     AuthGuard,
     UsersService,

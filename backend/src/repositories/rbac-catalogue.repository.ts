@@ -1,16 +1,15 @@
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { SqlQuery } from '../helpers/values';
+import { PostgresService } from '../services/postgres.service';
 import {
   PermissionRow,
+  PublicPermission,
   PublicRole,
   RoleRow,
   roleSelectSql,
   toPublicPermission,
   toPublicRole,
-} from '../helpers/rbac-records';
-import { PostgresService } from './postgres.service';
+} from './rbac.repository';
 
 export type CatalogueInput = {
   roleName: string | undefined;
@@ -21,26 +20,33 @@ export type CatalogueInput = {
   grantPermissionCode: string | undefined;
 };
 
-export async function writeCatalogue(
-  postgres: PostgresService,
-  input: CatalogueInput,
-) {
-  const hasRole = input.roleName !== undefined;
-  const hasPermissionWrite = input.permissionCode !== undefined;
-  const hasGrant =
-    input.grantRoleName !== undefined &&
-    input.grantPermissionCode !== undefined;
-  if (hasRole === false && hasPermissionWrite === false && hasGrant === false) {
-    throw new BadRequestException(
-      'Provide a role, a permission, and/or a grant to add or update',
+@Injectable()
+export class RbacCatalogueRepository {
+  constructor(private readonly postgres: PostgresService) {}
+
+  async catalogueCounts(): Promise<
+    { roles: number; permissions: number } | undefined
+  > {
+    const result = await this.postgres.query<{
+      roles: number;
+      permissions: number;
+    }>(
+      `SELECT
+         (SELECT COUNT(*)::int FROM roles) AS roles,
+         (SELECT COUNT(*)::int FROM permissions) AS permissions`,
+    );
+    return result.rows[0];
+  }
+
+  writeCatalogue(input: CatalogueInput) {
+    return this.postgres.withTransaction(async (query) =>
+      this.writeInTransaction(query, input),
     );
   }
 
-  return postgres.withTransaction(async (query) => {
+  private async writeInTransaction(query: SqlQuery, input: CatalogueInput) {
     let role: PublicRole | undefined;
-    let permission:
-      | { code: string; description: string | undefined }
-      | undefined;
+    let permission: PublicPermission | undefined;
     let grant: { roleName: string; permissionCode: string } | undefined;
 
     if (input.roleName !== undefined) {
@@ -117,5 +123,5 @@ export async function writeCatalogue(
     }
 
     return { role, permission, grant };
-  });
+  }
 }

@@ -16,7 +16,7 @@ When working under `backend/`:
 - Use descriptive names (`organizationId`, `courseVisibilityId`, `oauthProviderId`). Match Flyway column names in comments and DTOs (`course_visibility_id`, not a made-up `visibility` column).
 - Prefer `undefined` over `null` for absent DTO fields and optional query filters. Do not mix `null` and `undefined`.
 - Do not coerce with casts (`as SomeType`, `Boolean(x)`, `!!value`, `Number(...)`, `String(...)`). Use explicit checks (`value !== undefined`).
-- Group by type: `controllers/`, `services/`, `guards/`, `helpers/`. Keep one controller per area. Add services only when implementing a TODO.
+- Group by type: `controllers/`, `services/`, `repositories/`, `guards/`, `helpers/`. Keep one controller per area. SQL lives in repositories (`users.repository.ts`, `courses.repository.ts`, `questions.repository.ts`, …). Services check permission codes and orchestrate. Add a repository when implementing a TODO.
 - Every new/changed route needs `@ApiOperation` with: what table it uses, the permission code, and which roles grant it. Stub body stays `{ message: 'TODO' }` until the service exists.
 - Load env from the **repo-root** `.env` (see `src/helpers/env.ts`). Do not add a second secrets file under `backend/`.
 - Connect to Postgres with `DATABASE_URL`, or with `FLYWAY_URL` + `FLYWAY_USER` + `FLYWAY_PASSWORD` (`PostgresService`). Schema changes belong in `/migrations` (Flyway), not TypeORM `synchronize`.

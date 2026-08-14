@@ -10,7 +10,7 @@ Follow these when editing this API:
 - Use descriptive names (`organizationId`, `courseVisibilityId`, `oauthProviderId`). Match Flyway column names in comments and DTOs.
 - Prefer `undefined` over `null` for absent DTO fields and optional query filters. Do not mix `null` and `undefined`.
 - Do not coerce with casts (`as SomeType`, `Boolean(x)`, `!!value`, `Number(...)`, `String(...)`). Use explicit checks (`value !== undefined`).
-- Group by type: `src/controllers/`, `src/services/`, `src/guards/`, `src/helpers/`. Keep one controller per area. Add services only when implementing a TODO.
+- Group by type: `src/controllers/`, `src/services/`, `src/repositories/`, `src/guards/`, `src/helpers/`. Keep one controller per area. SQL lives in repositories; services check permissions and orchestrate. Add a repository when implementing a TODO.
 - Every new/changed route needs `@ApiOperation` with: what table it uses, the permission code, and which roles grant it.
 - Load env from the repo-root `.env`. Do not add a second secrets file under `backend/`.
 - Connect with `DATABASE_URL`, or with `FLYWAY_URL` + `FLYWAY_USER` + `FLYWAY_PASSWORD` (`PostgresService`). Schema changes belong in `/migrations` (Flyway).

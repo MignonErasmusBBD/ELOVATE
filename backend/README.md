@@ -27,6 +27,7 @@ src/
   app.module.ts
   controllers/
   services/
+  repositories/
   guards/
   helpers/
 ```

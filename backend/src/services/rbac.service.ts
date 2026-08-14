@@ -6,84 +6,42 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AuthUser } from '../helpers/auth-user';
-import {
-  PermissionRow,
-  PublicRole,
-  RoleRow,
-  roleSelectSql,
-  toPublicPermission,
-  toPublicRole,
-} from '../helpers/rbac-records';
 import { hasPermission, requirePermission } from '../helpers/require-permission';
-import { isUuid, SqlParameter, whereClause } from '../helpers/values';
-import { writeCatalogue, CatalogueInput } from './rbac-catalogue';
-import { PostgresService } from './postgres.service';
+import { isUuid } from '../helpers/values';
+import {
+  CatalogueInput,
+  RbacCatalogueRepository,
+} from '../repositories/rbac-catalogue.repository';
+import { PublicRole, RbacRepository } from '../repositories/rbac.repository';
+import { UsersRepository } from '../repositories/users.repository';
 
-type AssignmentRow = {
-  user_id: string;
-  email: string;
-  organization_id: string;
-  role_name: string;
-  granted_at: Date;
-};
+export type { CatalogueInput };
 
 @Injectable()
 export class RbacService {
-  constructor(private readonly postgres: PostgresService) {}
+  constructor(
+    private readonly rbac: RbacRepository,
+    private readonly catalogueRepository: RbacCatalogueRepository,
+    private readonly users: UsersRepository,
+  ) {}
 
-  async listRoles(
-    actor: AuthUser,
-    filters: { name: string | undefined },
-  ) {
+  async listRoles(actor: AuthUser, filters: { name: string | undefined }) {
     requirePermission(actor, ['role.read']);
-    const values: SqlParameter[] = [];
-    const conditions: string[] = [];
-    if (filters.name !== undefined) {
-      values.push(filters.name);
-      conditions.push(`r.role_name = $${values.length}`);
-    }
-    const result = await this.postgres.query<RoleRow>(
-      `${roleSelectSql} ${whereClause(conditions)} ORDER BY r.role_id`,
-      values,
-    );
-    return { items: result.rows.map(toPublicRole) };
+    const items = await this.rbac.listRoles(filters.name);
+    return { items };
   }
 
   async getRole(actor: AuthUser, roleName: string) {
     requirePermission(actor, ['role.read']);
-    const role = await this.findRole(roleName);
-    const permissions = await this.postgres.query<PermissionRow>(
-      `SELECT p.permission_id, p.permission_code, p.permission_description
-       FROM role_permissions rp
-       JOIN permissions p ON p.permission_id = rp.permission_id
-       WHERE rp.role_id = $1
-       ORDER BY p.permission_code`,
-      [role.roleId],
-    );
-    return {
-      ...role,
-      permissions: permissions.rows.map(toPublicPermission),
-    };
+    const role = await this.requireRole(roleName);
+    const permissions = await this.rbac.listPermissionsForRole(role.roleId);
+    return { ...role, permissions };
   }
 
   async listPermissions(actor: AuthUser, search: string | undefined) {
     requirePermission(actor, ['role.read']);
-    const values: SqlParameter[] = [];
-    const conditions: string[] = [];
-    if (search !== undefined) {
-      values.push(`%${search}%`);
-      conditions.push(
-        `(p.permission_code ILIKE $${values.length} OR coalesce(p.permission_description, '') ILIKE $${values.length})`,
-      );
-    }
-    const result = await this.postgres.query<PermissionRow>(
-      `SELECT p.permission_id, p.permission_code, p.permission_description
-       FROM permissions p
-       ${whereClause(conditions)}
-       ORDER BY p.permission_code`,
-      values,
-    );
-    return { items: result.rows.map(toPublicPermission) };
+    const items = await this.rbac.listPermissions(search);
+    return { items };
   }
 
   async listAssignments(
@@ -95,55 +53,27 @@ export class RbacService {
     },
   ) {
     requirePermission(actor, ['role.read']);
-    const values: SqlParameter[] = [];
-    const conditions: string[] = [];
-
+    let organizationId = filters.organizationId;
     if (hasPermission(actor, ['user.read.all']) === false) {
       if (
-        filters.organizationId !== undefined &&
-        filters.organizationId !== actor.organizationId
+        organizationId !== undefined &&
+        organizationId !== actor.organizationId
       ) {
         throw new ForbiddenException(
           'Can only list role grants in your own organisation',
         );
       }
-      values.push(actor.organizationId);
-      conditions.push(`u.organization_id = $${values.length}`);
-    } else if (filters.organizationId !== undefined) {
-      values.push(filters.organizationId);
-      conditions.push(`u.organization_id = $${values.length}`);
+      organizationId = actor.organizationId;
     }
-
-    if (filters.userId !== undefined) {
-      if (isUuid(filters.userId) === false) {
-        return { items: [] };
-      }
-      values.push(filters.userId);
-      conditions.push(`ur.user_id = $${values.length}`);
+    if (filters.userId !== undefined && isUuid(filters.userId) === false) {
+      return { items: [] };
     }
-    if (filters.role !== undefined) {
-      values.push(filters.role);
-      conditions.push(`r.role_name = $${values.length}`);
-    }
-
-    const result = await this.postgres.query<AssignmentRow>(
-      `SELECT ur.user_id, u.email, u.organization_id, r.role_name, ur.granted_at
-       FROM user_roles ur
-       JOIN users u ON u.id = ur.user_id
-       JOIN roles r ON r.role_id = ur.role_id
-       ${whereClause(conditions)}
-       ORDER BY ur.granted_at DESC`,
-      values,
-    );
-    return {
-      items: result.rows.map((row) => ({
-        userId: row.user_id,
-        email: row.email,
-        organizationId: row.organization_id,
-        roleName: row.role_name,
-        grantedAt: row.granted_at,
-      })),
-    };
+    const items = await this.rbac.listAssignments({
+      userId: filters.userId,
+      organizationId,
+      role: filters.role,
+    });
+    return { items };
   }
 
   async assign(actor: AuthUser, userId: string, roleName: string) {
@@ -154,14 +84,8 @@ export class RbacService {
       );
     }
     await this.prepareGrantChange(actor, userId, roleName);
-    const inserted = await this.postgres.query<{ user_id: string }>(
-      `INSERT INTO user_roles (user_id, role_id)
-       SELECT $1, r.role_id FROM roles r WHERE r.role_name = $2
-       ON CONFLICT DO NOTHING
-       RETURNING user_id`,
-      [userId, roleName],
-    );
-    if (inserted.rows[0] === undefined) {
+    const inserted = await this.rbac.insertAssignment(userId, roleName);
+    if (inserted === false) {
       throw new ConflictException('User already has that role');
     }
     return { userId, roleName };
@@ -173,16 +97,8 @@ export class RbacService {
       throw new BadRequestException('Never unassign learner');
     }
     await this.prepareGrantChange(actor, userId, roleName);
-    const deleted = await this.postgres.query<{ user_id: string }>(
-      `DELETE FROM user_roles ur
-       USING roles r
-       WHERE ur.role_id = r.role_id
-         AND ur.user_id = $1
-         AND r.role_name = $2
-       RETURNING ur.user_id`,
-      [userId, roleName],
-    );
-    if (deleted.rows[0] === undefined) {
+    const deleted = await this.rbac.deleteAssignment(userId, roleName);
+    if (deleted === false) {
       throw new NotFoundException('Role grant not found');
     }
     return { userId, roleName, removed: true };
@@ -190,7 +106,17 @@ export class RbacService {
 
   async catalogue(actor: AuthUser, input: CatalogueInput) {
     requirePermission(actor, ['role.catalogue.write']);
-    return writeCatalogue(this.postgres, input);
+    const hasRole = input.roleName !== undefined;
+    const hasPermissionWrite = input.permissionCode !== undefined;
+    const hasGrant =
+      input.grantRoleName !== undefined &&
+      input.grantPermissionCode !== undefined;
+    if (hasRole === false && hasPermissionWrite === false && hasGrant === false) {
+      throw new BadRequestException(
+        'Provide a role, a permission, and/or a grant to add or update',
+      );
+    }
+    return this.catalogueRepository.writeCatalogue(input);
   }
 
   private async prepareGrantChange(
@@ -198,21 +124,14 @@ export class RbacService {
     userId: string,
     roleName: string,
   ): Promise<PublicRole> {
-    const role = await this.findRole(roleName);
-    if (isUuid(userId) === false) {
-      throw new NotFoundException('User not found');
-    }
-    const result = await this.postgres.query<{
-      id: string;
-      organization_id: string;
-    }>('SELECT id, organization_id FROM users WHERE id = $1', [userId]);
-    const user = result.rows[0];
-    if (user === undefined) {
+    const role = await this.requireRole(roleName);
+    const organizationId = await this.users.findOrganizationId(userId);
+    if (organizationId === undefined) {
       throw new NotFoundException('User not found');
     }
     if (
       hasPermission(actor, ['user.read.all']) === false &&
-      user.organization_id !== actor.organizationId
+      organizationId !== actor.organizationId
     ) {
       throw new ForbiddenException(
         'Can only change role grants for users in your own organisation',
@@ -221,15 +140,11 @@ export class RbacService {
     return role;
   }
 
-  private async findRole(roleName: string): Promise<PublicRole> {
-    const result = await this.postgres.query<RoleRow>(
-      `${roleSelectSql} WHERE r.role_name = $1`,
-      [roleName],
-    );
-    const row = result.rows[0];
-    if (row === undefined) {
+  private async requireRole(roleName: string): Promise<PublicRole> {
+    const role = await this.rbac.findRoleByName(roleName);
+    if (role === undefined) {
       throw new NotFoundException(`Role not found: ${roleName}`);
     }
-    return toPublicRole(row);
+    return role;
   }
 }
