@@ -1,6 +1,6 @@
 # Elovate API
 
-NestJS API on port **3001**. It **connects to Postgres** from the repo-root `.env`. **Health, users, RBAC, organisations, and courses** are implemented. Other routes still return `{ message: "TODO" }`.
+NestJS API on port **3001**. It **connects to Postgres** from the repo-root `.env`. **Health, users, RBAC, organisations, courses, questions, enrollments, quizzes, analytics, lookups, and interventions** are implemented. Auth sync is still `{ message: "TODO" }`.
 
 This does **not** replace or change the Next.js app in `frontend/`. That still runs on port **3000**.
 
@@ -17,7 +17,7 @@ Copy repo-root `.env.example` to `.env` once. Nest loads that file (no `backend/
 - Health: http://localhost:3001/api/health
 - Swagger: http://localhost:3001/docs
 
-Guarded routes return 401 until JWT is wired. `GET /api/health` stays public.
+Guarded routes return 401 until JWT is wired. `GET /api/health` stays public. When auth is wired, deactivated users and users in a **suspended** organisation will not load.
 
 ## Layout
 
@@ -45,13 +45,12 @@ FLYWAY_PASSWORD=...
 
 ## What you still have to implement
 
-Questions, enrollments, quizzes, analytics, lookups, interventions, and auth sync are still `{ message: "TODO" }`.
-
 1. Wire OAuth/Neon JWT in `AuthGuard` and load `user_roles` → `role_permissions` via `AuthContextService`.
-2. Check **permission codes from the DB**, never role names.
-3. Signup always grants **learner**. Extra roles are additive (union of codes).
-4. Persist activate/deactivate for questions (users, organisations, and courses already have status lookups).
-5. `course.lesson.write` is seeded but there is **no `lessons` table** yet.
+2. `POST /api/auth/sync-profile` — upsert organisation + user + `learner` (`user.create.self`).
+3. `course.lesson.write` is seeded but there is **no `lessons` table** yet.
+4. Intervention **flags are not created by this API**. `GET`/`resolve` work; a rules worker would insert `intervention_flags`.
+
+Signup always grants **learner**. Extra roles are additive (union of codes). Permission checks use **codes from the DB**, never role names.
 
 `course.*.delete` and `question.delete` permission codes mean **deactivate**, not HTTP DELETE.
 
@@ -120,4 +119,4 @@ Do not add `node_modules/`, `dist/`, or `.env` — they are gitignored.
 
 This folder is safe to merge: it does not touch `frontend/`. It **does** connect to Postgres using the root `.env`.
 
-It is **not** a finished production API. Do not point real users at it until JWT is wired and feature routes are implemented.
+It is **not** a finished production API. Do not point real users at it until JWT is wired.

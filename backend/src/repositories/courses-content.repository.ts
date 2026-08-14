@@ -80,6 +80,23 @@ export class CoursesContentRepository {
     return toPublicSection(row);
   }
 
+  async findSectionById(sectionId: string): Promise<PublicSection | undefined> {
+    if (isUuid(sectionId) === false) {
+      return undefined;
+    }
+    const result = await this.postgres.query<SectionRow>(
+      `SELECT id, course_id, title, position
+       FROM course_sections
+       WHERE id = $1`,
+      [sectionId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) {
+      return undefined;
+    }
+    return toPublicSection(row);
+  }
+
   async insertSection(
     courseId: string,
     title: string,

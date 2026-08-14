@@ -1,7 +1,10 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { IsUUID } from 'class-validator';
 import { AuthGuard } from '../guards/auth.guard';
+import { AuthUser, CurrentUser } from '../helpers/auth-user';
+import { optionalText } from '../helpers/values';
+import { EnrollmentsService } from '../services/enrollments.service';
 
 class AssignDto {
   @ApiProperty()
@@ -24,14 +27,17 @@ class StartCommunityDto {
 @UseGuards(AuthGuard)
 @Controller('enrollments')
 export class EnrollmentsController {
+  constructor(private readonly enrollments: EnrollmentsService) {}
+
   @Get('me')
   @ApiQuery({ name: 'status', required: false, enum: ['active', 'completed', 'withdrawn'] })
   @ApiOperation({
     summary: 'My enrollments',
-    description: 'TODO: enrollments for caller.\nPermission: enrollment.read.self (educator, learner).',
+    description:
+      'Select enrollments for the caller.\nPermission: enrollment.read.self (educator, learner).',
   })
-  mine(@Query('status') status?: string) {
-    return { status, items: [], message: 'TODO' };
+  mine(@CurrentUser() actor: AuthUser, @Query('status') status?: string) {
+    return this.enrollments.listOwn(actor, optionalText(status));
   }
 
   @Get()
@@ -42,60 +48,75 @@ export class EnrollmentsController {
   @ApiOperation({
     summary: 'List enrollments',
     description:
-      'TODO: enrollments joined to users/courses. Filter by org, course, user, status.\nPermission: enrollment.assign (org_admin) — used as manage-enrollments.',
+      'Select enrollments joined to users/courses. Filter by org, course, user, status. Org-scoped callers are limited to their organisation.\nPermission: enrollment.assign (org_admin).',
   })
   list(
+    @CurrentUser() actor: AuthUser,
     @Query('organizationId') organizationId?: string,
     @Query('courseId') courseId?: string,
     @Query('userId') userId?: string,
     @Query('status') status?: string,
   ) {
-    return { organizationId, courseId, userId, status, items: [], message: 'TODO' };
+    return this.enrollments.list(actor, {
+      organizationId: optionalText(organizationId),
+      courseId: optionalText(courseId),
+      userId: optionalText(userId),
+      status: optionalText(status),
+    });
   }
 
   @Get(':id')
   @ApiOperation({
     summary: 'Get one enrollment',
-    description: 'TODO: enrollments by id.\nPermission: enrollment.read.self (own row) or enrollment.assign (org).',
+    description:
+      'Select enrollments by id.\nPermission: enrollment.read.self (own row) or enrollment.assign (org).',
   })
-  getOne(@Param('id') id: string) {
-    return { id, message: 'TODO' };
+  getOne(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.enrollments.getOne(actor, id);
   }
 
   @Post('assign')
   @ApiOperation({
     summary: 'Assign a user to a private course',
     description:
-      'TODO: insert enrollments (enrollment_status_id = active / 1).\nPermission: enrollment.assign (org_admin).\nV4 also has org_course_adoptions — not exposed; community courses are listed without adopt.',
+      'Insert or re-activate enrollments (enrollment_status_id from enrollment_statuses where status_code = active).\nPermission: enrollment.assign (org_admin).\nV4 also has org_course_adoptions — not exposed; community courses use start-community.',
   })
-  assign(@Body() _dto: AssignDto) {
-    return { message: 'TODO' };
+  assign(@CurrentUser() actor: AuthUser, @Body() dto: AssignDto) {
+    return this.enrollments.assign(actor, dto.userId, dto.courseId);
   }
 
   @Post('start-community')
   @ApiOperation({
     summary: 'Auto-enrol on a community course',
-    description: 'TODO: upsert enrollments for a community course.\nPermission: course.community.read (all roles).',
+    description:
+      'Upsert enrollments for a community course.\nPermission: course.community.read (all roles).',
   })
-  startCommunity(@Body() _dto: StartCommunityDto) {
-    return { message: 'TODO' };
+  startCommunity(
+    @CurrentUser() actor: AuthUser,
+    @Body() dto: StartCommunityDto,
+  ) {
+    return this.enrollments.startCommunity(actor, dto.courseId);
   }
 
   @Post(':id/withdraw')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Withdraw',
-    description: 'TODO: set enrollment_status_id = withdrawn (3). Keep the row for history; do not delete it.\nPermission: enrollment.withdraw.self (learner).',
+    description:
+      'Set enrollment_status_id from enrollment_statuses where status_code = withdrawn. Keep the row for history; do not delete it.\nPermission: enrollment.withdraw.self (learner).',
   })
-  withdraw(@Param('id') id: string) {
-    return { id, status: 'withdrawn', message: 'TODO' };
+  withdraw(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.enrollments.withdraw(actor, id);
   }
 
   @Post(':id/activate')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Re-activate a withdrawn enrollment',
-    description: 'TODO: set enrollment_status_id = active (1).\nPermission: enrollment.assign (org_admin).',
+    description:
+      'Set enrollment_status_id from enrollment_statuses where status_code = active.\nPermission: enrollment.assign (org_admin).',
   })
-  activate(@Param('id') id: string) {
-    return { id, status: 'active', message: 'TODO' };
+  activate(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.enrollments.activate(actor, id);
   }
 }

@@ -162,7 +162,11 @@ export class UsersRepository {
       `SELECT u.id, u.organization_id, u.email, u.full_name, us.status_code AS status
        FROM users u
        JOIN user_statuses us ON us.user_status_id = u.user_status_id
-       WHERE u.id = $1`,
+       JOIN organizations o ON o.id = u.organization_id
+       JOIN organization_statuses os ON os.organization_status_id = o.organization_status_id
+       WHERE u.id = $1
+         AND us.status_code = 'active'
+         AND os.status_code = 'active'`,
       [userId],
     );
     const row = result.rows[0];
