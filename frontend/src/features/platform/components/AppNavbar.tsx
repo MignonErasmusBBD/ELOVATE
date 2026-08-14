@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CurrentUser } from "@/lib/session";
+import { PlatformNavLinks } from "./PlatformNavLinks";
 
 type AppNavbarProps = {
   currentUser: CurrentUser;
@@ -8,17 +9,18 @@ type AppNavbarProps = {
 export function AppNavbar({ currentUser }: AppNavbarProps) {
   return (
     <header className="bg-ink text-white">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3.5 md:px-10">
+      <nav className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-6 py-3.5 md:px-10">
         <Link
           href="/courses"
           className="truncate text-sm font-bold tracking-wide focus-visible:outline-white md:text-base"
         >
           ELOVATE Learning Platform
         </Link>
+        <PlatformNavLinks />
 
         <section
           aria-label="Account"
-          className="flex min-w-0 items-center gap-3 sm:gap-4"
+          className="ml-auto flex min-w-0 items-center gap-3 sm:gap-4"
         >
           <p className="min-w-0 text-right">
             <span className="block truncate text-sm font-medium">

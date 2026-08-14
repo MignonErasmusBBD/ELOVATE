@@ -79,3 +79,14 @@ export function validateRequiredName(
 
   return undefined;
 }
+
+export function validateAtLeastOneSelected(
+  selectedIds: string[],
+  fieldLabel: string,
+): string | undefined {
+  if (selectedIds.length === 0) {
+    return `Assign at least one ${fieldLabel}.`;
+  }
+
+  return undefined;
+}
