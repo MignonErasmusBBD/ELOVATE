@@ -16,7 +16,9 @@ export function PlatformNavLinks() {
   return (
     <ul className="flex items-center gap-4">
       {platformLinks.map((link) => {
-        const isCurrent = pathname === link.href;
+        const isCurrent =
+          pathname === link.href ||
+          (link.href !== "/courses" && pathname.startsWith(`${link.href}/`));
 
         return (
           <li key={link.href}>
