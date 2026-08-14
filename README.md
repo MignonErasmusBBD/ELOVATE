@@ -27,3 +27,8 @@
 
 [Our Website](Add link here once deployed) 
 </div>
+
+## Run
+
+- **Frontend** (Next.js, port 3000): `cd frontend` then `pnpm install` and `pnpm dev`
+- **API** (NestJS, port 3001): connects to Postgres from the repo-root `.env` — see `backend/README.md`
