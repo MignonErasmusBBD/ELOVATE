@@ -1,28 +1,26 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { PostgresService } from '../services/postgres.service';
+import { RbacCatalogueRepository } from '../repositories/rbac-catalogue.repository';
 
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
-  constructor(private readonly postgres: PostgresService) {}
+  constructor(private readonly catalogue: RbacCatalogueRepository) {}
 
   @Get()
   @ApiOperation({
     summary: 'Liveness + database ping',
     description:
-      'Public. Confirms the API is up and the Postgres pool can query `roles`. Uses the repo-root `.env`. Does not require a JWT.',
+      'Public. Confirms the API is up and the Postgres pool can query `roles` and `permissions`. Uses the repo-root `.env`. Does not require a JWT.',
   })
   async check() {
     try {
-      const result = await this.postgres.query<{ roles: number }>(
-        'SELECT COUNT(*)::int AS roles FROM roles',
-      );
-      const roleCount = result.rows[0]?.roles;
+      const counts = await this.catalogue.catalogueCounts();
       return {
         status: 'ok',
         database: 'connected',
-        roles: roleCount !== undefined ? roleCount : undefined,
+        roles: counts === undefined ? undefined : counts.roles,
+        permissions: counts === undefined ? undefined : counts.permissions,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'database error';

@@ -1,6 +1,6 @@
 # Elovate API
 
-NestJS API on port **3001**. It **connects to Postgres** from the repo-root `.env`. Swagger contracts are in place; most routes still return `{ message: "TODO" }`.
+NestJS API on port **3001**. It **connects to Postgres** from the repo-root `.env`. **Health, users, and RBAC** are implemented. Other routes still return `{ message: "TODO" }`.
 
 This does **not** replace or change the Next.js app in `frontend/`. That still runs on port **3000**.
 
@@ -14,10 +14,10 @@ npm run start:dev
 
 Copy repo-root `.env.example` to `.env` once. Nest loads that file (no `backend/.env` needed). Startup fails if Postgres is not configured.
 
-- Health: http://localhost:3001/api/health — `{ "status": "ok", "database": "connected", "roles": 5 }` when Neon/local DB is reachable
+- Health: http://localhost:3001/api/health
 - Swagger: http://localhost:3001/docs
 
-`AUTH_DEV_BYPASS=true` lets you try routes without a JWT. **Never set this in a real deploy.**
+Guarded routes return 401 until JWT is wired. `GET /api/health` stays public.
 
 ## Layout
 
@@ -25,10 +25,11 @@ Copy repo-root `.env.example` to `.env` once. Nest loads that file (no `backend/
 src/
   main.ts
   app.module.ts
-  controllers/   HTTP routes (Swagger contracts; most still TODO)
-  services/      Postgres pool today; feature services when a TODO is implemented
-  guards/        Auth
-  helpers/       Shared env / URL helpers
+  controllers/
+  services/
+  repositories/
+  guards/
+  helpers/
 ```
 
 ## Env (repo root `.env` only)
@@ -37,7 +38,6 @@ Nest and Flyway share the same file. Nest turns `FLYWAY_URL` + `FLYWAY_USER` + `
 
 ```
 PORT=3001
-AUTH_DEV_BYPASS=true
 FLYWAY_URL=jdbc:postgresql://HOST/DB?sslmode=require
 FLYWAY_USER=...
 FLYWAY_PASSWORD=...
@@ -45,12 +45,12 @@ FLYWAY_PASSWORD=...
 
 ## What you still have to implement
 
-The process already holds a Postgres pool. Do **not** treat that as finished APIs — every feature route still returns `{ message: "TODO" }` until you add a service.
+Courses, questions, enrollments, quizzes, analytics, lookups, interventions, and auth sync are still `{ message: "TODO" }`.
 
-1. Turn off `AUTH_DEV_BYPASS`. Verify the OAuth/Neon JWT and load `user_roles` → `role_permissions`.
-2. Check **permission codes** (below), never role names.
+1. Wire OAuth/Neon JWT in `AuthGuard` and load `user_roles` → `role_permissions` via `AuthContextService`.
+2. Check **permission codes from the DB**, never role names.
 3. Signup always grants **learner**. Extra roles are additive (union of codes).
-4. Persist activate/deactivate (orgs: suspend): V2/V3 have **no status column** on `users`, `organizations`, `courses`, or `questions` — that needs a migration. Do **not** add hard-delete routes for those.
+4. Persist activate/deactivate for organisations, courses, and questions (users already have `user_statuses` in V8).
 5. `course.lesson.write` is seeded but there is **no `lessons` table** yet.
 
 `course.*.delete` and `question.delete` permission codes mean **deactivate**, not HTTP DELETE.
@@ -59,12 +59,11 @@ The process already holds a Postgres pool. Do **not** treat that as finished API
 
 Effective access = union of all roles on the user.
 
-| Permission | platform_admin | catalog_admin | org_admin | educator | learner |
+| Permission | platform_admin | community_admin | org_admin | educator | learner |
 |---|---|---|---|---|---|
 | user.create.self | ✓ | ✓ | ✓ | ✓ | ✓ |
 | user.read.self | ✓ | ✓ | ✓ | ✓ | ✓ |
 | user.update.self | ✓ | ✓ | ✓ | ✓ | ✓ |
-| user.invite | | | ✓ | | |
 | user.read.org | ✓ | | ✓ | ✓ | |
 | user.update.org | | | ✓ | | |
 | user.deactivate | | | ✓ | | |
@@ -121,4 +120,4 @@ Do not add `node_modules/`, `dist/`, or `.env` — they are gitignored.
 
 This folder is safe to merge: it does not touch `frontend/`. It **does** connect to Postgres using the root `.env`.
 
-It is **not** a finished production API. Do not point real users at it until JWT is wired, feature routes are implemented, and `AUTH_DEV_BYPASS` is false.
+It is **not** a finished production API. Do not point real users at it until JWT is wired and feature routes are implemented.

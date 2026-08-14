@@ -50,7 +50,7 @@ export class QuestionsController {
   @ApiOperation({
     summary: 'List questions (authors)',
     description:
-      'TODO: questions + options + topics. Filter by section/course/topic/bloom/difficulty/format/status. Hide from learners.\nPermission: question.create (catalog_admin, org_admin, educator).',
+      'TODO: questions + options + topics. Filter by section/course/topic/bloom/difficulty/format/status. Hide from learners.\nPermission: question.create (community_admin, org_admin, educator).',
   })
   list(
     @Query('sectionId') sectionId?: string,
@@ -77,7 +77,7 @@ export class QuestionsController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get one question (authors)',
-    description: 'TODO: questions + question_options + question_topics.\nPermission: question.update (catalog_admin, org_admin, educator).',
+    description: 'TODO: questions + question_options + question_topics.\nPermission: question.update (community_admin, org_admin, educator).',
   })
   getOne(@Param('id') id: string) {
     return { id, message: 'TODO' };
@@ -86,7 +86,7 @@ export class QuestionsController {
   @Post()
   @ApiOperation({
     summary: 'Create question',
-    description: 'TODO: insert questions, question_options, question_topics.\nPermission: question.create (catalog_admin, org_admin, educator).',
+    description: 'TODO: insert questions, question_options, question_topics.\nPermission: question.create (community_admin, org_admin, educator).',
   })
   create(@Body() _dto: CreateQuestionDto) {
     return { message: 'TODO' };
@@ -95,7 +95,7 @@ export class QuestionsController {
   @Patch(':id')
   @ApiOperation({
     summary: 'Update question',
-    description: 'TODO: update questions / options.\nPermission: question.update (catalog_admin, org_admin, educator).',
+    description: 'TODO: update questions / options.\nPermission: question.update (community_admin, org_admin, educator).',
   })
   update(@Param('id') id: string, @Body() _dto: CreateQuestionDto) {
     return { id, message: 'TODO' };
@@ -104,7 +104,7 @@ export class QuestionsController {
   @Patch(':id/topics')
   @ApiOperation({
     summary: 'Replace topic tags',
-    description: 'TODO: rewrite question_topics.\nPermission: question.metadata.tag (catalog_admin, org_admin, educator).',
+    description: 'TODO: rewrite question_topics.\nPermission: question.metadata.tag (community_admin, org_admin, educator).',
   })
   tag(@Param('id') id: string, @Body() _dto: { topicIds: string[] }) {
     return { id, message: 'TODO' };
@@ -124,7 +124,7 @@ export class QuestionsController {
   @ApiOperation({
     summary: 'Activate a deactivated question',
     description:
-      'TODO: set status back to active (same missing column).\nPermission: question.update (catalog_admin, org_admin, educator).',
+      'TODO: set status back to active (same missing column).\nPermission: question.update (community_admin, org_admin, educator).',
   })
   activate(@Param('id') id: string) {
     return { id, status: 'active', message: 'TODO: missing questions.status' };
