@@ -1,7 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { AuthGuard } from '../guards/auth.guard';
+import { AuthUser, CurrentUser } from '../helpers/auth-user';
+import { optionalText } from '../helpers/values';
+import { CoursesService } from '../services/courses.service';
 
 class CreateCourseDto {
   @ApiProperty()
@@ -17,7 +20,7 @@ class CreateCourseDto {
   @IsIn(['private', 'community'])
   visibility: 'private' | 'community';
 
-  @ApiProperty({ required: false, description: 'Required for private courses (owning_organization_id)' })
+  @ApiProperty({ required: false, description: 'Must match the caller owning_organization_id when sent' })
   @IsOptional()
   @IsString()
   organizationId?: string;
@@ -57,15 +60,20 @@ class CreateTopicDto {
 @UseGuards(AuthGuard)
 @Controller('courses')
 export class CoursesController {
+  constructor(private readonly courses: CoursesService) {}
+
   @Get('community')
   @ApiQuery({ name: 'search', required: false })
   @ApiOperation({
     summary: 'List community courses',
     description:
-      'TODO: courses JOIN course_visibilities WHERE visibility_code = community.\nPermission: course.community.read (all roles).',
+      'Select courses JOIN course_visibilities WHERE visibility_code = community and status is active.\nPermission: course.community.read (all roles).',
   })
-  listCommunity(@Query('search') search?: string) {
-    return { search, items: [], message: 'TODO' };
+  listCommunity(
+    @CurrentUser() actor: AuthUser,
+    @Query('search') search?: string,
+  ) {
+    return this.courses.listCommunity(actor, optionalText(search));
   }
 
   @Get()
@@ -76,176 +84,225 @@ export class CoursesController {
   @ApiOperation({
     summary: 'List courses',
     description:
-      'TODO: filter courses by org, visibility, search, status.\nPrivate: course.private.read (org_admin, educator). Community: course.community.read. Learners use enrollments for private.',
+      'Filter courses by org, visibility, search, status (defaults to active). Private: course.private.read (org_admin, educator) in own org. Community: course.community.read. Learners also see private courses they have an active enrollment for.',
   })
   list(
+    @CurrentUser() actor: AuthUser,
     @Query('organizationId') organizationId?: string,
     @Query('visibility') visibility?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
   ) {
-    return { organizationId, visibility, search, status, items: [], message: 'TODO' };
+    return this.courses.list(actor, {
+      organizationId: optionalText(organizationId),
+      visibility: optionalText(visibility),
+      search: optionalText(search),
+      status: optionalText(status),
+    });
   }
 
   @Get(':id')
   @ApiOperation({
     summary: 'Get course',
     description:
-      'TODO: select courses + sections/topics.\nCommunity: course.community.read. Private: course.private.read OR an enrollments row.\nowning_organization_id is NOT NULL in V3.',
+      'Select courses + course_sections + topics.\nCommunity: course.community.read. Private: course.private.read in the same org, or an active enrollments row.\nowning_organization_id is NOT NULL in V3.',
   })
-  getOne(@Param('id') id: string) {
-    return { id, message: 'TODO' };
+  getOne(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.courses.getOne(actor, id);
   }
 
   @Post()
   @ApiOperation({
     summary: 'Create course',
     description:
-      'TODO: insert courses (course_visibility_id from course_visibilities).\nPermission: course.community.create (community_admin, org_admin, educator) OR course.private.create (org_admin, educator).',
+      'Insert courses (course_visibility_id from course_visibilities). owning_organization_id is the caller org.\nPermission: course.community.create (community_admin, org_admin, educator) OR course.private.create (org_admin, educator).',
   })
-  create(@Body() _dto: CreateCourseDto) {
-    return { message: 'TODO' };
+  create(@CurrentUser() actor: AuthUser, @Body() dto: CreateCourseDto) {
+    return this.courses.create(actor, {
+      title: dto.title,
+      description: dto.description,
+      visibility: dto.visibility,
+      organizationId: dto.organizationId,
+    });
   }
 
   @Patch(':id')
   @ApiOperation({
     summary: 'Update course',
     description:
-      'TODO: update courses.\nPermission: course.community.update OR course.private.update (same roles as create).',
+      'Update courses title/description.\nPermission: course.community.update OR course.private.update (same roles as create).',
   })
-  update(@Param('id') id: string, @Body() _dto: UpdateCourseDto) {
-    return { id, message: 'TODO' };
+  update(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateCourseDto,
+  ) {
+    return this.courses.update(actor, id, {
+      title: dto.title,
+      description: dto.description,
+    });
   }
 
   @Post(':id/publish')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Publish to community',
     description:
-      'TODO: set course_visibility_id to community (id 2).\nPermission: course.community.publish (community_admin, org_admin, educator).',
+      'Set course_visibility_id from course_visibilities where visibility_code = community.\nPermission: course.community.publish (community_admin, org_admin, educator). Private courses must belong to the caller org.',
   })
-  publish(@Param('id') id: string) {
-    return { id, visibility: 'community', message: 'TODO' };
+  publish(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.courses.publish(actor, id);
   }
 
   @Post(':id/unpublish')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Unpublish (back to private)',
     description:
-      'TODO: set course_visibility_id to private (id 1).\nPermission: course.community.update / course.private.update.',
+      'Set course_visibility_id from course_visibilities where visibility_code = private.\nPermission: course.community.update / course.private.update.',
   })
-  unpublish(@Param('id') id: string) {
-    return { id, visibility: 'private', message: 'TODO' };
+  unpublish(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.courses.unpublish(actor, id);
   }
 
   @Post(':id/deactivate')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Deactivate a course (keeps history)',
     description:
-      'TODO: courses has no status column in V3 — needs a migration. Never hard-delete a course.\nPermission: course.private.delete / course.community.delete (deactivate, not HTTP DELETE).',
+      'Set course_status_id to deactivated. Never hard-delete a course.\nPermission: course.private.delete / course.community.delete (deactivate, not HTTP DELETE).',
   })
-  deactivate(@Param('id') id: string) {
-    return { id, status: 'deactivated', message: 'TODO: missing courses.status in V3' };
+  deactivate(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.courses.setStatus(actor, id, 'deactivated');
   }
 
   @Post(':id/activate')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Activate a deactivated course',
     description:
-      'TODO: set status back to active (same missing column).\nPermission: course.private.update / course.community.update.',
+      'Set course_status_id back to active.\nPermission: course.private.update / course.community.update.',
   })
-  activate(@Param('id') id: string) {
-    return { id, status: 'active', message: 'TODO: missing courses.status in V3' };
+  activate(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.courses.setStatus(actor, id, 'active');
   }
 
   @Get(':id/sections')
   @ApiOperation({
     summary: 'List sections',
     description:
-      'TODO: course_sections. Same visibility as GET course.\nNo lessons table in V3 — course.lesson.write is seeded but unused until a lessons migration.',
+      'Select course_sections. Same visibility as GET course.\nNo lessons table in V3 — course.lesson.write is seeded but unused until a lessons migration.',
   })
-  listSections(@Param('id') id: string) {
-    return { courseId: id, items: [], message: 'TODO' };
+  listSections(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.courses.listSections(actor, id);
   }
 
   @Get(':id/sections/:sectionId')
   @ApiOperation({
     summary: 'Get one section',
-    description: 'TODO: course_sections by id.\nSame visibility as GET course.',
+    description: 'Select course_sections by id.\nSame visibility as GET course.',
   })
-  getSection(@Param('id') id: string, @Param('sectionId') sectionId: string) {
-    return { courseId: id, sectionId, message: 'TODO' };
+  getSection(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Param('sectionId') sectionId: string,
+  ) {
+    return this.courses.getSection(actor, id, sectionId);
   }
 
   @Post(':id/sections')
   @ApiOperation({
     summary: 'Add section',
-    description: 'TODO: insert course_sections.\nPermission: course.section.write (community_admin, org_admin, educator).',
+    description:
+      'Insert course_sections.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
-  addSection(@Param('id') id: string, @Body() _dto: CreateSectionDto) {
-    return { courseId: id, message: 'TODO' };
+  addSection(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: CreateSectionDto,
+  ) {
+    return this.courses.addSection(actor, id, dto.title, dto.position);
   }
 
   @Patch(':id/sections/:sectionId')
   @ApiOperation({
     summary: 'Update section',
-    description: 'TODO: update course_sections.\nPermission: course.section.write (community_admin, org_admin, educator).',
+    description:
+      'Update course_sections.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
   updateSection(
+    @CurrentUser() actor: AuthUser,
     @Param('id') id: string,
     @Param('sectionId') sectionId: string,
-    @Body() _dto: CreateSectionDto,
+    @Body() dto: CreateSectionDto,
   ) {
-    return { courseId: id, sectionId, message: 'TODO' };
+    return this.courses.updateSection(actor, id, sectionId, dto.title, dto.position);
   }
 
   @Delete(':id/sections/:sectionId')
   @ApiOperation({
     summary: 'Delete section',
     description:
-      'TODO: delete unused course_sections (authoring only). Do not use this to retire a course — deactivate the course instead.\nPermission: course.section.write (community_admin, org_admin, educator).',
+      'Delete unused course_sections (authoring only). 409 if the section still has questions. Do not use this to retire a course — deactivate the course instead.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
-  removeSection(@Param('id') id: string, @Param('sectionId') sectionId: string) {
-    return { courseId: id, sectionId, message: 'TODO' };
+  removeSection(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Param('sectionId') sectionId: string,
+  ) {
+    return this.courses.removeSection(actor, id, sectionId);
   }
 
   @Get(':id/topics')
   @ApiOperation({
     summary: 'List topics',
-    description: 'TODO: topics (per-course). Used by question_topics.\nSame visibility as GET course.',
+    description:
+      'Select topics (per-course). Used by question_topics.\nSame visibility as GET course.',
   })
-  listTopics(@Param('id') id: string) {
-    return { courseId: id, items: [] };
+  listTopics(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.courses.listTopics(actor, id);
   }
 
   @Post(':id/topics')
   @ApiOperation({
     summary: 'Add topic',
-    description: 'TODO: insert topics.\nPermission: course.section.write (community_admin, org_admin, educator).',
+    description:
+      'Insert topics.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
-  addTopic(@Param('id') id: string, @Body() _dto: CreateTopicDto) {
-    return { courseId: id, message: 'TODO' };
+  addTopic(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: CreateTopicDto,
+  ) {
+    return this.courses.addTopic(actor, id, dto.name);
   }
 
   @Patch(':id/topics/:topicId')
   @ApiOperation({
     summary: 'Rename topic',
-    description: 'TODO: update topics.\nPermission: course.section.write (community_admin, org_admin, educator).',
+    description:
+      'Update topics.name.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
   updateTopic(
+    @CurrentUser() actor: AuthUser,
     @Param('id') id: string,
     @Param('topicId') topicId: string,
-    @Body() _dto: CreateTopicDto,
+    @Body() dto: CreateTopicDto,
   ) {
-    return { courseId: id, topicId, message: 'TODO' };
+    return this.courses.updateTopic(actor, id, topicId, dto.name);
   }
 
   @Delete(':id/topics/:topicId')
   @ApiOperation({
     summary: 'Delete topic',
     description:
-      'TODO: delete unused topics + question_topics (authoring only). Do not use this to retire a course.\nPermission: course.section.write (community_admin, org_admin, educator).',
+      'Delete unused topics + question_topics (authoring only). Do not use this to retire a course.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
-  removeTopic(@Param('id') id: string, @Param('topicId') topicId: string) {
-    return { courseId: id, topicId, message: 'TODO' };
+  removeTopic(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Param('topicId') topicId: string,
+  ) {
+    return this.courses.removeTopic(actor, id, topicId);
   }
 }
