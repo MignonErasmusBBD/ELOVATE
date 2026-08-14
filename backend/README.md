@@ -1,6 +1,6 @@
 # Elovate API
 
-NestJS API on port **3001**. It **connects to Postgres** from the repo-root `.env`. **Health, users, and RBAC** are implemented. Other routes still return `{ message: "TODO" }`.
+NestJS API on port **3001**. It **connects to Postgres** from the repo-root `.env`. **Health, users, RBAC, organisations, and courses** are implemented. Other routes still return `{ message: "TODO" }`.
 
 This does **not** replace or change the Next.js app in `frontend/`. That still runs on port **3000**.
 
@@ -45,12 +45,12 @@ FLYWAY_PASSWORD=...
 
 ## What you still have to implement
 
-Courses, questions, enrollments, quizzes, analytics, lookups, interventions, and auth sync are still `{ message: "TODO" }`.
+Questions, enrollments, quizzes, analytics, lookups, interventions, and auth sync are still `{ message: "TODO" }`.
 
 1. Wire OAuth/Neon JWT in `AuthGuard` and load `user_roles` → `role_permissions` via `AuthContextService`.
 2. Check **permission codes from the DB**, never role names.
 3. Signup always grants **learner**. Extra roles are additive (union of codes).
-4. Persist activate/deactivate for organisations, courses, and questions (users already have `user_statuses` in V8).
+4. Persist activate/deactivate for questions (users, organisations, and courses already have status lookups).
 5. `course.lesson.write` is seeded but there is **no `lessons` table** yet.
 
 `course.*.delete` and `question.delete` permission codes mean **deactivate**, not HTTP DELETE.
