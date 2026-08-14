@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { courses } from "../data/courses";
 import { CourseCard } from "./CourseCard";
 
@@ -17,7 +18,12 @@ export function CoursesPage() {
       <ul className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
         {courses.map((course) => (
           <li key={course.id}>
-            <CourseCard course={course} />
+            <Link
+              href={`/student/courses/${course.id}`}
+              className="block h-full"
+            >
+              <CourseCard course={course} />
+            </Link>
           </li>
         ))}
       </ul>
