@@ -1,4 +1,9 @@
-export type UserRole = "Student" | "Educator";
+export type UserRole =
+  | "Learner"
+  | "Educator"
+  | "Org Admin"
+  | "Community Admin"
+  | "Platform Admin";
 
 export type CurrentUser = {
   emailAddress: string;
@@ -7,8 +12,8 @@ export type CurrentUser = {
 };
 
 const placeholderCurrentUser: CurrentUser = {
-  emailAddress: "student@elovate.dev",
-  role: "Student",
+  emailAddress: "admin@elovate.dev",
+  role: "Org Admin",
   organizationName: "BBD Software",
 };
 
