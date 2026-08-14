@@ -13,11 +13,37 @@ import { QuizzesController } from './controllers/quizzes.controller';
 import { RbacController } from './controllers/rbac.controller';
 import { UsersController } from './controllers/users.controller';
 import { envFilePaths } from './helpers/env';
+import { AuthGuard } from './guards/auth.guard';
+import { CoursesContentRepository } from './repositories/courses-content.repository';
+import { CoursesRepository } from './repositories/courses.repository';
+import { OrganizationsRepository } from './repositories/organizations.repository';
+import { RbacCatalogueRepository } from './repositories/rbac-catalogue.repository';
+import { RbacRepository } from './repositories/rbac.repository';
+import { UsersRepository } from './repositories/users.repository';
+import { AuthContextService } from './services/auth-context.service';
+import { CoursesService } from './services/courses.service';
+import { OrganizationsService } from './services/organizations.service';
 import { PostgresService } from './services/postgres.service';
+import { RbacService } from './services/rbac.service';
+import { UsersService } from './services/users.service';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: envFilePaths })],
-  providers: [PostgresService],
+  providers: [
+    PostgresService,
+    UsersRepository,
+    RbacRepository,
+    RbacCatalogueRepository,
+    OrganizationsRepository,
+    CoursesRepository,
+    CoursesContentRepository,
+    AuthContextService,
+    AuthGuard,
+    UsersService,
+    RbacService,
+    OrganizationsService,
+    CoursesService,
+  ],
   controllers: [
     HealthController,
     AuthController,
