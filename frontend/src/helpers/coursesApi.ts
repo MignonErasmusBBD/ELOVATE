@@ -60,52 +60,21 @@ export function parseCourseSummary(
     description: readOptionalString(item, "description"),
     visibility: readOptionalString(item, "visibility"),
     organizationId: readOptionalString(item, "organizationId"),
-    status: readOptionalString(item, "status"),
+    status,
   };
 }
 
 export async function listCourses(
-  input: ListCoursesInput,
+  input?: ListCoursesInput,
 ): Promise<ElovateCourseSummary[]> {
   const queryParams = new URLSearchParams();
-  if (input.visibility !== undefined) {
+  if (input?.visibility !== undefined) {
     queryParams.set("visibility", input.visibility);
   }
-  if (input.organizationId !== undefined) {
+  if (input?.organizationId !== undefined) {
     queryParams.set("organizationId", input.organizationId);
   }
-  if (input.status !== undefined) {
-    queryParams.set("status", input.status);
-  }
-
-  const queryString = queryParams.toString();
-  const coursesResponse = await fetchElovateApi(
-    queryString === "" ? "/courses" : `/courses?${queryString}`,
-  );
-  if (coursesResponse.ok === false) {
-    throw new Error("Could not load courses.");
-  }
-
-  const coursesBody = await coursesResponse.json();
-  const parsedCourses = parseCourseListResponse(coursesBody);
-  if (parsedCourses === undefined) {
-    throw new Error("Course list response was invalid.");
-  }
-
-  return parsedCourses;
-}
-
-export async function listCourses(
-  input: ListCoursesInput,
-): Promise<ElovateCourseSummary[]> {
-  const queryParams = new URLSearchParams();
-  if (input.visibility !== undefined) {
-    queryParams.set("visibility", input.visibility);
-  }
-  if (input.organizationId !== undefined) {
-    queryParams.set("organizationId", input.organizationId);
-  }
-  if (input.status !== undefined) {
+  if (input?.status !== undefined) {
     queryParams.set("status", input.status);
   }
 
@@ -176,30 +145,6 @@ function readApiErrorMessage(body: unknown): string {
   }
 
   return "Could not create course.";
-}
-
-export async function listCourses(params?: {
-  visibility?: string;
-  organizationId?: string;
-  status?: string;
-}): Promise<ElovateCourseSummary[]> {
-  const query = new URLSearchParams();
-  if (params?.visibility !== undefined) {
-    query.set("visibility", params.visibility);
-  }
-  if (params?.organizationId !== undefined) {
-    query.set("organizationId", params.organizationId);
-  }
-  if (params?.status !== undefined) {
-    query.set("status", params.status);
-  }
-  const qs = query.toString();
-  const response = await fetchElovateApi(`/courses${qs !== "" ? `?${qs}` : ""}`);
-  if (response.ok === false) {
-    throw new Error("Could not load courses.");
-  }
-  const body = await response.json();
-  return parseCourseListResponse(body) ?? [];
 }
 
 export async function createCourse(
