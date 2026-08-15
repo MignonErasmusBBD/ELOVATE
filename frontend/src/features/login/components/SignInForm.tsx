@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type SubmitEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { FieldError } from "@/components/ui/FieldError";
@@ -16,6 +16,7 @@ import {
   focusFirstInvalidField,
   hasFieldErrors,
 } from "@/helpers/formErrors";
+import { safeNextPath } from "@/helpers/safeNextPath";
 import { validateEmail, validatePassword } from "@/helpers/validation";
 import { authClient } from "@/lib/auth-client";
 
@@ -29,6 +30,11 @@ const SIGN_IN_FIELD_ORDER = ["email", "password"] as const;
 
 export function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawNextPath = searchParams.get("next");
+  const nextPath =
+    safeNextPath(rawNextPath === null ? undefined : rawNextPath) ??
+    "/dashboard";
   const [emailAddress, setEmailAddress] = useState("");
   const [passwordValue, setPasswordValue] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -63,7 +69,7 @@ export function SignInForm() {
     const result = await authClient.signIn.email({
       email: emailAddress,
       password: passwordValue,
-      callbackURL: "/dashboard",
+      callbackURL: nextPath,
     });
     setIsSubmitting(false);
 
@@ -72,7 +78,7 @@ export function SignInForm() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push(nextPath);
   }
 
   return (
@@ -89,7 +95,12 @@ export function SignInForm() {
       <div className="flex flex-col gap-4">
         <button
           type="button"
-          onClick={() => authClient.signIn.social({ provider: "google", callbackURL: "/dashboard" })}
+          onClick={() =>
+            authClient.signIn.social({
+              provider: "google",
+              callbackURL: nextPath,
+            })
+          }
           className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-ui bg-surface px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-page focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
           <GoogleIcon className="h-5 w-5 shrink-0" />

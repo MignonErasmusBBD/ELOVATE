@@ -4,7 +4,7 @@ import { OrgAdminPage } from "@/features/admin";
 export const metadata: Metadata = {
   title: "Organisational Admin",
   description:
-    "Invite people, assign Organisational Admin and Educator, and manage private courses.",
+    "Add people, assign Organisational Admin and Educator, and manage private courses.",
 };
 
 export default function AdminRoutePage() {

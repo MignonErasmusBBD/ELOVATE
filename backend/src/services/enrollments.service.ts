@@ -41,6 +41,11 @@ export class EnrollmentsService {
     },
   ) {
     requirePermission(actor, ['enrollment.assign']);
+    if (actor.organizationId === undefined) {
+      throw new ForbiddenException(
+        'You need an organisation to list enrolments',
+      );
+    }
     if (
       filters.organizationId !== undefined &&
       filters.organizationId !== actor.organizationId
@@ -99,9 +104,16 @@ export class EnrollmentsService {
     if (targetUser.status !== 'active') {
       throw new ForbiddenException('Cannot enrol a deactivated user');
     }
-    if (targetUser.organizationId !== actor.organizationId) {
+    if (actor.organizationId === undefined) {
       throw new ForbiddenException(
-        'Can only enrol users in your own organisation',
+        'You need an organisation to enrol people on private courses',
+      );
+    }
+    if (targetUser.organizationId === undefined) {
+      await this.users.setOrganizationId(userId, actor.organizationId);
+    } else if (targetUser.organizationId !== actor.organizationId) {
+      throw new ForbiddenException(
+        'Can only enrol users in your own organisation or with no organisation',
       );
     }
     return this.ensureActive(userId, courseId);
@@ -123,10 +135,17 @@ export class EnrollmentsService {
   }
 
   async withdraw(actor: AuthUser, enrollmentId: string) {
-    requirePermission(actor, ['enrollment.withdraw.self']);
     const enrollment = await this.requireEnrollment(enrollmentId);
-    if (enrollment.userId !== actor.id) {
-      throw new ForbiddenException('Can only withdraw your own enrollment');
+    const canWithdrawOwn =
+      enrollment.userId === actor.id &&
+      hasPermission(actor, ['enrollment.withdraw.self']);
+    const canWithdrawOrg =
+      enrollment.organizationId === actor.organizationId &&
+      hasPermission(actor, ['enrollment.assign']);
+    if (canWithdrawOwn === false && canWithdrawOrg === false) {
+      throw new ForbiddenException(
+        'Missing permission: enrollment.withdraw.self or enrollment.assign',
+      );
     }
     await this.enrollments.setStatus(enrollmentId, 'withdrawn');
     return this.requireEnrollment(enrollmentId);

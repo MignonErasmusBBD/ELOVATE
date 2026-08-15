@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuthUser } from '../helpers/auth-user';
 import { hasPermission, requirePermission } from '../helpers/require-permission';
 import { PublicUser, UsersRepository } from '../repositories/users.repository';
@@ -38,6 +43,7 @@ export class UsersService {
     actor: AuthUser,
     filters: {
       organizationId: string | undefined;
+      unassigned: boolean | undefined;
       role: string | undefined;
       search: string | undefined;
       status: string | undefined;
@@ -51,8 +57,30 @@ export class UsersService {
       );
     }
 
+    if (filters.unassigned) {
+      const canListUnassigned =
+        hasPermission(actor, ['user.update.org']) ||
+        hasPermission(actor, ['user.read.all']);
+      if (canListUnassigned === false) {
+        throw new ForbiddenException(
+          'Missing permission: user.update.org or user.read.all',
+        );
+      }
+      const items = await this.users.list({
+        organizationId: undefined,
+        unassigned: true,
+        role: filters.role,
+        search: filters.search,
+        status: filters.status,
+      });
+      return { items };
+    }
+
     let organizationId = filters.organizationId;
     if (canReadAll === false) {
+      if (actor.organizationId === undefined) {
+        return { items: [] };
+      }
       if (
         organizationId !== undefined &&
         organizationId !== actor.organizationId
@@ -66,6 +94,7 @@ export class UsersService {
 
     const items = await this.users.list({
       organizationId,
+      unassigned: undefined,
       role: filters.role,
       search: filters.search,
       status: filters.status,
@@ -101,6 +130,29 @@ export class UsersService {
       return user;
     }
     await this.users.updateFullName(userId, fullName);
+    return this.requireUser(userId);
+  }
+
+  async placeInOwnOrganisation(actor: AuthUser, userId: string) {
+    requirePermission(actor, ['user.update.org']);
+    if (actor.organizationId === undefined) {
+      throw new ForbiddenException(
+        'You need an organisation to add people',
+      );
+    }
+    const user = await this.requireUser(userId);
+    if (user.organizationId === actor.organizationId) {
+      return user;
+    }
+    if (user.organizationId !== undefined) {
+      throw new BadRequestException(
+        'User already belongs to an organisation',
+      );
+    }
+    if (user.status !== 'active') {
+      throw new ForbiddenException('Cannot add a deactivated user');
+    }
+    await this.users.setOrganizationId(userId, actor.organizationId);
     return this.requireUser(userId);
   }
 

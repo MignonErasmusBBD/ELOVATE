@@ -8,12 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { clearFieldError } from "@/helpers/formErrors";
 import { validateRequiredName } from "@/helpers/validation";
-import { adminCourses } from "../data/placeholder";
 import { AdminPageHeader } from "./AdminPageHeader";
-
-const communityCourses = adminCourses.filter(
-  (course) => course.visibility === "community",
-);
 
 type CommunityCourseFieldErrors = {
   courseTitle?: string;
@@ -110,43 +105,7 @@ export function CommunityAdminPage() {
           </p>
         </header>
 
-        <ul className="flex flex-col gap-4">
-          {communityCourses.map((course) => (
-            <li key={course.id}>
-              <article className="flex flex-col gap-3 rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)] sm:flex-row sm:items-center sm:justify-between">
-                <header>
-                  <h3 className="text-base font-bold text-ink">
-                    {course.title}
-                  </h3>
-                  <p className="mt-0.5 text-sm text-text-secondary">
-                    {course.description}
-                  </p>
-                  <p className="mt-2 text-sm text-text-secondary">
-                    Published by {course.owningOrganizationName}
-                  </p>
-                </header>
-                <ul className="flex gap-4 self-start sm:self-center">
-                  <li>
-                    <button
-                      type="button"
-                      className="text-sm font-semibold text-coral"
-                    >
-                      Edit
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      className="text-sm font-semibold text-coral"
-                    >
-                      Deactivate
-                    </button>
-                  </li>
-                </ul>
-              </article>
-            </li>
-          ))}
-        </ul>
+        <p className="text-sm text-text-secondary">No public courses.</p>
       </section>
     </section>
   );

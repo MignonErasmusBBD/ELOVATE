@@ -129,13 +129,17 @@ export class RbacService {
     if (user === undefined) {
       throw new NotFoundException('User not found');
     }
-    if (
-      hasPermission(actor, ['user.read.all']) === false &&
-      user.organizationId !== actor.organizationId
-    ) {
-      throw new ForbiddenException(
-        'Can only change role grants for users in your own organisation',
-      );
+    if (hasPermission(actor, ['user.read.all']) === false) {
+      if (user.organizationId !== actor.organizationId) {
+        throw new ForbiddenException(
+          'Can only change role grants for users in your own organisation',
+        );
+      }
+      if (roleName !== 'org_admin' && roleName !== 'educator') {
+        throw new ForbiddenException(
+          'Can only assign or remove org_admin and educator in your organisation',
+        );
+      }
     }
     return role;
   }

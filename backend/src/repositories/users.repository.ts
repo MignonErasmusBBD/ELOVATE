@@ -39,6 +39,7 @@ export type PublicUser = {
 
 export type UserListFilters = {
   organizationId: string | undefined;
+  unassigned: boolean | undefined;
   role: string | undefined;
   search: string | undefined;
   status: string | undefined;
@@ -111,7 +112,9 @@ export class UsersRepository {
   async list(filters: UserListFilters): Promise<PublicUser[]> {
     const values: SqlParameter[] = [];
     const conditions: string[] = [];
-    if (filters.organizationId !== undefined) {
+    if (filters.unassigned) {
+      conditions.push('u.organization_id IS NULL');
+    } else if (filters.organizationId !== undefined) {
       values.push(filters.organizationId);
       conditions.push(`u.organization_id = $${values.length}`);
     }

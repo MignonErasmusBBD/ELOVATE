@@ -147,10 +147,10 @@ export class CoursesRepository {
       values.push(filters.visibility);
       conditions.push(`cv.visibility_code = $${values.length}`);
     }
-    if (filters.status !== undefined) {
+    if (filters.status !== undefined && filters.status !== 'all') {
       values.push(filters.status);
       conditions.push(`cs.status_code = $${values.length}`);
-    } else {
+    } else if (filters.status !== 'all') {
       conditions.push(`cs.status_code = 'active'`);
     }
     if (filters.search !== undefined) {
