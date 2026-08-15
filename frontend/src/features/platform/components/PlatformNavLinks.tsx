@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const platformLinks = [
   { href: "/courses", label: "Courses" },
+  { href: "/educator", label: "Educator" },
   { href: "/admin", label: "Admin" },
   { href: "/platform", label: "Platform" },
   { href: "/community", label: "Community" },

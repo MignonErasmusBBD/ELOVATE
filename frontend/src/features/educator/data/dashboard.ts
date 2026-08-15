@@ -1,0 +1,204 @@
+import { courses } from "@/features/courses/data/courses";
+import type { EducatorCourseDashboard } from "../types";
+
+function buildDashboardForCourse(
+  courseId: string,
+  courseTitle: string,
+): EducatorCourseDashboard {
+  return {
+    courseId,
+    courseTitle,
+    totalStudents: 18,
+    averagePracticeQuizPercent: 75,
+    bloomCoverage: [
+      { levelName: "Remember", coverageCount: 107, performancePercent: 69 },
+      { levelName: "Understand", coverageCount: 84, performancePercent: 72 },
+      { levelName: "Apply", coverageCount: 96, performancePercent: 65 },
+      { levelName: "Analyze", coverageCount: 58, performancePercent: 48 },
+      { levelName: "Evaluate", coverageCount: 42, performancePercent: 55 },
+      { levelName: "Create", coverageCount: 24, performancePercent: 32 },
+    ],
+    questionSections: [
+      { sectionName: "Code Implementation", questionCount: 28 },
+      { sectionName: "Pattern Participants/Relationships", questionCount: 22 },
+      { sectionName: "Theory & Concepts", questionCount: 31 },
+      { sectionName: "UML Diagrams", questionCount: 15 },
+    ],
+    bloomDifficulty: [
+      { levelName: "Remember", easyCount: 40, mediumCount: 30, hardCount: 10 },
+      { levelName: "Understand", easyCount: 25, mediumCount: 35, hardCount: 12 },
+      { levelName: "Apply", easyCount: 18, mediumCount: 28, hardCount: 20 },
+      { levelName: "Analyze", easyCount: 10, mediumCount: 22, hardCount: 24 },
+      { levelName: "Evaluate", easyCount: 8, mediumCount: 18, hardCount: 16 },
+      { levelName: "Create", easyCount: 4, mediumCount: 10, hardCount: 14 },
+    ],
+    interventionRuleFlags: [
+      { ruleLabel: "Low practice average", flaggedStudentCount: 7 },
+      { ruleLabel: "Low foundational bloom", flaggedStudentCount: 5 },
+      { ruleLabel: "Low evaluate/create bloom", flaggedStudentCount: 9 },
+      {
+        ruleLabel: "Low topic confidence and performance",
+        flaggedStudentCount: 4,
+      },
+    ],
+    students: [
+      {
+        id: "student-a",
+        fullName: "Student A",
+        needsAttention: true,
+        overallPercent: 85,
+        practiceQuizPercent: 55,
+        practiceAttemptCount: 1,
+        timeSpentLabel: "00:30:14",
+        cheatAccessCount: 34,
+        improvementLabel: "+12%",
+        cognitiveLevels: [
+          { levelName: "Remember", percentCorrect: 90, questionCount: 3 },
+          { levelName: "Understand", percentCorrect: 80, questionCount: 3 },
+          { levelName: "Apply", percentCorrect: 90, questionCount: 3 },
+          { levelName: "Analyze", percentCorrect: 50, questionCount: 3 },
+          { levelName: "Evaluate", percentCorrect: 60, questionCount: 3 },
+          { levelName: "Create", percentCorrect: 15, questionCount: 3 },
+        ],
+        interventionLabels: [
+          "Low Evaluate/Create Bloom",
+          "Low Foundational Bloom",
+        ],
+      },
+      {
+        id: "student-b",
+        fullName: "Student B",
+        needsAttention: false,
+        overallPercent: 78,
+        practiceQuizPercent: 45,
+        practiceAttemptCount: 4,
+        timeSpentLabel: "01:12:40",
+        cheatAccessCount: 12,
+        improvementLabel: "+45%",
+        cognitiveLevels: [
+          { levelName: "Remember", percentCorrect: 90, questionCount: 3 },
+          { levelName: "Understand", percentCorrect: 80, questionCount: 3 },
+          { levelName: "Apply", percentCorrect: 90, questionCount: 3 },
+          { levelName: "Analyze", percentCorrect: 50, questionCount: 3 },
+          { levelName: "Evaluate", percentCorrect: 60, questionCount: 3 },
+          { levelName: "Create", percentCorrect: 15, questionCount: 3 },
+        ],
+        interventionLabels: [
+          "Low Evaluate/Create Bloom",
+          "Low Foundational Bloom",
+        ],
+      },
+      {
+        id: "student-c",
+        fullName: "Student C",
+        needsAttention: true,
+        overallPercent: 62,
+        practiceQuizPercent: 40,
+        practiceAttemptCount: 2,
+        timeSpentLabel: "00:45:02",
+        cheatAccessCount: 21,
+        improvementLabel: "+8%",
+        cognitiveLevels: [
+          { levelName: "Remember", percentCorrect: 70, questionCount: 3 },
+          { levelName: "Understand", percentCorrect: 65, questionCount: 3 },
+          { levelName: "Apply", percentCorrect: 55, questionCount: 3 },
+          { levelName: "Analyze", percentCorrect: 40, questionCount: 3 },
+          { levelName: "Evaluate", percentCorrect: 35, questionCount: 3 },
+          { levelName: "Create", percentCorrect: 10, questionCount: 3 },
+        ],
+        interventionLabels: ["Low Evaluate/Create Bloom"],
+      },
+    ],
+    questions: [
+      {
+        id: "q-1",
+        prompt: "What is the primary purpose of the Observer pattern?",
+        format: "multiple-choice",
+        bloomLevel: "Remember",
+        difficulty: "Easy",
+        sectionName: "Theory & Concepts",
+        quizTypes: ["Practice Quiz"],
+        points: 1,
+        questionDataJson: `{
+  "options": [
+    { "id": "A", "text": "Decouple subjects from dependents" },
+    { "id": "B", "text": "Create objects without specifying class" },
+    { "id": "C", "text": "Cache expensive results" },
+    { "id": "D", "text": "Enforce a single instance" }
+  ]
+}`,
+        answerDataJson: `{
+  "answer": "A",
+  "reason": "Observer lets a subject notify dependents without tight coupling."
+}`,
+        isActive: true,
+      },
+      {
+        id: "q-2",
+        prompt: "How should observers attach to a subject at runtime?",
+        format: "multiple-choice",
+        bloomLevel: "Apply",
+        difficulty: "Medium",
+        sectionName: "Pattern Participants/Relationships",
+        quizTypes: ["Practice Quiz"],
+        points: 1,
+        questionDataJson: `{
+  "options": [
+    { "id": "A", "text": "Hard-code every listener in the subject" },
+    { "id": "B", "text": "Call attach/detach on the subject" },
+    { "id": "C", "text": "Restart the process for each listener" },
+    { "id": "D", "text": "Store observers only in localStorage" }
+  ]
+}`,
+        answerDataJson: `{
+  "answer": "B",
+  "reason": "Attach and detach keep subscriptions dynamic."
+}`,
+        isActive: true,
+      },
+    ],
+    learningContentSections: [
+      {
+        id: "section-introduction",
+        title: "Introduction",
+        content: `Welcome to ${courseTitle}. This section introduces the core ideas students will practice: how one object can notify many others when state changes, without tight coupling.`,
+      },
+      {
+        id: "section-identification",
+        title: "Identification",
+        content:
+          "Students should recognise when a subject must tell several dependents about a change without hard-coding those dependents. Look for publish-subscribe relationships and event listeners.",
+      },
+      {
+        id: "section-structure",
+        title: "Structure",
+        content:
+          "Cover subject, concrete subject, observer, and concrete observer. Explain attach, detach, and notify with a short code sample when useful.",
+      },
+      {
+        id: "section-exercise",
+        title: "Exercise",
+        content:
+          "Prompt students to name participants, describe notify behaviour, and sketch why a dashboard should subscribe instead of being called directly.",
+      },
+    ],
+  };
+}
+
+export function getEducatorCourseOptions() {
+  return courses.map((course) => ({
+    id: course.id,
+    title: course.title,
+  }));
+}
+
+export function getEducatorCourseDashboard(
+  courseId: string,
+): EducatorCourseDashboard | undefined {
+  const course = courses.find((entry) => entry.id === courseId);
+  if (course === undefined) {
+    return undefined;
+  }
+
+  return buildDashboardForCourse(course.id, course.title);
+}
