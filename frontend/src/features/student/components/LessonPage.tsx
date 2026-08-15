@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SkipForwardIcon } from "@/components/icons/SkipForwardIcon";
 import { VolumeIcon } from "@/components/icons/VolumeIcon";
 import { ElovateApiError, errorMessageFromUnknown } from "@/helpers/elovateApi";
 import { getCourse } from "@/helpers/coursesApi";
+import { recordContentView } from "@/helpers/contentViewApi";
 import {
   listLearningContentSections,
   type LearningContentSection,
@@ -62,6 +63,7 @@ export function LessonPage({ courseId }: LessonPageProps) {
     useState<LessonViewMode>("sub-tabs");
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const viewSessionRef = useRef<{ sectionId: string; startedAt: number } | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +97,34 @@ export function LessonPage({ courseId }: LessonPageProps) {
 
     return () => {
       cancelled = true;
+    };
+  }, [courseId]);
+
+  // Flush elapsed time for the previous section, then start tracking the new one.
+  useEffect(() => {
+    if (isLoading || selectedUnitId === "") return;
+    const prev = viewSessionRef.current;
+    if (prev !== undefined && prev.sectionId !== selectedUnitId) {
+      const durationSeconds = Math.round((Date.now() - prev.startedAt) / 1000);
+      if (durationSeconds >= 1) {
+        recordContentView(courseId, prev.sectionId, durationSeconds).catch(() => {});
+      }
+    }
+    if (prev === undefined || prev.sectionId !== selectedUnitId) {
+      viewSessionRef.current = { sectionId: selectedUnitId, startedAt: Date.now() };
+    }
+  }, [selectedUnitId, isLoading, courseId]);
+
+  // Flush the active session when the student leaves the lesson page.
+  useEffect(() => {
+    return () => {
+      const session = viewSessionRef.current;
+      if (session !== undefined) {
+        const durationSeconds = Math.round((Date.now() - session.startedAt) / 1000);
+        if (durationSeconds >= 1) {
+          recordContentView(courseId, session.sectionId, durationSeconds).catch(() => {});
+        }
+      }
     };
   }, [courseId]);
 

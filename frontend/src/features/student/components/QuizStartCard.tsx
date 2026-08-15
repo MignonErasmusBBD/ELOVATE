@@ -14,9 +14,10 @@ export function QuizStartCard({
           Practice Quiz
         </h1>
         <p className="mt-3 text-base text-text-secondary">
-          This practice quiz is tied to{" "}
-          <span className="font-semibold text-ink">{courseTitle}</span>. Answer
-          one question at a time and get feedback immediately.
+          This adaptive quiz is tailored to{" "}
+          <span className="font-semibold text-ink">{courseTitle}</span> based on
+          your learning profile. Answer each question, then review your results
+          with correct answers at the end.
         </p>
       </header>
       <button

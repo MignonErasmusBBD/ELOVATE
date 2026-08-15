@@ -113,6 +113,31 @@ export function QuestionFormModal({
   >();
 
   useEffect(() => {
+    setCourseSectionId((id) =>
+      id === "" && sections[0] !== undefined ? sections[0].id : id,
+    );
+  }, [sections]);
+
+  useEffect(() => {
+    setBloomLevelId((id) =>
+      id === 0 && lookups.bloomLevels[0] !== undefined
+        ? lookups.bloomLevels[0].bloomLevelId
+        : id,
+    );
+    setDifficultyLevelId((id) =>
+      id === 0 && lookups.difficultyLevels[0] !== undefined
+        ? lookups.difficultyLevels[0].difficultyLevelId
+        : id,
+    );
+    setQuestionFormatId((id) => {
+      if (id !== 0) {
+        return id;
+      }
+      return mcqFormatId(lookups.questionFormats) ?? id;
+    });
+  }, [lookups]);
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && isSubmitting === false) {
         onClose();

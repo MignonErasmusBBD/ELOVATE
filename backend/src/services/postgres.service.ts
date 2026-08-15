@@ -32,6 +32,8 @@ export class PostgresService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
+    const masked = connectionString.replace(/:([^:@]+)@/, ':***@');
+    this.logger.log(`Connecting to: ${masked}`);
     this.pool = new Pool({ connectionString });
     await this.pool.query('SELECT 1');
     this.logger.log('Connected to Postgres');

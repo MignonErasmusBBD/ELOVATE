@@ -264,7 +264,8 @@ export function QuestionsTab({ courseId, courseTitle }: QuestionsTabProps) {
         <button
           type="button"
           onClick={openCreateModal}
-          className="rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97]"
+          disabled={isLoading}
+          className="rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] disabled:opacity-50"
         >
           + Add Question
         </button>

@@ -337,8 +337,7 @@ export class QuestionsRepository {
     const result = await this.postgres.query<QuestionRow>(
       `${questionSelectSql}
        WHERE cs.course_id = $1 AND qs.status_code = 'active'
-       ORDER BY random()
-       LIMIT 10`,
+       ORDER BY q.created_at`,
       [courseId],
     );
     return this.withOptionsAndTopics(result.rows);

@@ -1,33 +1,31 @@
 import { QuestionMarkIcon } from "@/components/icons/QuestionMarkIcon";
-import type {
-  PracticeQuizQuestion,
-  QuizOptionId,
-} from "../types";
+import type { AttemptItem } from "@/helpers/quizzesApi";
 
 type QuizQuestionCardProps = {
-  question: PracticeQuizQuestion;
+  item: AttemptItem;
   questionNumber: number;
   totalQuestionCount: number;
-  selectedOptionId: QuizOptionId | undefined;
-  submittedOptionId: QuizOptionId | undefined;
-  onSelectOption: (optionId: QuizOptionId) => void;
+  selectedOptionId: string | undefined;
+  isSubmitting: boolean;
+  onSelectOption: (optionId: string) => void;
   onSubmitAnswer: () => void;
 };
 
 export function QuizQuestionCard({
-  question,
+  item,
   questionNumber,
   totalQuestionCount,
   selectedOptionId,
-  submittedOptionId,
+  isSubmitting,
   onSelectOption,
   onSubmitAnswer,
 }: QuizQuestionCardProps) {
-  const hasSubmitted = submittedOptionId !== undefined;
-  const isCorrect =
-    hasSubmitted && submittedOptionId === question.correctOptionId;
+  const hasAnswered = item.selectedOptionId !== undefined;
+  const feedbackRevealed = hasAnswered && item.isCorrect !== undefined;
+  const isCorrect = item.isCorrect === true;
+  const correctOption = item.options.find((o) => o.isCorrect === true);
   const canSubmit =
-    selectedOptionId !== undefined && submittedOptionId === undefined;
+    selectedOptionId !== undefined && !hasAnswered && !isSubmitting;
 
   return (
     <article className="rounded-2xl border border-border-ui bg-surface p-6 shadow-[0_8px_24px_rgba(30,27,51,0.06)] md:p-8">
@@ -42,54 +40,89 @@ export function QuizQuestionCard({
         {questionNumber} of {totalQuestionCount}
       </progress>
 
-      <header className="mt-6 flex flex-wrap items-center gap-3">
-        <figure className="m-0 flex h-10 w-10 items-center justify-center rounded-full bg-ink text-white">
+      <header className="mt-6 flex flex-wrap items-start gap-3">
+        <figure className="m-0 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink text-white">
           <QuestionMarkIcon className="h-5 w-5" />
         </figure>
-        <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
-          <li className="rounded-full bg-ink/10 px-3 py-1 text-xs font-semibold text-ink">
-            {question.topic}
-          </li>
-          <li className="rounded-full bg-coral/15 px-3 py-1 text-xs font-semibold text-coral">
-            {question.bloomLevel}
-          </li>
-          <li className="rounded-full bg-border-ui px-3 py-1 text-xs font-semibold text-text-secondary">
-            {question.difficulty}
-          </li>
-        </ul>
+        {(item.sectionTitle !== undefined ||
+          item.bloomLevel !== undefined ||
+          item.difficultyLevel !== undefined) && (
+          <ul className="m-0 flex list-none flex-wrap gap-2 p-0 pt-1">
+            {item.sectionTitle !== undefined && (
+              <li className="rounded-full bg-ink/10 px-3 py-1 text-xs font-semibold text-ink">
+                {item.sectionTitle}
+              </li>
+            )}
+            {item.bloomLevel !== undefined && (
+              <li className="rounded-full bg-coral/15 px-3 py-1 text-xs font-semibold text-coral">
+                {item.bloomLevel}
+              </li>
+            )}
+            {item.difficultyLevel !== undefined && (
+              <li className="rounded-full bg-border-ui px-3 py-1 text-xs font-semibold text-text-secondary">
+                {item.difficultyLevel}
+              </li>
+            )}
+          </ul>
+        )}
       </header>
 
       <h2 className="mt-5 text-xl font-bold tracking-tight text-ink md:text-2xl">
-        {question.prompt}
+        {item.prompt}
       </h2>
 
       <fieldset className="mt-6 border-0 p-0">
         <legend className="sr-only">Answer choices</legend>
         <ul className="flex list-none flex-col gap-3 p-0">
-          {question.options.map((option) => {
-            const isSelected = selectedOptionId === option.id;
-            const optionClasses = isSelected
-              ? "border-ink bg-ink/5"
-              : "border-border-ui bg-surface hover:bg-page";
+          {item.options.map((option) => {
+            const wasSelected =
+              (hasAnswered ? item.selectedOptionId : selectedOptionId) ===
+              option.id;
+            const isTheCorrect = feedbackRevealed && option.isCorrect === true;
+            const isWrongSelected =
+              feedbackRevealed && wasSelected && !isTheCorrect;
+            const isLocked = hasAnswered || isSubmitting;
+
+            let borderClass = "border-border-ui bg-surface";
+            if (isTheCorrect && feedbackRevealed) {
+              borderClass = "border-emerald-400 bg-emerald-50";
+            } else if (isWrongSelected) {
+              borderClass = "border-coral/60 bg-coral/10";
+            } else if (!hasAnswered && wasSelected) {
+              borderClass = "border-ink bg-ink/5";
+            }
 
             return (
               <li key={option.id}>
                 <label
-                  className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 ${optionClasses} ${hasSubmitted ? "cursor-default" : ""}`}
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-colors ${borderClass} ${isLocked ? "cursor-default" : "hover:bg-page"}`}
                 >
                   <input
                     type="radio"
-                    name={`question-${question.id}`}
+                    name={`question-${item.id}`}
                     value={option.id}
-                    checked={isSelected}
-                    disabled={hasSubmitted}
+                    checked={wasSelected}
+                    disabled={isLocked}
                     onChange={() => onSelectOption(option.id)}
                     className="mt-1 h-4 w-4 accent-ink"
                   />
-                  <span className="text-sm leading-relaxed text-ink md:text-base">
-                    <span className="font-semibold">{option.id})</span>{" "}
-                    {option.label}
+                  <span
+                    className={`text-sm leading-relaxed md:text-base ${
+                      isTheCorrect && feedbackRevealed
+                        ? "font-semibold text-emerald-900"
+                        : isWrongSelected
+                          ? "text-ink"
+                          : "text-ink"
+                    }`}
+                  >
+                    {option.optionText}
                   </span>
+                  {isTheCorrect && feedbackRevealed && (
+                    <span className="ml-auto shrink-0 text-emerald-700">✓</span>
+                  )}
+                  {isWrongSelected && (
+                    <span className="ml-auto shrink-0 text-coral">✗</span>
+                  )}
                 </label>
               </li>
             );
@@ -97,7 +130,7 @@ export function QuizQuestionCard({
         </ul>
       </fieldset>
 
-      {hasSubmitted ? (
+      {feedbackRevealed ? (
         <section
           aria-live="polite"
           className={
@@ -115,29 +148,29 @@ export function QuizQuestionCard({
                   : "inline-flex h-6 w-6 items-center justify-center rounded-full bg-coral text-xs text-white"
               }
             >
-              {isCorrect ? "✓" : "✕"}
+              {isCorrect ? "✓" : "✗"}
             </span>
             {isCorrect ? "Correct!" : "Incorrect"}
           </p>
-          <p className="mt-2 text-sm">
-            Your answer: {submittedOptionId}
-            {isCorrect === false ? (
-              <span> · Correct answer: {question.correctOptionId}</span>
-            ) : undefined}
-          </p>
-          <p className="mt-3 text-sm leading-relaxed">
-            <span className="font-semibold">Explanation:</span>{" "}
-            {question.explanation}
-          </p>
+          {!isCorrect && correctOption !== undefined && (
+            <p className="mt-2 text-sm">
+              The correct answer was:{" "}
+              <span className="font-semibold">{correctOption.optionText}</span>
+            </p>
+          )}
         </section>
+      ) : hasAnswered ? (
+        <p className="mt-6 text-sm font-medium text-text-secondary">
+          Saving…
+        </p>
       ) : (
         <button
           type="button"
-          disabled={canSubmit === false}
+          disabled={!canSubmit}
           onClick={onSubmitAnswer}
           className="mt-6 w-full rounded-lg bg-ink px-4 py-3 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Submit Answer
+          {isSubmitting ? "Saving…" : "Submit Answer"}
         </button>
       )}
     </article>

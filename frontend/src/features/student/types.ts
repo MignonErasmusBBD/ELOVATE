@@ -8,32 +8,7 @@ export type LessonUnit = {
   exercises?: string[];
 };
 
-export type QuizPhase = "start" | "question" | "score";
-
-export type QuizOptionId = "A" | "B" | "C" | "D";
-
-export type QuizDifficulty = "Easy" | "Medium" | "Hard";
-
-export type QuizOption = {
-  id: QuizOptionId;
-  label: string;
-};
-
-export type PracticeQuizQuestion = {
-  id: string;
-  prompt: string;
-  options: QuizOption[];
-  correctOptionId: QuizOptionId;
-  explanation: string;
-  topic: string;
-  bloomLevel: string;
-  difficulty: QuizDifficulty;
-};
-
-export type PracticeQuiz = {
-  courseId: string;
-  questions: PracticeQuizQuestion[];
-};
+export type QuizPhase = "start" | "loading" | "question" | "submitting" | "completing" | "results" | "error";
 
 export type DashboardStatusVariant =
   | "completed"
