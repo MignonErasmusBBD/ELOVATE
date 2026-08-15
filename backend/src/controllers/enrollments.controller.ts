@@ -103,7 +103,7 @@ export class EnrollmentsController {
   @ApiOperation({
     summary: 'Withdraw',
     description:
-      'Set enrollment_status_id from enrollment_statuses where status_code = withdrawn. Keep the row for history; do not delete it.\nPermission: enrollment.withdraw.self (learner).',
+      'Set enrollment_status_id from enrollment_statuses where status_code = withdrawn. Keep the row for history; do not delete it.\nPermission: enrollment.withdraw.self (own row) or enrollment.assign (org_admin, same org).',
   })
   withdraw(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
     return this.enrollments.withdraw(actor, id);

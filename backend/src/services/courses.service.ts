@@ -65,6 +65,14 @@ export class CoursesService {
       return { items: [] };
     }
     const items = await this.courses.list(filters, this.accessFor(actor));
+    if (
+      filters.status === 'all' &&
+      this.canSeeDeactivated(actor) === false
+    ) {
+      return {
+        items: items.filter((course) => course.status === 'active'),
+      };
+    }
     return { items };
   }
 

@@ -6,11 +6,35 @@ import {
   readStringList,
 } from "@/helpers/jsonFields";
 import type {
+  AdminEnrolment,
   AdminPerson,
   CompanyStatus,
   DirectoryOrganization,
   DirectoryRole,
+  EnrolmentStatus,
+  OrgPrivateCourse,
+  PersonStatus,
 } from "./types";
+
+function readPersonStatus(body: object): PersonStatus {
+  const status = readRequiredString(body, "status");
+  if (status === "deactivated") {
+    return "deactivated";
+  }
+  return "active";
+}
+
+function readEnrolmentStatus(body: object): EnrolmentStatus | undefined {
+  const status = readRequiredString(body, "status");
+  if (
+    status === "active" ||
+    status === "completed" ||
+    status === "withdrawn"
+  ) {
+    return status;
+  }
+  return undefined;
+}
 
 function readCompanyStatus(body: object): CompanyStatus | undefined {
   const status = readRequiredString(body, "status");
@@ -69,25 +93,38 @@ export function previewSlugFromName(name: string): string {
   return slug;
 }
 
+export function parseDirectoryPerson(
+  body: unknown,
+): AdminPerson | undefined {
+  if (isPlainObject(body) === false) {
+    return undefined;
+  }
+  const id = readRequiredString(body, "id");
+  const emailAddress = readRequiredString(body, "email");
+  if (id === undefined || emailAddress === undefined) {
+    return undefined;
+  }
+  const fullName = readOptionalString(body, "fullName");
+  return {
+    id,
+    organizationId: readOptionalString(body, "organizationId"),
+    emailAddress,
+    fullName: fullName ?? emailAddress,
+    status: readPersonStatus(body),
+    roleNames: readStringList(body, "roles"),
+  };
+}
+
 export function parseDirectoryPeople(body: unknown): AdminPerson[] {
   if (isPlainObject(body) === false) {
     return [];
   }
   const people: AdminPerson[] = [];
   for (const item of readObjectList(body, "items")) {
-    const id = readRequiredString(item, "id");
-    const emailAddress = readRequiredString(item, "email");
-    if (id === undefined || emailAddress === undefined) {
-      continue;
+    const person = parseDirectoryPerson(item);
+    if (person !== undefined) {
+      people.push(person);
     }
-    const fullName = readOptionalString(item, "fullName");
-    people.push({
-      id,
-      organizationId: readOptionalString(item, "organizationId"),
-      emailAddress,
-      fullName: fullName ?? emailAddress,
-      roleNames: readStringList(item, "roles"),
-    });
   }
   return people;
 }
@@ -221,6 +258,105 @@ export function withoutOrganisationMembership(
       roleNames: person.roleNames.filter((name) => name !== "org_admin"),
     };
   });
+}
+
+export function parseOrgPrivateCourse(
+  body: unknown,
+): OrgPrivateCourse | undefined {
+  if (isPlainObject(body) === false) {
+    return undefined;
+  }
+  const id = readRequiredString(body, "id");
+  const title = readRequiredString(body, "title");
+  if (id === undefined || title === undefined) {
+    return undefined;
+  }
+  const status = readRequiredString(body, "status");
+  return {
+    id,
+    title,
+    description: readOptionalString(body, "description"),
+    status: status === "deactivated" ? "deactivated" : "active",
+  };
+}
+
+export function parseOrgPrivateCourses(body: unknown): OrgPrivateCourse[] {
+  if (isPlainObject(body) === false) {
+    return [];
+  }
+  const courses: OrgPrivateCourse[] = [];
+  for (const item of readObjectList(body, "items")) {
+    const course = parseOrgPrivateCourse(item);
+    if (course !== undefined) {
+      courses.push(course);
+    }
+  }
+  return courses;
+}
+
+export function parseAdminEnrolment(
+  body: unknown,
+): AdminEnrolment | undefined {
+  if (isPlainObject(body) === false) {
+    return undefined;
+  }
+  const id = readRequiredString(body, "id");
+  const userId = readRequiredString(body, "userId");
+  const courseId = readRequiredString(body, "courseId");
+  const userFullName = readRequiredString(body, "userFullName");
+  const courseTitle = readRequiredString(body, "courseTitle");
+  const status = readEnrolmentStatus(body);
+  if (
+    id === undefined ||
+    userId === undefined ||
+    courseId === undefined ||
+    userFullName === undefined ||
+    courseTitle === undefined ||
+    status === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    id,
+    userId,
+    userFullName,
+    courseId,
+    courseTitle,
+    status,
+  };
+}
+
+export function parseAdminEnrolments(body: unknown): AdminEnrolment[] {
+  if (isPlainObject(body) === false) {
+    return [];
+  }
+  const enrolments: AdminEnrolment[] = [];
+  for (const item of readObjectList(body, "items")) {
+    const enrolment = parseAdminEnrolment(item);
+    if (enrolment !== undefined) {
+      enrolments.push(enrolment);
+    }
+  }
+  return enrolments;
+}
+
+export function displayRoleName(roleName: string): string {
+  if (roleName === "org_admin") {
+    return "Org Admin";
+  }
+  if (roleName === "platform_admin") {
+    return "Platform Admin";
+  }
+  if (roleName === "community_admin") {
+    return "Community Admin";
+  }
+  if (roleName === "educator") {
+    return "Educator";
+  }
+  if (roleName === "learner") {
+    return "Learner";
+  }
+  return roleName;
 }
 
 export function organisationAdminNames(

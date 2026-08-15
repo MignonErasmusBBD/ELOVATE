@@ -33,8 +33,8 @@ export function CurrentUserProvider({ children }: CurrentUserProviderProps) {
   const session = authClient.useSession();
   const sessionUser = session.data?.user;
   const isSessionPending = session.isPending;
+  const [hasSessionSettled, setHasSessionSettled] = useState(false);
   const [profile, setProfile] = useState<CurrentUserProfile | undefined>();
-  const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [profileReloadKey, setProfileReloadKey] = useState(0);
 
@@ -53,18 +53,17 @@ export function CurrentUserProvider({ children }: CurrentUserProviderProps) {
     if (isSessionPending) {
       return;
     }
+    setHasSessionSettled(true);
 
     if (sessionUser === undefined) {
       setProfile(undefined);
       setErrorMessage(undefined);
-      setIsProfileLoading(false);
       return;
     }
 
     let cancelled = false;
 
     async function loadProfile() {
-      setIsProfileLoading(true);
       setErrorMessage(undefined);
 
       try {
@@ -95,10 +94,6 @@ export function CurrentUserProvider({ children }: CurrentUserProviderProps) {
           setProfile(undefined);
           setErrorMessage("Could not load your profile.");
         }
-      } finally {
-        if (cancelled === false) {
-          setIsProfileLoading(false);
-        }
       }
     }
 
@@ -110,7 +105,11 @@ export function CurrentUserProvider({ children }: CurrentUserProviderProps) {
   }, [isSessionPending, sessionUser, profileReloadKey]);
 
   const isLoading =
-    isSessionPending || (sessionUser !== undefined && isProfileLoading);
+    hasSessionSettled === false ||
+    isSessionPending ||
+    (sessionUser !== undefined &&
+      profile === undefined &&
+      errorMessage === undefined);
 
   return (
     <CurrentUserContext.Provider

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   isUuid,
   SqlParameter,
+  textFromDatabase,
   whereClause,
 } from '../helpers/values';
 import { PostgresService } from '../services/postgres.service';
@@ -10,18 +11,23 @@ type EnrollmentRow = {
   id: string;
   user_id: string;
   course_id: string;
-  organization_id: string;
+  organization_id: string | null;
   enrolled_at: Date;
   status: string;
+  full_name: string | null;
+  email: string;
+  course_title: string;
 };
 
 export type PublicEnrollment = {
   id: string;
   userId: string;
   courseId: string;
-  organizationId: string;
+  organizationId: string | undefined;
   enrolledAt: Date;
   status: string;
+  userFullName: string;
+  courseTitle: string;
 };
 
 export type EnrollmentListFilters = {
@@ -37,19 +43,26 @@ const enrollmentSelectSql = `SELECT
   e.course_id,
   u.organization_id,
   e.enrolled_at,
-  es.status_code AS status
+  es.status_code AS status,
+  u.full_name,
+  u.email,
+  c.title AS course_title
 FROM enrollments e
 JOIN users u ON u.id = e.user_id
+JOIN courses c ON c.id = e.course_id
 JOIN enrollment_statuses es ON es.enrollment_status_id = e.enrollment_status_id`;
 
 function toPublicEnrollment(row: EnrollmentRow): PublicEnrollment {
+  const fullName = textFromDatabase(row.full_name);
   return {
     id: row.id,
     userId: row.user_id,
     courseId: row.course_id,
-    organizationId: row.organization_id,
+    organizationId: textFromDatabase(row.organization_id),
     enrolledAt: row.enrolled_at,
     status: row.status,
+    userFullName: fullName ?? row.email,
+    courseTitle: row.course_title,
   };
 }
 

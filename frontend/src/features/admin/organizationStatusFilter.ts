@@ -1,5 +1,5 @@
-import { matchesSearchQuery } from "@/helpers/search";
 import type { CompanyStatus, DirectoryOrganization } from "./types";
+import { itemsMatchingStatusAndSearch } from "./statusFilter";
 
 export type OrganizationStatusFilter = "all" | CompanyStatus;
 
@@ -31,16 +31,13 @@ export function visibleOrganizationsForFilter(
   statusFilter: OrganizationStatusFilter,
   searchQuery = "",
 ): DirectoryOrganization[] {
-  return sortOrganizations(organizations).filter((organization) => {
-    if (statusFilter !== "all" && organization.status !== statusFilter) {
-      return false;
-    }
-
-    return (
-      matchesSearchQuery(organization.name, searchQuery) ||
-      matchesSearchQuery(organization.slug, searchQuery)
-    );
-  });
+  return itemsMatchingStatusAndSearch(
+    sortOrganizations(organizations),
+    statusFilter,
+    searchQuery,
+    (organization) => organization.status,
+    (organization) => [organization.name, organization.slug],
+  );
 }
 
 export function emptyOrganizationsMessage(
