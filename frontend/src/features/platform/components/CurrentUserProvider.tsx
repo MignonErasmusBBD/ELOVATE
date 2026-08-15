@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { ACCOUNT_CHANGED_EVENT } from "@/helpers/accountEvents";
-import { fetchElovateApi } from "@/helpers/elovateApi";
+import { clearAccessTokenCache, fetchElovateApi } from "@/helpers/elovateApi";
 import {
   parseCurrentUserProfile,
   type CurrentUserProfile,
@@ -54,6 +54,10 @@ export function CurrentUserProvider({ children }: CurrentUserProviderProps) {
       return;
     }
     setHasSessionSettled(true);
+
+    // Always wipe the cached token when the session identity changes so the
+    // next API call fetches a fresh token for the current user.
+    clearAccessTokenCache();
 
     if (sessionUser === undefined) {
       setProfile(undefined);

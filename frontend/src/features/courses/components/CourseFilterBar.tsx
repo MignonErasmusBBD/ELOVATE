@@ -2,14 +2,9 @@ import type { CourseFilter } from "../types";
 
 type CourseFilterBarProps = {
   selected: CourseFilter;
+  hasOrg: boolean;
   onSelect: (filter: CourseFilter) => void;
 };
-
-const filterOptions: { id: CourseFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "community", label: "Community" },
-  { id: "organisation", label: "Organisation" },
-];
 
 function GlobeIcon() {
   return (
@@ -44,12 +39,38 @@ function BuildingIcon() {
   );
 }
 
-export function CourseFilterBar({ selected, onSelect }: CourseFilterBarProps) {
+function BookmarkIcon() {
   return (
-    <fieldset className="max-w-md border-0 p-0">
+    <svg
+      viewBox="0 0 24 24"
+      className="size-4 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden="true"
+    >
+      <path d="M5 3h14a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z" />
+    </svg>
+  );
+}
+
+export function CourseFilterBar({
+  selected,
+  hasOrg,
+  onSelect,
+}: CourseFilterBarProps) {
+  const filterOptions: { id: CourseFilter; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "community", label: "Community" },
+    ...(hasOrg ? [{ id: "organisation" as CourseFilter, label: "Organisation" }] : []),
+    { id: "enrolled", label: "My courses" },
+  ];
+
+  return (
+    <fieldset className="border-0 p-0">
       <legend className="sr-only">Course filter</legend>
       <span
-        className="inline-flex w-full rounded-lg border border-ink bg-page p-1"
+        className="inline-flex rounded-lg border border-ink bg-page p-1"
         role="presentation"
       >
         {filterOptions.map((option) => {
@@ -62,12 +83,13 @@ export function CourseFilterBar({ selected, onSelect }: CourseFilterBarProps) {
               onClick={() => onSelect(option.id)}
               className={
                 isSelected
-                  ? "flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white"
-                  : "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-ink"
+                  ? "flex items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white"
+                  : "flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-ink"
               }
             >
               {option.id === "community" && <GlobeIcon />}
               {option.id === "organisation" && <BuildingIcon />}
+              {option.id === "enrolled" && <BookmarkIcon />}
               {option.label}
             </button>
           );

@@ -13,4 +13,4 @@ export type Course = {
   iconName: CourseIconName;
 };
 
-export type CourseFilter = "all" | "community" | "organisation";
+export type CourseFilter = "all" | "community" | "organisation" | "enrolled";

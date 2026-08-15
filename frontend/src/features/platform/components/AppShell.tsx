@@ -2,8 +2,9 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { authClient } from "@/lib/auth-client";
 import {
   getPlatformNavSectionsForRoles,
   isPlatformNavItemActive,
@@ -81,9 +82,15 @@ function AccountHeader() {
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { profile } = useCurrentUser();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  async function handleSignOut() {
+    await authClient.signOut();
+    router.push("/login");
+  }
   const roleNames = profile === undefined ? [] : profile.roles;
   const navSections = getPlatformNavSectionsForRoles(roleNames);
   const desktopSidebarWidthClass = isSidebarCollapsed
@@ -238,12 +245,13 @@ export function AppShell({ children }: AppShellProps) {
               className="ml-auto flex min-w-0 items-center gap-3"
             >
               <AccountHeader />
-              <Link
-                href="/login"
+              <button
+                type="button"
+                onClick={() => { void handleSignOut(); }}
                 className="shrink-0 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
               >
                 Logout
-              </Link>
+              </button>
             </section>
           </div>
         </header>

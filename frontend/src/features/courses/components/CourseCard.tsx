@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { CourseIconName } from "../types";
 import { CourseIcon } from "./CourseIcon";
 
@@ -8,6 +11,7 @@ type CourseCardProps = {
   visibility: string;
   status: string;
   iconName?: CourseIconName;
+  onEnrol?: () => Promise<void>;
 };
 
 function GlobeIcon() {
@@ -75,6 +79,8 @@ function pickIcon(id: string): CourseIconName {
   return courseIcons[index] ?? "layers";
 }
 
+const TRUNCATE_AT = 150;
+
 export function CourseCard({
   id,
   title,
@@ -82,23 +88,61 @@ export function CourseCard({
   visibility,
   status,
   iconName,
+  onEnrol,
 }: CourseCardProps) {
   const isArchived = status === "deactivated";
   const resolvedIcon = iconName ?? pickIcon(id);
+  const isLong = description !== undefined && description.length > TRUNCATE_AT;
+  const [expanded, setExpanded] = useState(false);
+  const [isEnrolling, setIsEnrolling] = useState(false);
+
+  async function handleEnrolClick(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onEnrol === undefined || isEnrolling) return;
+    setIsEnrolling(true);
+    try {
+      await onEnrol();
+    } finally {
+      setIsEnrolling(false);
+    }
+  }
 
   return (
     <article className="flex h-full flex-col rounded-2xl border border-border-ui bg-surface p-6 shadow-[0_8px_24px_rgba(30,27,51,0.06)] transition-shadow hover:shadow-[0_12px_32px_rgba(30,27,51,0.1)]">
       <figure className="m-0 flex h-11 w-11 items-center justify-center rounded-lg bg-coral text-white">
         <CourseIcon iconName={resolvedIcon} className="h-5 w-5" />
       </figure>
-      <h2 className="mt-4 text-lg font-bold tracking-tight text-ink">
+      <h2 className="mt-4 break-words text-lg font-bold tracking-tight text-ink">
         {title}
       </h2>
-      {description !== undefined && (
-        <p className="mt-2 flex-1 text-sm leading-relaxed text-text-secondary">
-          {description}
-        </p>
-      )}
+
+      {/* Always present so footer stays at the bottom even with no description */}
+      <div className="mt-2 flex-1">
+        {description !== undefined && (
+          <>
+            <p
+              className={`break-words text-sm leading-relaxed text-text-secondary ${isLong && !expanded ? "line-clamp-3" : ""}`}
+            >
+              {description}
+            </p>
+            {isLong && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setExpanded((prev) => !prev);
+                }}
+                className="mt-1 text-xs font-semibold text-coral hover:underline"
+              >
+                {expanded ? "Read less" : "Read more"}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
       <footer className="mt-5 flex flex-wrap items-center gap-2">
         {visibility === "community" && (
           <span className="inline-flex items-center gap-1 rounded-full border border-border-ui px-2 py-0.5 text-xs font-medium text-text-secondary">
@@ -119,9 +163,20 @@ export function CourseCard({
           </span>
         )}
       </footer>
-      <p className="mt-4 text-sm font-semibold text-coral">
-        {isArchived ? "View course (read-only) →" : "View course →"}
-      </p>
+      {onEnrol !== undefined ? (
+        <button
+          type="button"
+          disabled={isEnrolling}
+          onClick={handleEnrolClick}
+          className="mt-4 text-left text-sm font-semibold text-coral hover:underline disabled:opacity-60"
+        >
+          {isEnrolling ? "Enrolling…" : "Enrol →"}
+        </button>
+      ) : (
+        <p className="mt-4 text-sm font-semibold text-coral">
+          {isArchived ? "View course (read-only) →" : "View course →"}
+        </p>
+      )}
     </article>
   );
 }
