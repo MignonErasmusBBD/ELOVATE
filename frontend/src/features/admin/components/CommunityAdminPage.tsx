@@ -40,7 +40,7 @@ export function CommunityAdminPage() {
   return (
     <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
       <AdminPageHeader
-        title="Community"
+        title="Community Admin"
         description="Add and curate public courses available to every learner. Deactivating a course hides it from the shared catalogue."
       />
 

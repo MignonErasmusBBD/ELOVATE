@@ -105,14 +105,6 @@ export function PracticeQuizPage({ course }: PracticeQuizPageProps) {
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
-      {quizPhase !== "score" ? (
-        <header className="mb-6">
-          <p className="text-sm font-medium text-text-secondary">
-            {course.title}
-          </p>
-        </header>
-      ) : undefined}
-
       {quizPhase === "start" ? (
         <QuizStartCard
           courseTitle={course.title}

@@ -22,7 +22,7 @@ export function PlatformAdminPage() {
   return (
     <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
       <AdminPageHeader
-        title="Platform"
+        title="Platform Admin"
         description="Create organisations, assign Platform Admin and Community Admin, and assign Organisational Admin per organisation."
       />
       <AdminSectionNav

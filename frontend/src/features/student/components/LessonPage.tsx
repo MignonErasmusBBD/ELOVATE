@@ -75,13 +75,19 @@ export function LessonPage({ course }: LessonPageProps) {
         <header className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <section className="min-w-0">
             <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
-              {course.title}
+              {lessonViewMode === "sub-tabs"
+                ? selectedUnit.title
+                : "Lesson content"}
             </h1>
             {lessonViewMode === "sub-tabs" ? (
-              <p className="mt-2 text-lg font-semibold text-coral">
-                {selectedUnit.title}
+              <p className="mt-2 text-sm text-text-secondary">
+                Unit {selectedUnitIndex + 1} of {units.length}
               </p>
-            ) : undefined}
+            ) : (
+              <p className="mt-2 text-sm text-text-secondary">
+                Full lesson view
+              </p>
+            )}
           </section>
           <menu className="m-0 flex list-none flex-col items-stretch gap-2 p-0 sm:items-end">
             <li>
@@ -91,14 +97,6 @@ export function LessonPage({ course }: LessonPageProps) {
               >
                 <SkipForwardIcon className="h-4 w-4" />
                 Skip to Quiz
-              </Link>
-            </li>
-            <li>
-              <Link
-                href={`/student/courses/${course.id}/dashboard`}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-ink bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:bg-page sm:w-auto"
-              >
-                Dashboard
               </Link>
             </li>
             <li>
