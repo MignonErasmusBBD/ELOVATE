@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { auth, jwksReady } from "@/lib/auth";
 import { toNextJsHandler } from "better-auth/next-js";
 
 const handlers = toNextJsHandler(auth);
@@ -15,6 +15,7 @@ async function handleAuth(
   request: Request,
 ): Promise<Response> {
   try {
+    await jwksReady;
     return await handlers[method](request);
   } catch (error) {
     console.error("[auth]", method, new URL(request.url).pathname, error);
