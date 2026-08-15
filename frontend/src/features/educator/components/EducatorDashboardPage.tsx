@@ -1,13 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { useCurrentUser } from "@/features/platform";
+import { createCourse, parseCourseListResponse } from "@/helpers/coursesApi";
 import {
-  getEducatorCourseDashboard,
-  getEducatorCourseOptions,
-} from "../data/dashboard";
+  EDUCATOR_PAGE_ROLES,
+  userHasAnyRole,
+} from "@/helpers/currentUserProfile";
+import { fetchElovateApi } from "@/helpers/elovateApi";
+import { getEducatorCourseDashboard } from "../data/dashboard";
 import type { EducatorCourseVisibility, EducatorTabId } from "../types";
-import { AddCourseFormModal } from "./AddCourseFormModal";
+import {
+  AddCourseFormModal,
+  type AddCourseFormValues,
+} from "./AddCourseFormModal";
 import { CourseVisibilityToggle } from "./CourseVisibilityToggle";
 import { EducatorCourseSelect } from "./EducatorCourseSelect";
 import { EducatorMetricsRow } from "./EducatorMetricsRow";
@@ -17,27 +25,257 @@ import { OverviewTab } from "./OverviewTab";
 import { QuestionsTab } from "./QuestionsTab";
 import { StudentsTab } from "./StudentsTab";
 
-export function EducatorDashboardPage() {
-  const courseOptions = getEducatorCourseOptions();
-  const defaultCourseId =
-    courseOptions[0] === undefined ? "" : courseOptions[0].id;
+type EducatorCourseOption = {
+  id: string;
+  title: string;
+};
 
-  const [selectedCourseId, setSelectedCourseId] = useState(defaultCourseId);
+export function EducatorDashboardPage() {
+  const router = useRouter();
+  const { profile, isLoading: isProfileLoading } = useCurrentUser();
+  const pendingSelectedCourseIdRef = useRef<string | undefined>(undefined);
+
+  const canAccessEducatorPage =
+    profile === undefined
+      ? false
+      : userHasAnyRole(profile.roles, [...EDUCATOR_PAGE_ROLES]);
+  const hasEducatorRole =
+    profile === undefined ? false : profile.roles.includes("educator");
+  const hasCommunityAdminRole =
+    profile === undefined
+      ? false
+      : profile.roles.includes("community_admin");
+  const canToggleCourseVisibility =
+    hasEducatorRole && hasCommunityAdminRole;
+
+  const [selectedCourseId, setSelectedCourseId] = useState("");
   const [selectedTabId, setSelectedTabId] =
     useState<EducatorTabId>("overview");
   const [courseVisibilityFilter, setCourseVisibilityFilter] =
     useState<EducatorCourseVisibility>("private");
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
+  const [courseOptions, setCourseOptions] = useState<EducatorCourseOption[]>(
+    [],
+  );
+  const [isCoursesLoading, setIsCoursesLoading] = useState(false);
+  const [coursesErrorMessage, setCoursesErrorMessage] = useState<
+    string | undefined
+  >();
+  const [coursesReloadToken, setCoursesReloadToken] = useState(0);
+
+  const canCreateCourse =
+    courseVisibilityFilter === "community" ||
+    profile?.organizationId !== undefined;
+
+  useEffect(() => {
+    if (isProfileLoading) {
+      return;
+    }
+    if (profile === undefined) {
+      return;
+    }
+    if (canAccessEducatorPage === false) {
+      router.replace("/courses");
+    }
+  }, [canAccessEducatorPage, isProfileLoading, profile, router]);
+
+  useEffect(() => {
+    if (canToggleCourseVisibility) {
+      return;
+    }
+    if (hasCommunityAdminRole && hasEducatorRole === false) {
+      setCourseVisibilityFilter("community");
+      return;
+    }
+    setCourseVisibilityFilter("private");
+  }, [canToggleCourseVisibility, hasCommunityAdminRole, hasEducatorRole]);
+
+  useEffect(() => {
+    if (isProfileLoading || profile === undefined) {
+      return;
+    }
+    if (canAccessEducatorPage === false) {
+      return;
+    }
+
+    const organizationId = profile.organizationId;
+    if (
+      courseVisibilityFilter === "private" &&
+      organizationId === undefined
+    ) {
+      setCourseOptions([]);
+      setSelectedCourseId("");
+      setCoursesErrorMessage(
+        "You need an organisation membership to manage private courses.",
+      );
+      setIsCoursesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadCourses() {
+      setIsCoursesLoading(true);
+      setCoursesErrorMessage(undefined);
+
+      try {
+        const queryParams = new URLSearchParams({
+          visibility: courseVisibilityFilter,
+          status: "active",
+        });
+        if (organizationId !== undefined) {
+          queryParams.set("organizationId", organizationId);
+        }
+
+        const coursesResponse = await fetchElovateApi(
+          `/courses?${queryParams.toString()}`,
+        );
+        if (coursesResponse.ok === false) {
+          if (cancelled === false) {
+            setCourseOptions([]);
+            setSelectedCourseId("");
+            setCoursesErrorMessage("Could not load courses.");
+          }
+          return;
+        }
+
+        const coursesBody = await coursesResponse.json();
+        const parsedCourses = parseCourseListResponse(coursesBody);
+        if (cancelled) {
+          return;
+        }
+
+        if (parsedCourses === undefined) {
+          setCourseOptions([]);
+          setSelectedCourseId("");
+          setCoursesErrorMessage("Course list response was invalid.");
+          return;
+        }
+
+        const nextOptions = parsedCourses.map((course) => ({
+          id: course.id,
+          title: course.title,
+        }));
+        setCourseOptions(nextOptions);
+        setSelectedCourseId((currentCourseId) => {
+          const pendingSelectedCourseId = pendingSelectedCourseIdRef.current;
+          if (pendingSelectedCourseId !== undefined) {
+            const pendingStillExists = nextOptions.some(
+              (course) => course.id === pendingSelectedCourseId,
+            );
+            if (pendingStillExists) {
+              pendingSelectedCourseIdRef.current = undefined;
+              return pendingSelectedCourseId;
+            }
+          }
+          const stillSelected = nextOptions.some(
+            (course) => course.id === currentCourseId,
+          );
+          if (stillSelected) {
+            return currentCourseId;
+          }
+          return nextOptions[0] === undefined ? "" : nextOptions[0].id;
+        });
+        setSelectedTabId("overview");
+      } catch {
+        if (cancelled === false) {
+          setCourseOptions([]);
+          setSelectedCourseId("");
+          setCoursesErrorMessage("Could not load courses.");
+        }
+      } finally {
+        if (cancelled === false) {
+          setIsCoursesLoading(false);
+        }
+      }
+    }
+
+    void loadCourses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canAccessEducatorPage,
+    courseVisibilityFilter,
+    coursesReloadToken,
+    isProfileLoading,
+    profile,
+  ]);
+
+  async function handleCreateCourse(formValues: AddCourseFormValues) {
+    const createVisibility = canToggleCourseVisibility
+      ? formValues.visibility
+      : hasCommunityAdminRole
+        ? "community"
+        : "private";
+
+    if (
+      createVisibility === "private" &&
+      (profile === undefined || profile.organizationId === undefined)
+    ) {
+      throw new Error(
+        "You need an organisation membership to manage private courses.",
+      );
+    }
+
+    if (
+      createVisibility === "private" &&
+      hasEducatorRole === false
+    ) {
+      throw new Error("Only educators can create private courses.");
+    }
+
+    if (
+      createVisibility === "community" &&
+      hasCommunityAdminRole === false
+    ) {
+      throw new Error("Only community admins can create community courses.");
+    }
+
+    const createdCourse = await createCourse({
+      title: formValues.courseTitle,
+      description:
+        formValues.courseDescription === ""
+          ? undefined
+          : formValues.courseDescription,
+      visibility: createVisibility,
+      organizationId: profile?.organizationId,
+    });
+
+    pendingSelectedCourseIdRef.current = createdCourse.id;
+    setCourseVisibilityFilter(createVisibility);
+    setCoursesReloadToken((currentToken) => currentToken + 1);
+    setIsAddCourseModalOpen(false);
+  }
 
   const dashboard = useMemo(
-    () => getEducatorCourseDashboard(selectedCourseId),
+    () =>
+      selectedCourseId === ""
+        ? undefined
+        : getEducatorCourseDashboard(selectedCourseId),
     [selectedCourseId],
   );
 
-  if (dashboard === undefined) {
+  const selectedCourseTitle = useMemo(() => {
+    const selectedCourse = courseOptions.find(
+      (course) => course.id === selectedCourseId,
+    );
+    return selectedCourse === undefined ? undefined : selectedCourse.title;
+  }, [courseOptions, selectedCourseId]);
+
+  if (isProfileLoading || profile === undefined) {
     return (
       <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
-        <p className="text-text-secondary">No educator courses available.</p>
+        <p className="text-text-secondary">Loading educator dashboard…</p>
+      </section>
+    );
+  }
+
+  if (canAccessEducatorPage === false) {
+    return (
+      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+        <p className="text-text-secondary">Redirecting…</p>
       </section>
     );
   }
@@ -58,6 +296,12 @@ export function EducatorDashboardPage() {
           variant="compact"
           type="button"
           className="inline-flex shrink-0 items-center gap-2 self-start"
+          disabled={canCreateCourse === false}
+          title={
+            canCreateCourse
+              ? undefined
+              : "You need an organisation membership to manage private courses."
+          }
           onClick={() => setIsAddCourseModalOpen(true)}
         >
           <svg
@@ -75,24 +319,54 @@ export function EducatorDashboardPage() {
       </header>
 
       <section className="mt-8 flex flex-col gap-4">
-        <CourseVisibilityToggle
-          selectedVisibility={courseVisibilityFilter}
-          onSelectVisibility={setCourseVisibilityFilter}
-        />
-        <EducatorCourseSelect
-          courses={courseOptions}
-          selectedCourseId={selectedCourseId}
-          onSelectCourse={(courseId) => {
-            setSelectedCourseId(courseId);
-            setSelectedTabId("overview");
-          }}
-        />
+        {canToggleCourseVisibility ? (
+          <CourseVisibilityToggle
+            selectedVisibility={courseVisibilityFilter}
+            onSelectVisibility={setCourseVisibilityFilter}
+          />
+        ) : undefined}
+        {isCoursesLoading ? (
+          <p className="text-sm text-text-secondary">Loading courses…</p>
+        ) : undefined}
+        {coursesErrorMessage === undefined ? undefined : (
+          <p className="text-sm text-text-secondary" role="status">
+            {coursesErrorMessage}
+          </p>
+        )}
+        {isCoursesLoading === false &&
+        coursesErrorMessage === undefined &&
+        courseOptions.length === 0 ? (
+          <p className="text-sm text-text-secondary" role="status">
+            No {courseVisibilityFilter} courses available.
+          </p>
+        ) : undefined}
+        {courseOptions.length > 0 ? (
+          <EducatorCourseSelect
+            courses={courseOptions}
+            selectedCourseId={selectedCourseId}
+            onSelectCourse={(courseId) => {
+              setSelectedCourseId(courseId);
+              setSelectedTabId("overview");
+            }}
+          />
+        ) : undefined}
       </section>
 
       <section className="mt-6">
         <EducatorMetricsRow
-          totalStudents={dashboard.totalStudents}
-          averagePracticeQuizPercent={dashboard.averagePracticeQuizPercent}
+          totalStudents={
+            dashboard === undefined ? 0 : dashboard.totalStudents
+          }
+          averagePracticeQuizPercent={
+            dashboard === undefined ? 0 : dashboard.averagePracticeQuizPercent
+          }
+          totalQuestions={
+            selectedCourseId === ""
+              ? 0
+              : dashboard === undefined
+                ? 12
+                : dashboard.questions.length
+          }
         />
       </section>
 
@@ -102,23 +376,31 @@ export function EducatorDashboardPage() {
           onSelectTab={setSelectedTabId}
         />
 
-        {selectedTabId === "overview" ? (
+        {dashboard === undefined ? (
+          <p className="mt-6 text-sm text-text-secondary">
+            {selectedCourseTitle === undefined
+              ? "Select a course to view educator insights."
+              : `Detailed analytics for “${selectedCourseTitle}” are not available yet.`}
+          </p>
+        ) : undefined}
+
+        {dashboard !== undefined && selectedTabId === "overview" ? (
           <OverviewTab dashboard={dashboard} />
         ) : undefined}
-        {selectedTabId === "students" ? (
+        {dashboard !== undefined && selectedTabId === "students" ? (
           <StudentsTab
             key={dashboard.courseId}
             students={dashboard.students}
           />
         ) : undefined}
-        {selectedTabId === "questions" ? (
+        {dashboard !== undefined && selectedTabId === "questions" ? (
           <QuestionsTab
             key={dashboard.courseId}
             courseTitle={dashboard.courseTitle}
             questions={dashboard.questions}
           />
         ) : undefined}
-        {selectedTabId === "learning-content" ? (
+        {dashboard !== undefined && selectedTabId === "learning-content" ? (
           <LearningContentTab
             key={dashboard.courseId}
             courseTitle={dashboard.courseTitle}
@@ -131,9 +413,7 @@ export function EducatorDashboardPage() {
         <AddCourseFormModal
           selectedVisibility={courseVisibilityFilter}
           onClose={() => setIsAddCourseModalOpen(false)}
-          onSave={() => {
-            setIsAddCourseModalOpen(false);
-          }}
+          onSave={handleCreateCourse}
         />
       ) : undefined}
     </section>

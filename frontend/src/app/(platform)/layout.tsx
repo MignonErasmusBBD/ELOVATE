@@ -1,7 +1,11 @@
-import { AppShell } from "@/features/platform";
+import { AppShell, CurrentUserProvider } from "@/features/platform";
 
 export default function PlatformLayout({
   children,
 }: LayoutProps<"/">) {
-  return <AppShell>{children}</AppShell>;
+  return (
+    <CurrentUserProvider>
+      <AppShell>{children}</AppShell>
+    </CurrentUserProvider>
+  );
 }

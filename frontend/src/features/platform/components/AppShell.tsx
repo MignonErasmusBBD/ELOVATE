@@ -3,15 +3,12 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ACCOUNT_CHANGED_EVENT } from "@/helpers/accountEvents";
-import { elovateApiJson } from "@/helpers/elovateApi";
-import { isPlainObject, readOptionalString, readStringList } from "@/helpers/jsonFields";
-import { authClient } from "@/lib/auth-client";
+import { useState } from "react";
 import {
-  getAllPlatformNavSections,
+  getPlatformNavSectionsForRoles,
   isPlatformNavItemActive,
 } from "../navConfig";
+import { useCurrentUser } from "./CurrentUserProvider";
 
 type AppShellProps = Readonly<{
   children: ReactNode;
@@ -31,44 +28,17 @@ function getNavItemInitial(label: string) {
 }
 
 function AccountHeader() {
-  const session = authClient.useSession();
-  const sessionUser = session.data?.user;
-  const [roleNames, setRoleNames] = useState<string[]>([]);
-  const [organizationName, setOrganizationName] = useState<string | undefined>();
+  const { profile, isLoading } = useCurrentUser();
 
-  useEffect(() => {
-    if (sessionUser === undefined) {
-      return;
-    }
+  if (isLoading) {
+    return (
+      <p className="min-w-0 text-right text-sm text-text-secondary">
+        Loading account…
+      </p>
+    );
+  }
 
-    let cancelled = false;
-
-    async function loadAccountDetails() {
-      try {
-        const profileBody = await elovateApiJson("/users/me");
-        if (cancelled || isPlainObject(profileBody) === false) {
-          return;
-        }
-        setRoleNames(readStringList(profileBody, "roles"));
-        setOrganizationName(readOptionalString(profileBody, "organizationName"));
-      } catch {
-        return;
-      }
-    }
-
-    function handleAccountChanged() {
-      void loadAccountDetails();
-    }
-
-    void loadAccountDetails();
-    window.addEventListener(ACCOUNT_CHANGED_EVENT, handleAccountChanged);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(ACCOUNT_CHANGED_EVENT, handleAccountChanged);
-    };
-  }, [sessionUser]);
-
-  if (sessionUser === undefined) {
+  if (profile === undefined) {
     return (
       <p className="min-w-0 text-right text-sm text-text-secondary">
         Not signed in
@@ -76,21 +46,21 @@ function AccountHeader() {
     );
   }
 
-  const fullName =
-    sessionUser.name === undefined || sessionUser.name === ""
-      ? sessionUser.email
-      : sessionUser.name;
+  const displayName =
+    profile.fullName === undefined || profile.fullName === ""
+      ? profile.email
+      : profile.fullName;
 
   return (
     <p className="min-w-0 text-right">
       <span className="block truncate text-sm font-medium text-ink">
-        {fullName}
+        {displayName}
       </span>
       <span className="block truncate text-xs text-text-secondary">
-        {sessionUser.email}
+        {profile.email}
       </span>
       <span className="mt-1 flex flex-wrap items-center justify-end gap-1.5">
-        {roleNames.map((roleName) => (
+        {profile.roles.map((roleName) => (
           <span
             key={roleName}
             className="rounded-full border border-border-ui bg-page px-2 py-0.5 text-xs font-medium text-text-secondary"
@@ -98,10 +68,10 @@ function AccountHeader() {
             {roleName}
           </span>
         ))}
-        {organizationName === undefined ? undefined : (
+        {profile.organizationName === undefined ? undefined : (
           <span className="rounded-full border border-coral/40 bg-coral/10 px-2 py-0.5 text-xs font-medium text-coral">
             <span className="sr-only">Organisation: </span>
-            {organizationName}
+            {profile.organizationName}
           </span>
         )}
       </span>
@@ -111,9 +81,11 @@ function AccountHeader() {
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const { profile } = useCurrentUser();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const navSections = getAllPlatformNavSections();
+  const roleNames = profile === undefined ? [] : profile.roles;
+  const navSections = getPlatformNavSectionsForRoles(roleNames);
   const desktopSidebarWidthClass = isSidebarCollapsed
     ? "lg:w-[4.5rem]"
     : "lg:w-72";

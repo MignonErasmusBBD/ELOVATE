@@ -1,4 +1,8 @@
-import { isPlainObject, readErrorMessage, readRequiredString } from "./jsonFields";
+import {
+  isPlainObject,
+  readErrorMessage,
+  readRequiredString,
+} from "./jsonFields";
 
 export class ElovateApiError extends Error {
   readonly statusCode: number;
@@ -32,6 +36,10 @@ let accessTokenInFlight: Promise<string | undefined> | undefined;
 function clearAccessTokenCache() {
   cachedAccessToken = undefined;
   cachedAccessTokenExpiresAt = 0;
+}
+
+function normalizeElovatePath(path: string): string {
+  return path.startsWith("/") ? path : `/${path}`;
 }
 
 async function fetchAccessToken(): Promise<string | undefined> {
@@ -69,6 +77,10 @@ async function readAccessToken(): Promise<string | undefined> {
   return accessTokenInFlight;
 }
 
+export async function getAccessToken(): Promise<string | undefined> {
+  return readAccessToken();
+}
+
 export async function ensureAccessToken(): Promise<string | undefined> {
   return readAccessToken();
 }
@@ -80,14 +92,39 @@ async function sendElovateRequest(
 ): Promise<Response> {
   const headers = new Headers(init?.headers);
   headers.set("Authorization", `Bearer ${accessToken}`);
+  if (headers.has("Accept") === false) {
+    headers.set("Accept", "application/json");
+  }
   if (init?.body !== undefined && headers.has("Content-Type") === false) {
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(`/elovate-api${path}`, {
+  return fetch(`/elovate-api${normalizeElovatePath(path)}`, {
     ...init,
     headers,
   });
+}
+
+export async function fetchElovateApi(
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const accessToken = await readAccessToken();
+  if (accessToken === undefined) {
+    throw new Error("Missing access token");
+  }
+
+  let response = await sendElovateRequest(path, init, accessToken);
+  if (response.status === 401) {
+    clearAccessTokenCache();
+    const refreshedAccessToken = await readAccessToken();
+    if (refreshedAccessToken === undefined) {
+      throw new Error("Missing access token");
+    }
+    response = await sendElovateRequest(path, init, refreshedAccessToken);
+  }
+
+  return response;
 }
 
 export async function elovateApiJson(
