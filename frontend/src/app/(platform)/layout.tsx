@@ -1,4 +1,4 @@
-import { AppNavbar } from "@/features/platform";
+import { AppShell } from "@/features/platform";
 import { getCurrentUser } from "@/lib/session";
 
 export default async function PlatformLayout({
@@ -6,10 +6,5 @@ export default async function PlatformLayout({
 }: LayoutProps<"/">) {
   const currentUser = await getCurrentUser();
 
-  return (
-    <>
-      <AppNavbar currentUser={currentUser} />
-      <main>{children}</main>
-    </>
-  );
+  return <AppShell currentUser={currentUser}>{children}</AppShell>;
 }

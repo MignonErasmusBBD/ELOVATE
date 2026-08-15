@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { StudentDashboardSummary } from "../types";
-import { BackToLessonLink } from "./BackToLessonLink";
 import { CognitiveLevelChart } from "./CognitiveLevelChart";
 import { DashboardMetricsRow } from "./DashboardMetricsRow";
 import { DashboardRecommendations } from "./DashboardRecommendations";
@@ -16,20 +15,17 @@ export function StudentDashboardPage({
 }: StudentDashboardPageProps) {
   return (
     <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <section className="min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
-            {dashboardSummary.courseTitle}
-          </h1>
-          <p className="mt-2 max-w-2xl text-base text-text-secondary">
-            Practice-quiz dashboard for{" "}
-            <span className="font-semibold text-ink">
-              {dashboardSummary.studentEmailAddress}
-            </span>
-            .
-          </p>
-        </section>
-        <BackToLessonLink courseId={dashboardSummary.courseId} />
+      <header>
+        <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
+          Practice dashboard
+        </h1>
+        <p className="mt-2 max-w-2xl text-base text-text-secondary">
+          Performance for{" "}
+          <span className="font-semibold text-ink">
+            {dashboardSummary.studentEmailAddress}
+          </span>{" "}
+          in this course.
+        </p>
       </header>
 
       <section

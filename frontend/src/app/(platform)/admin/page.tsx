@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { OrgAdminPage } from "@/features/admin";
 
 export const metadata: Metadata = {
-  title: "Admin",
+  title: "Organisational Admin",
   description:
     "Invite people, assign Organisational Admin and Educator, and manage private courses.",
 };

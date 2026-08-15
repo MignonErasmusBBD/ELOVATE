@@ -21,7 +21,7 @@ export function OrgAdminPage() {
   return (
     <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
       <AdminPageHeader
-        title="Admin"
+        title="Organisational Admin"
         description="Invite people, assign Organisational Admin and Educator, and manage private courses."
       />
       <AdminSectionNav
