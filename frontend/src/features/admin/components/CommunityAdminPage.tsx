@@ -1,40 +1,54 @@
 "use client";
 
-import { useState, type SubmitEvent } from "react";
-import { Button } from "@/components/ui/Button";
-import { FieldError } from "@/components/ui/FieldError";
-import { FormField } from "@/components/ui/FormField";
-import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
-import { clearFieldError } from "@/helpers/formErrors";
-import { validateRequiredName } from "@/helpers/validation";
-import { adminCourses } from "../data/placeholder";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useCurrentUser } from "@/features/platform";
+import {
+  COMMUNITY_ADMIN_PAGE_ROLES,
+  userHasAnyRole,
+} from "@/helpers/currentUserProfile";
+import { createCommunityCourse } from "../communityAdminApi";
+import { useCommunityAdminDirectory } from "../useCommunityAdminDirectory";
+import { AdminCoursesSection } from "./AdminCoursesSection";
 import { AdminPageHeader } from "./AdminPageHeader";
 
-const communityCourses = adminCourses.filter(
-  (course) => course.visibility === "community",
-);
-
-type CommunityCourseFieldErrors = {
-  courseTitle?: string;
-};
-
 export function CommunityAdminPage() {
-  const [courseTitle, setCourseTitle] = useState("");
-  const [courseDescription, setCourseDescription] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<CommunityCourseFieldErrors>(
-    {},
-  );
+  const router = useRouter();
+  const {
+    profile,
+    isLoading: isProfileLoading,
+    errorMessage: profileErrorMessage,
+  } = useCurrentUser();
+  const canAccessCommunityAdminPage =
+    profile === undefined
+      ? false
+      : userHasAnyRole(profile.roles, [...COMMUNITY_ADMIN_PAGE_ROLES]);
+  const directory = useCommunityAdminDirectory(canAccessCommunityAdminPage);
 
-  function handleAddCourseSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
-    submitEvent.preventDefault();
-
-    const courseTitleError = validateRequiredName(courseTitle, "Course title");
-    setFieldErrors({ courseTitle: courseTitleError });
-
-    if (courseTitleError !== undefined) {
+  useEffect(() => {
+    if (isProfileLoading) {
       return;
     }
+    if (profile === undefined) {
+      return;
+    }
+    if (canAccessCommunityAdminPage === false) {
+      router.replace("/courses");
+    }
+  }, [canAccessCommunityAdminPage, isProfileLoading, profile, router]);
+
+  if (isProfileLoading || profile === undefined) {
+    return (
+      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+        <p className="text-sm text-text-secondary">
+          {profileErrorMessage ?? "Loading account…"}
+        </p>
+      </section>
+    );
+  }
+
+  if (canAccessCommunityAdminPage === false) {
+    return undefined;
   }
 
   return (
@@ -43,111 +57,28 @@ export function CommunityAdminPage() {
         title="Community Admin"
         description="Add and curate public courses available to every learner. Deactivating a course hides it from the shared catalogue."
       />
-
-      <form
-        className="mt-10 flex flex-col gap-4 rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]"
-        onSubmit={handleAddCourseSubmit}
-        noValidate
-      >
-        <h2 className="text-lg font-bold text-ink">Add public course</h2>
-        <FormField>
-          <Label htmlFor="community-course-title">Course title</Label>
-          <Input
-            id="community-course-title"
-            name="courseTitle"
-            type="text"
-            placeholder="Public course title"
-            value={courseTitle}
-            invalid={fieldErrors.courseTitle !== undefined}
-            onChange={(changeEvent) => {
-              setCourseTitle(changeEvent.target.value);
-              setFieldErrors((currentFieldErrors) =>
-                clearFieldError(currentFieldErrors, "courseTitle"),
-              );
-            }}
-            aria-describedby={
-              fieldErrors.courseTitle !== undefined
-                ? "community-course-title-error"
-                : undefined
-            }
-          />
-          {fieldErrors.courseTitle !== undefined ? (
-            <FieldError
-              id="community-course-title-error"
-              message={fieldErrors.courseTitle}
-            />
-          ) : undefined}
-        </FormField>
-        <FormField>
-          <Label htmlFor="community-course-description">Description</Label>
-          <Input
-            id="community-course-description"
-            name="courseDescription"
-            type="text"
-            placeholder="What will people learn?"
-            value={courseDescription}
-            onChange={(changeEvent) =>
-              setCourseDescription(changeEvent.target.value)
-            }
-          />
-        </FormField>
-        <Button variant="compact" type="submit" className="self-start">
-          Add course
-        </Button>
-      </form>
-
-      <section aria-labelledby="community-courses-heading" className="mt-10">
-        <header className="mb-5">
-          <h2
-            id="community-courses-heading"
-            className="text-xl font-bold text-ink"
-          >
-            Public courses
-          </h2>
-          <p className="mt-1 text-sm text-text-secondary">
-            These courses appear in the shared catalogue for everyone, across
-            organisations.
-          </p>
-        </header>
-
-        <ul className="flex flex-col gap-4">
-          {communityCourses.map((course) => (
-            <li key={course.id}>
-              <article className="flex flex-col gap-3 rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)] sm:flex-row sm:items-center sm:justify-between">
-                <header>
-                  <h3 className="text-base font-bold text-ink">
-                    {course.title}
-                  </h3>
-                  <p className="mt-0.5 text-sm text-text-secondary">
-                    {course.description}
-                  </p>
-                  <p className="mt-2 text-sm text-text-secondary">
-                    Published by {course.owningOrganizationName}
-                  </p>
-                </header>
-                <ul className="flex gap-4 self-start sm:self-center">
-                  <li>
-                    <button
-                      type="button"
-                      className="text-sm font-semibold text-coral"
-                    >
-                      Edit
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      className="text-sm font-semibold text-coral"
-                    >
-                      Deactivate
-                    </button>
-                  </li>
-                </ul>
-              </article>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {directory.errorMessage === undefined ? undefined : (
+        <p className="mt-6 text-sm text-coral" role="alert">
+          {directory.errorMessage}
+        </p>
+      )}
+      <AdminCoursesSection
+        heading="Public courses"
+        description="These courses appear in the shared catalogue for everyone, across organisations."
+        emptyMessage="No public courses yet. Add one above."
+        titleFieldId="community-course-title"
+        titlePlaceholder="Public course title"
+        descriptionFieldId="community-course-description"
+        searchInputId="community-courses-search"
+        visibilityLabel="Community"
+        canCreate={true}
+        createBlockedMessage={undefined}
+        courses={directory.courses}
+        isLoading={directory.isLoadingCourses}
+        onCreate={createCommunityCourse}
+        onCoursesChange={directory.updateCourses}
+        onDirectoryChanged={directory.reload}
+      />
     </section>
   );
 }

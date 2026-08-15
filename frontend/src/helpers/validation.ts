@@ -69,6 +69,9 @@ export function validateConfirmPassword(
   return undefined;
 }
 
+export const COURSE_TITLE_MAX_LENGTH = 80;
+export const COURSE_DESCRIPTION_MAX_LENGTH = 280;
+
 export function validateRequiredName(
   nameValue: string,
   fieldLabel: string,
@@ -78,6 +81,45 @@ export function validateRequiredName(
   }
 
   return undefined;
+}
+
+export function validateMaxLength(
+  value: string,
+  fieldLabel: string,
+  maxLength: number,
+): string | undefined {
+  if (value.length > maxLength) {
+    return `${fieldLabel} must be ${maxLength} characters or fewer.`;
+  }
+
+  return undefined;
+}
+
+export function validateCourseTitle(titleValue: string): string | undefined {
+  const requiredError = validateRequiredName(titleValue, "Course title");
+  if (requiredError !== undefined) {
+    return requiredError;
+  }
+
+  return validateMaxLength(
+    titleValue.trim(),
+    "Course title",
+    COURSE_TITLE_MAX_LENGTH,
+  );
+}
+
+export function validateCourseDescription(
+  descriptionValue: string,
+): string | undefined {
+  if (descriptionValue.trim() === "") {
+    return undefined;
+  }
+
+  return validateMaxLength(
+    descriptionValue.trim(),
+    "Description",
+    COURSE_DESCRIPTION_MAX_LENGTH,
+  );
 }
 
 export function validateAtLeastOneSelected(

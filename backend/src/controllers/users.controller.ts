@@ -47,23 +47,26 @@ export class UsersController {
 
   @Get()
   @ApiQuery({ name: 'organizationId', required: false, description: 'Filter by users.organization_id' })
+  @ApiQuery({ name: 'unassigned', required: false, description: 'Users with no organisation' })
   @ApiQuery({ name: 'role', required: false, description: 'Filter by role_name (join user_roles)' })
   @ApiQuery({ name: 'search', required: false, description: 'Match email or full_name' })
   @ApiQuery({ name: 'status', required: false, enum: ['active', 'deactivated'] })
   @ApiOperation({
     summary: 'List users',
     description:
-      'Select users, filter by organizationId / role / search / status. Org-scoped callers are limited to their organisation.\nPermission: user.read.org or user.read.all.',
+      'Select users, filter by organizationId / unassigned / role / search / status. Org-scoped callers are limited to their organisation. unassigned=true lists users with no organisation.\nPermission: user.read.org or user.read.all. unassigned=true also needs user.update.org or user.read.all.',
   })
   list(
     @CurrentUser() actor: AuthUser,
     @Query('organizationId') organizationId?: string,
+    @Query('unassigned') unassigned?: string,
     @Query('role') role?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
   ) {
     return this.users.list(actor, {
       organizationId: optionalText(organizationId),
+      unassigned: unassigned === 'true' ? true : undefined,
       role: optionalText(role),
       search: optionalText(search),
       status: optionalText(status),
@@ -91,6 +94,17 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
   ) {
     return this.users.update(actor, id, dto.fullName);
+  }
+
+  @Post(':id/place')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Place an unassigned user in the caller organisation',
+    description:
+      'Set users.organization_id to the caller organisation. Does not grant extra roles. Rejects users who already belong to an organisation.\nPermission: user.update.org (org_admin).',
+  })
+  place(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.users.placeInOwnOrganisation(actor, id);
   }
 
   @Post(':id/deactivate')

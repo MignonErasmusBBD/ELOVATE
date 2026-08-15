@@ -44,13 +44,17 @@ export type PlatformAdminDirectory = {
   updateOrganizations: (nextOrganizations: DirectoryOrganization[]) => void;
 };
 
-export function usePlatformAdminDirectory(): PlatformAdminDirectory {
+export function usePlatformAdminDirectory(
+  shouldLoad = true,
+): PlatformAdminDirectory {
   const [organizations, setOrganizations] = useState<DirectoryOrganization[]>(
     directoryCache.organizations,
   );
   const [people, setPeople] = useState<AdminPerson[]>(directoryCache.people);
   const [roles, setRoles] = useState<DirectoryRole[]>(directoryCache.roles);
-  const [isLoading, setIsLoading] = useState(hasLoadedDirectory === false);
+  const [isLoading, setIsLoading] = useState(
+    shouldLoad && hasLoadedDirectory === false,
+  );
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
   const reload = useCallback(async () => {
@@ -97,9 +101,12 @@ export function usePlatformAdminDirectory(): PlatformAdminDirectory {
   }, []);
 
   useEffect(() => {
+    if (shouldLoad === false) {
+      return;
+    }
     // State updates in reload() run after the network request, not during render.
     void reload(); // eslint-disable-line react-hooks/set-state-in-effect -- mount fetch
-  }, [reload]);
+  }, [reload, shouldLoad]);
 
   return {
     organizations,

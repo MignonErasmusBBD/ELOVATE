@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { SignInForm } from "@/features/login";
 
 export default function LoginRoutePage() {
-  return <SignInForm />;
+  return (
+    <Suspense>
+      <SignInForm />
+    </Suspense>
+  );
 }

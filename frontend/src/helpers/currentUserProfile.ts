@@ -78,3 +78,6 @@ export function userHasAnyRole(
 }
 
 export const EDUCATOR_PAGE_ROLES = ["educator", "community_admin"] as const;
+export const ORG_ADMIN_PAGE_ROLES = ["org_admin"] as const;
+export const COMMUNITY_ADMIN_PAGE_ROLES = ["community_admin"] as const;
+export const PLATFORM_ADMIN_PAGE_ROLES = ["platform_admin"] as const;

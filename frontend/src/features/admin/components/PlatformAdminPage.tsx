@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { authClient } from "@/lib/auth-client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCurrentUser } from "@/features/platform";
+import {
+  PLATFORM_ADMIN_PAGE_ROLES,
+  userHasAnyRole,
+} from "@/helpers/currentUserProfile";
 import type { PlatformAdminSectionId } from "../types";
 import { usePlatformAdminDirectory } from "../usePlatformAdminDirectory";
 import { AdminPageHeader } from "./AdminPageHeader";
@@ -18,10 +23,39 @@ const platformAdminSections: {
 ];
 
 export function PlatformAdminPage() {
+  const router = useRouter();
+  const { profile, isLoading: isProfileLoading } = useCurrentUser();
   const [selectedSectionId, setSelectedSectionId] =
     useState<PlatformAdminSectionId>("companies");
-  const session = authClient.useSession();
-  const directory = usePlatformAdminDirectory();
+  const canAccessPlatformAdminPage =
+    profile === undefined
+      ? false
+      : userHasAnyRole(profile.roles, [...PLATFORM_ADMIN_PAGE_ROLES]);
+  const directory = usePlatformAdminDirectory(canAccessPlatformAdminPage);
+
+  useEffect(() => {
+    if (isProfileLoading) {
+      return;
+    }
+    if (profile === undefined) {
+      return;
+    }
+    if (canAccessPlatformAdminPage === false) {
+      router.replace("/courses");
+    }
+  }, [canAccessPlatformAdminPage, isProfileLoading, profile, router]);
+
+  if (isProfileLoading || profile === undefined) {
+    return (
+      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+        <p className="text-sm text-text-secondary">Loading account…</p>
+      </section>
+    );
+  }
+
+  if (canAccessPlatformAdminPage === false) {
+    return undefined;
+  }
 
   return (
     <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
@@ -44,7 +78,7 @@ export function PlatformAdminPage() {
           organizations={directory.organizations}
           people={directory.people}
           isLoading={directory.isLoading}
-          currentUserId={session.data?.user.id}
+          currentUserId={profile.id}
           onPeopleChange={directory.updatePeople}
           onOrganizationsChange={directory.updateOrganizations}
         />
@@ -54,7 +88,7 @@ export function PlatformAdminPage() {
           organizations={directory.organizations}
           people={directory.people}
           roles={directory.roles}
-          currentUserId={session.data?.user.id}
+          currentUserId={profile.id}
           isLoading={directory.isLoading}
           onDirectoryChanged={directory.reload}
           onPeopleChange={directory.updatePeople}

@@ -1,12 +1,15 @@
-export type CourseVisibility = "private" | "community";
-
 export type CompanyStatus = "active" | "suspended";
+
+export type PersonStatus = "active" | "deactivated";
+
+export type EnrolmentStatus = "active" | "completed" | "withdrawn";
 
 export type AdminPerson = {
   id: string;
   organizationId: string | undefined;
   emailAddress: string;
   fullName: string;
+  status: PersonStatus;
   roleNames: string[];
 };
 
@@ -22,46 +25,22 @@ export type DirectoryRole = {
   description: string | undefined;
 };
 
-export type AdminCourse = {
-  id: string;
-  owningOrganizationId: string;
-  owningOrganizationName: string;
-  title: string;
-  description: string;
-  visibility: CourseVisibility;
-  authorFullName?: string;
-};
-
 export type AdminEnrolment = {
   id: string;
   userId: string;
   userFullName: string;
   courseId: string;
   courseTitle: string;
+  status: EnrolmentStatus;
 };
 
-export type OrganisationSettings = {
-  id: string;
-  name: string;
-  slug: string;
-};
+export type CourseStatus = "active" | "deactivated";
 
-export type AdminCompany = {
+export type AdminCourse = {
   id: string;
-  name: string;
-  status: CompanyStatus;
-  adminFullNames: string[];
-};
-
-export type RoleAssignmentScope = "platform" | "organisation";
-
-export type AdminRole = {
-  id: string;
-  name: string;
-  displayName: string;
-  description: string;
-  permissionCodes: string[];
-  assignmentScope: RoleAssignmentScope;
+  title: string;
+  description: string | undefined;
+  status: CourseStatus;
 };
 
 export type OrgAdminSectionId = "people" | "courses" | "enrolments";
