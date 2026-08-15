@@ -37,14 +37,19 @@ export type EducatorStudentCognitiveLevel = {
 
 export type EducatorStudentSummary = {
   id: string;
+  enrollmentId: string;
+  userId: string;
   fullName: string;
+  emailAddress: string;
+  status: "active" | "completed" | "withdrawn";
+  enrolledAtLabel: string;
   needsAttention: boolean;
-  overallPercent: number;
-  practiceQuizPercent: number;
-  practiceAttemptCount: number;
-  timeSpentLabel: string;
-  cheatAccessCount: number;
-  improvementLabel: string;
+  overallPercent?: number;
+  practiceQuizPercent?: number;
+  practiceAttemptCount?: number;
+  timeSpentLabel?: string;
+  cheatAccessCount?: number;
+  improvementLabel?: string;
   cognitiveLevels: EducatorStudentCognitiveLevel[];
   interventionLabels: string[];
 };

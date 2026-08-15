@@ -100,4 +100,17 @@ export class AnalyticsController {
       optionalText(userId),
     );
   }
+
+  @Get('educator/courses/:courseId/overview')
+  @ApiOperation({
+    summary: 'Educator course overview dashboard',
+    description:
+      'Course-scoped KPIs and chart series: enrollments, active questions, bloom coverage + performance (student_bloom_mastery), questions per section, bloom×difficulty counts, open intervention_flags by rule.\nPermission: analytics.read.org (org_admin, educator) plus course.private.read / course.community.read for the course.',
+  })
+  educatorCourseOverview(
+    @CurrentUser() actor: AuthUser,
+    @Param('courseId') courseId: string,
+  ) {
+    return this.analytics.readEducatorCourseOverview(actor, courseId);
+  }
 }

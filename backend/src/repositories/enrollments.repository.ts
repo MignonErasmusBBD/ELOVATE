@@ -27,6 +27,7 @@ export type PublicEnrollment = {
   enrolledAt: Date;
   status: string;
   userFullName: string;
+  emailAddress: string;
   courseTitle: string;
 };
 
@@ -61,7 +62,8 @@ function toPublicEnrollment(row: EnrollmentRow): PublicEnrollment {
     organizationId: textFromDatabase(row.organization_id),
     enrolledAt: row.enrolled_at,
     status: row.status,
-    userFullName: fullName ?? row.email,
+    userFullName: fullName === undefined ? row.email : fullName,
+    emailAddress: row.email,
     courseTitle: row.course_title,
   };
 }

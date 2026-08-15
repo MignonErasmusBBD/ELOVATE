@@ -10,7 +10,7 @@ const visibilityOptions: {
   label: string;
 }[] = [
   { id: "community", label: "Community" },
-  { id: "private", label: "Private" },
+  { id: "private", label: "Organisation" },
 ];
 
 function GlobeIcon() {

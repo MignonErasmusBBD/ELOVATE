@@ -13,7 +13,11 @@ import {
   EDUCATOR_PAGE_ROLES,
   userHasAnyRole,
 } from "@/helpers/currentUserProfile";
-import { getEducatorCourseDashboard } from "../data/dashboard";
+import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import {
+  getEducatorCourseOverview,
+  type EducatorCourseOverview,
+} from "@/helpers/educatorOverviewApi";
 import type { EducatorCourseVisibility, EducatorTabId } from "../types";
 import {
   AddCourseFormModal,
@@ -66,6 +70,14 @@ export function EducatorDashboardPage() {
     string | undefined
   >();
   const [coursesReloadToken, setCoursesReloadToken] = useState(0);
+  const [courseOverview, setCourseOverview] = useState<
+    EducatorCourseOverview | undefined
+  >(undefined);
+  const [isOverviewLoading, setIsOverviewLoading] = useState(false);
+  const [overviewErrorMessage, setOverviewErrorMessage] = useState<
+    string | undefined
+  >();
+  const [overviewReloadToken, setOverviewReloadToken] = useState(0);
 
   const canCreateCourse =
     courseVisibilityFilter === "community" ||
@@ -110,7 +122,7 @@ export function EducatorDashboardPage() {
       setCourseOptions([]);
       setSelectedCourseId("");
       setCoursesErrorMessage(
-        "You need an organisation membership to manage private courses.",
+        "You need an organisation membership to manage organisation courses.",
       );
       setIsCoursesLoading(false);
       return;
@@ -215,6 +227,51 @@ export function EducatorDashboardPage() {
     profile,
   ]);
 
+  useEffect(() => {
+    if (selectedCourseId === "") {
+      setCourseOverview(undefined);
+      setOverviewErrorMessage(undefined);
+      setIsOverviewLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadOverview() {
+      setIsOverviewLoading(true);
+      setOverviewErrorMessage(undefined);
+      try {
+        const overview = await getEducatorCourseOverview(selectedCourseId);
+        if (cancelled === false) {
+          setCourseOverview(overview);
+        }
+      } catch (error) {
+        if (cancelled === false) {
+          setCourseOverview(undefined);
+          setOverviewErrorMessage(
+            errorMessageFromUnknown(error, "Could not load course overview."),
+          );
+        }
+      } finally {
+        if (cancelled === false) {
+          setIsOverviewLoading(false);
+        }
+      }
+    }
+
+    void loadOverview();
+    return () => {
+      cancelled = true;
+    };
+  }, [overviewReloadToken, selectedCourseId]);
+
+  function handleSelectTab(tabId: EducatorTabId) {
+    setSelectedTabId(tabId);
+    if (tabId === "overview" && selectedCourseId !== "") {
+      setOverviewReloadToken((currentToken) => currentToken + 1);
+    }
+  }
+
   async function handleCreateCourse(formValues: AddCourseFormValues) {
     const createVisibility = canToggleCourseVisibility
       ? formValues.visibility
@@ -227,7 +284,7 @@ export function EducatorDashboardPage() {
       (profile === undefined || profile.organizationId === undefined)
     ) {
       throw new Error(
-        "You need an organisation membership to manage private courses.",
+        "You need an organisation membership to manage organisation courses.",
       );
     }
 
@@ -235,7 +292,7 @@ export function EducatorDashboardPage() {
       createVisibility === "private" &&
       hasEducatorRole === false
     ) {
-      throw new Error("Only educators can create private courses.");
+      throw new Error("Only educators can create organisation courses.");
     }
 
     if (
@@ -258,16 +315,9 @@ export function EducatorDashboardPage() {
     pendingSelectedCourseIdRef.current = createdCourse.id;
     setCourseVisibilityFilter(createVisibility);
     setCoursesReloadToken((currentToken) => currentToken + 1);
+    setOverviewReloadToken((currentToken) => currentToken + 1);
     setIsAddCourseModalOpen(false);
   }
-
-  const dashboard = useMemo(
-    () =>
-      selectedCourseId === ""
-        ? undefined
-        : getEducatorCourseDashboard(selectedCourseId),
-    [selectedCourseId],
-  );
 
   const selectedCourseTitle = useMemo(() => {
     const selectedCourse = courseOptions.find(
@@ -312,7 +362,7 @@ export function EducatorDashboardPage() {
           title={
             canCreateCourse
               ? undefined
-              : "You need an organisation membership to manage private courses."
+              : "You need an organisation membership to manage organisation courses."
           }
           onClick={() => setIsAddCourseModalOpen(true)}
         >
@@ -367,13 +417,15 @@ export function EducatorDashboardPage() {
       <section className="mt-6">
         <EducatorMetricsRow
           totalStudents={
-            dashboard === undefined ? 0 : dashboard.totalStudents
+            courseOverview === undefined ? 0 : courseOverview.totalStudents
           }
           averagePracticeQuizPercent={
-            dashboard === undefined ? 0 : dashboard.averagePracticeQuizPercent
+            courseOverview === undefined
+              ? 0
+              : courseOverview.averagePracticeQuizPercent
           }
           totalQuestions={
-            dashboard === undefined ? 0 : dashboard.questions.length
+            courseOverview === undefined ? 0 : courseOverview.totalQuestions
           }
         />
       </section>
@@ -381,7 +433,7 @@ export function EducatorDashboardPage() {
       <article className="mt-8 rounded-2xl border border-border-ui bg-surface p-4 shadow-[0_8px_24px_rgba(30,27,51,0.06)] md:p-6">
         <EducatorTabNav
           selectedTabId={selectedTabId}
-          onSelectTab={setSelectedTabId}
+          onSelectTab={handleSelectTab}
         />
 
         {selectedCourseId === "" ? (
@@ -390,13 +442,36 @@ export function EducatorDashboardPage() {
           </p>
         ) : undefined}
 
-        {dashboard !== undefined && selectedTabId === "overview" ? (
-          <OverviewTab dashboard={dashboard} />
+        {selectedCourseId !== "" &&
+        selectedTabId === "overview" &&
+        isOverviewLoading ? (
+          <p className="mt-6 text-sm text-text-secondary">Loading overview…</p>
         ) : undefined}
-        {dashboard !== undefined && selectedTabId === "students" ? (
+
+        {selectedCourseId !== "" &&
+        selectedTabId === "overview" &&
+        overviewErrorMessage !== undefined ? (
+          <p className="mt-6 text-sm text-coral" role="alert">
+            {overviewErrorMessage}
+          </p>
+        ) : undefined}
+
+        {selectedCourseId !== "" &&
+        selectedTabId === "overview" &&
+        isOverviewLoading === false &&
+        overviewErrorMessage === undefined &&
+        courseOverview !== undefined ? (
+          <OverviewTab overview={courseOverview} />
+        ) : undefined}
+        {selectedCourseId !== "" && selectedTabId === "students" ? (
           <StudentsTab
-            key={dashboard.courseId}
-            students={dashboard.students}
+            key={selectedCourseId}
+            courseId={selectedCourseId}
+            courseTitle={
+              selectedCourseTitle === undefined
+                ? "this course"
+                : selectedCourseTitle
+            }
           />
         ) : undefined}
         {selectedCourseId !== "" && selectedTabId === "questions" ? (
