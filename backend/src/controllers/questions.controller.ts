@@ -1,7 +1,36 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { IsArray, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { AuthGuard } from '../guards/auth.guard';
+import { AuthUser, CurrentUser } from '../helpers/auth-user';
+import { optionalText, parseOptionalInteger } from '../helpers/values';
+import { QuestionsService } from '../services/questions.service';
+
+class QuestionOptionDto {
+  @ApiProperty()
+  @IsString()
+  optionText: string;
+
+  @ApiProperty()
+  @IsBoolean()
+  isCorrect: boolean;
+
+  @ApiProperty()
+  @IsInt()
+  @Min(0)
+  position: number;
+}
 
 class CreateQuestionDto {
   @ApiProperty()
@@ -31,7 +60,56 @@ class CreateQuestionDto {
   @ApiProperty({ required: false, type: [String] })
   @IsOptional()
   @IsArray()
+  @IsUUID(4, { each: true })
   topicIds?: string[];
+
+  @ApiProperty({ required: false, type: [QuestionOptionDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuestionOptionDto)
+  options?: QuestionOptionDto[];
+}
+
+class UpdateQuestionDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  prompt?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  questionFormatId?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  bloomLevelId?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  difficultyLevelId?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  baseDifficulty?: number;
+
+  @ApiProperty({ required: false, type: [QuestionOptionDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuestionOptionDto)
+  options?: QuestionOptionDto[];
+}
+
+class TagTopicsDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsUUID(4, { each: true })
+  topicIds: string[];
 }
 
 @ApiTags('Questions')
@@ -39,6 +117,8 @@ class CreateQuestionDto {
 @UseGuards(AuthGuard)
 @Controller('questions')
 export class QuestionsController {
+  constructor(private readonly questions: QuestionsService) {}
+
   @Get()
   @ApiQuery({ name: 'sectionId', required: false })
   @ApiQuery({ name: 'courseId', required: false })
@@ -50,9 +130,10 @@ export class QuestionsController {
   @ApiOperation({
     summary: 'List questions (authors)',
     description:
-      'TODO: questions + options + topics. Filter by section/course/topic/bloom/difficulty/format/status. Hide from learners.\nPermission: question.create (community_admin, org_admin, educator).',
+      'Select questions + question_options + question_topics. Filter by section/course/topic/bloom/difficulty/format/status. Hidden from learners.\nPermission: question.create (community_admin, org_admin, educator).',
   })
   list(
+    @CurrentUser() actor: AuthUser,
     @Query('sectionId') sectionId?: string,
     @Query('courseId') courseId?: string,
     @Query('topicId') topicId?: string,
@@ -61,72 +142,100 @@ export class QuestionsController {
     @Query('questionFormatId') questionFormatId?: string,
     @Query('status') status?: string,
   ) {
-    return {
-      sectionId,
-      courseId,
-      topicId,
-      bloomLevelId,
-      difficultyLevelId,
-      questionFormatId,
-      status,
-      items: [],
-      message: 'TODO',
-    };
+    return this.questions.list(actor, {
+      sectionId: optionalText(sectionId),
+      courseId: optionalText(courseId),
+      topicId: optionalText(topicId),
+      bloomLevelId: parseOptionalInteger(bloomLevelId),
+      difficultyLevelId: parseOptionalInteger(difficultyLevelId),
+      questionFormatId: parseOptionalInteger(questionFormatId),
+      status: optionalText(status),
+    });
   }
 
   @Get(':id')
   @ApiOperation({
     summary: 'Get one question (authors)',
-    description: 'TODO: questions + question_options + question_topics.\nPermission: question.update (community_admin, org_admin, educator).',
+    description:
+      'Select questions + question_options + question_topics.\nPermission: question.update or question.create (community_admin, org_admin, educator).',
   })
-  getOne(@Param('id') id: string) {
-    return { id, message: 'TODO' };
+  getOne(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.questions.getOne(actor, id);
   }
 
   @Post()
   @ApiOperation({
     summary: 'Create question',
-    description: 'TODO: insert questions, question_options, question_topics.\nPermission: question.create (community_admin, org_admin, educator).',
+    description:
+      'Insert questions, question_options, question_topics.\nPermission: question.create (community_admin, org_admin, educator).',
   })
-  create(@Body() _dto: CreateQuestionDto) {
-    return { message: 'TODO' };
+  create(@CurrentUser() actor: AuthUser, @Body() dto: CreateQuestionDto) {
+    return this.questions.create(actor, {
+      courseSectionId: dto.courseSectionId,
+      questionFormatId: dto.questionFormatId,
+      prompt: dto.prompt,
+      bloomLevelId: dto.bloomLevelId,
+      difficultyLevelId: dto.difficultyLevelId,
+      baseDifficulty: dto.baseDifficulty,
+      topicIds: dto.topicIds,
+      options: dto.options,
+    });
   }
 
   @Patch(':id')
   @ApiOperation({
     summary: 'Update question',
-    description: 'TODO: update questions / options.\nPermission: question.update (community_admin, org_admin, educator).',
+    description:
+      'Update questions / options. Options cannot be replaced after quiz_attempt_items exist.\nPermission: question.update (community_admin, org_admin, educator).',
   })
-  update(@Param('id') id: string, @Body() _dto: CreateQuestionDto) {
-    return { id, message: 'TODO' };
+  update(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateQuestionDto,
+  ) {
+    return this.questions.update(actor, id, {
+      prompt: dto.prompt,
+      questionFormatId: dto.questionFormatId,
+      bloomLevelId: dto.bloomLevelId,
+      difficultyLevelId: dto.difficultyLevelId,
+      baseDifficulty: dto.baseDifficulty,
+      options: dto.options,
+    });
   }
 
   @Patch(':id/topics')
   @ApiOperation({
     summary: 'Replace topic tags',
-    description: 'TODO: rewrite question_topics.\nPermission: question.metadata.tag (community_admin, org_admin, educator).',
+    description:
+      'Rewrite question_topics. Topics must belong to the same course.\nPermission: question.metadata.tag (community_admin, org_admin, educator).',
   })
-  tag(@Param('id') id: string, @Body() _dto: { topicIds: string[] }) {
-    return { id, message: 'TODO' };
+  tag(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: TagTopicsDto,
+  ) {
+    return this.questions.replaceTopics(actor, id, dto.topicIds);
   }
 
   @Post(':id/deactivate')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Deactivate a question (keeps quiz history)',
     description:
-      'TODO: questions has no status column yet — needs a migration. Never hard-delete; quiz_attempt_items keep the prompt.\nPermission: question.delete (deactivate, not HTTP DELETE).',
+      'Set question_status_id to deactivated. Never hard-delete; quiz_attempt_items keep the prompt.\nPermission: question.delete (deactivate, not HTTP DELETE).',
   })
-  deactivate(@Param('id') id: string) {
-    return { id, status: 'deactivated', message: 'TODO: missing questions.status' };
+  deactivate(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.questions.setStatus(actor, id, 'deactivated');
   }
 
   @Post(':id/activate')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Activate a deactivated question',
     description:
-      'TODO: set status back to active (same missing column).\nPermission: question.update (community_admin, org_admin, educator).',
+      'Set question_status_id back to active.\nPermission: question.update (community_admin, org_admin, educator).',
   })
-  activate(@Param('id') id: string) {
-    return { id, status: 'active', message: 'TODO: missing questions.status' };
+  activate(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.questions.setStatus(actor, id, 'active');
   }
 }
