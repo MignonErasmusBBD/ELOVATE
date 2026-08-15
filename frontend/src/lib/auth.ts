@@ -69,25 +69,51 @@ const googleSocialProvider =
       }
     : undefined;
 
+function betterAuthBaseUrl(): string {
+  const railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN;
+  if (railwayPublicDomain !== undefined && railwayPublicDomain !== "") {
+    return `https://${railwayPublicDomain}`;
+  }
+  const configured = process.env.BETTER_AUTH_URL;
+  if (configured !== undefined && configured !== "") {
+    return configured;
+  }
+  return "http://localhost:3000";
+}
+
 function betterAuthTrustedOrigins(): string[] {
   const origins = ["http://localhost:3000"];
-  const betterAuthUrl = process.env.BETTER_AUTH_URL;
-  if (
-    betterAuthUrl !== undefined &&
-    betterAuthUrl !== "" &&
-    origins.includes(betterAuthUrl) === false
-  ) {
-    origins.push(betterAuthUrl);
+  const extraOrigins = [
+    betterAuthBaseUrl(),
+    process.env.BETTER_AUTH_URL,
+    process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
+  ];
+  for (const extraOrigin of extraOrigins) {
+    if (
+      extraOrigin !== undefined &&
+      extraOrigin !== "" &&
+      extraOrigin.startsWith("http") &&
+      origins.includes(extraOrigin) === false
+    ) {
+      origins.push(extraOrigin);
+    }
   }
   return origins;
 }
 
+const authBaseUrl = betterAuthBaseUrl();
+
 export const auth = betterAuth({
   database: pool,
 
-  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  baseURL: authBaseUrl,
   secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins: betterAuthTrustedOrigins(),
+  rateLimit: {
+    customRules: {
+      "/get-session": false,
+    },
+  },
 
   advanced: {
     database: {
@@ -147,6 +173,11 @@ export const auth = betterAuth({
 
   plugins: [
     jwt({
+      disableSettingJwtHeader: true,
+      jwt: {
+        issuer: authBaseUrl,
+        audience: authBaseUrl,
+      },
       schema: {
         jwks: {
           fields: {

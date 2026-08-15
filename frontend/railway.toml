@@ -2,6 +2,6 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "pnpm exec next start --hostname 0.0.0.0 --port $PORT"
+startCommand = "pnpm exec next start --hostname :: --port $PORT"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
