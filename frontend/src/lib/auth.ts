@@ -188,6 +188,11 @@ export const auth = betterAuth({
       jwt: {
         issuer: authBaseUrl,
         audience: authBaseUrl,
+        getSubject: ({ user }) => user.id,
+        definePayload: ({ user }) => ({
+          id: user.id,
+          email: user.email,
+        }),
       },
       jwks: {
         disablePrivateKeyEncryption: true,
