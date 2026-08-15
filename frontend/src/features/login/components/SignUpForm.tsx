@@ -21,6 +21,7 @@ import {
   validatePassword,
   validateRequiredName,
 } from "@/helpers/validation";
+import { authClient } from "@/lib/auth-client";
 
 type SignUpFieldErrors = {
   firstName?: string;
@@ -28,6 +29,7 @@ type SignUpFieldErrors = {
   email?: string;
   password?: string;
   confirmPassword?: string;
+  form?: string;
 };
 
 const SIGN_UP_FIELD_ORDER = [
@@ -61,6 +63,7 @@ export function SignUpForm() {
     useState(false);
   const [fieldErrors, setFieldErrors] = useState<SignUpFieldErrors>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function buildFieldErrors(): SignUpFieldErrors {
     return {
@@ -75,7 +78,7 @@ export function SignUpForm() {
     };
   }
 
-  function handleSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
     setHasAttemptedSubmit(true);
 
@@ -92,7 +95,21 @@ export function SignUpForm() {
       return;
     }
 
-    router.push("/courses");
+    setIsSubmitting(true);
+    const result = await authClient.signUp.email({
+      name: `${firstName} ${lastName}`,
+      email: emailAddress,
+      password: passwordValue,
+      callbackURL: "/dashboard",
+    });
+    setIsSubmitting(false);
+
+    if (result.error) {
+      setFieldErrors({ form: result.error.message ?? "Sign up failed. Please try again." });
+      return;
+    }
+
+    router.push("/dashboard");
   }
 
   return (
@@ -353,8 +370,12 @@ export function SignUpForm() {
           ) : undefined}
         </FormField>
 
-        <Button type="submit" className="mt-1">
-          Sign Up
+        {fieldErrors.form !== undefined ? (
+          <p role="alert" className="text-sm text-red-600">{fieldErrors.form}</p>
+        ) : undefined}
+
+        <Button type="submit" className="mt-1" disabled={isSubmitting}>
+          {isSubmitting ? "Creating account…" : "Sign Up"}
         </Button>
       </form>
 
