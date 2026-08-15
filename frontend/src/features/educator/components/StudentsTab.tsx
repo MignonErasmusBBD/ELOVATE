@@ -1,18 +1,113 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { StatusPill } from "@/components/ui/StatusPill";
+import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import {
+  formatEnrollmentDate,
+  listCourseEnrollments,
+  type ElovateEnrollment,
+  type EnrollmentStatus,
+} from "@/helpers/enrollmentsApi";
 import type { EducatorStudentSummary } from "../types";
 import { StudentDetailsModal } from "./StudentDetailsModal";
 
 type StudentsTabProps = {
-  students: EducatorStudentSummary[];
+  courseId: string;
+  courseTitle: string;
 };
 
-export function StudentsTab({ students }: StudentsTabProps) {
+function statusPillTone(status: EnrollmentStatus) {
+  if (status === "active") {
+    return "success" as const;
+  }
+  if (status === "completed") {
+    return "muted" as const;
+  }
+  return "warning" as const;
+}
+
+function statusLabel(status: EnrollmentStatus) {
+  if (status === "active") {
+    return "Active";
+  }
+  if (status === "completed") {
+    return "Completed";
+  }
+  return "Withdrawn";
+}
+
+function toStudentSummary(enrollment: ElovateEnrollment): EducatorStudentSummary {
+  return {
+    id: enrollment.userId,
+    enrollmentId: enrollment.id,
+    userId: enrollment.userId,
+    fullName: enrollment.userFullName,
+    emailAddress: enrollment.emailAddress,
+    status: enrollment.status,
+    enrolledAtLabel: formatEnrollmentDate(enrollment.enrolledAt),
+    needsAttention: false,
+    cognitiveLevels: [],
+    interventionLabels: [],
+  };
+}
+
+export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
+  const [students, setStudents] = useState<EducatorStudentSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadErrorMessage, setLoadErrorMessage] = useState<string | undefined>();
   const [selectedStudentId, setSelectedStudentId] = useState<
     string | undefined
   >(undefined);
-  const [resolvedStudentIds, setResolvedStudentIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStudents() {
+      setIsLoading(true);
+      setLoadErrorMessage(undefined);
+      try {
+        const [activeEnrollments, completedEnrollments] = await Promise.all([
+          listCourseEnrollments({ courseId, status: "active" }),
+          listCourseEnrollments({ courseId, status: "completed" }),
+        ]);
+        if (cancelled) {
+          return;
+        }
+
+        const nextStudents = [
+          ...activeEnrollments,
+          ...completedEnrollments,
+        ].map(toStudentSummary);
+        setStudents(nextStudents);
+        setSelectedStudentId((currentId) => {
+          if (
+            currentId !== undefined &&
+            nextStudents.some((student) => student.id === currentId)
+          ) {
+            return currentId;
+          }
+          return undefined;
+        });
+      } catch (error) {
+        if (cancelled === false) {
+          setStudents([]);
+          setLoadErrorMessage(
+            errorMessageFromUnknown(error, "Could not load enrolled students."),
+          );
+        }
+      } finally {
+        if (cancelled === false) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadStudents();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
 
   const selectedStudent = students.find(
     (student) => student.id === selectedStudentId,
@@ -20,39 +115,53 @@ export function StudentsTab({ students }: StudentsTabProps) {
 
   return (
     <section aria-labelledby="students-heading" className="mt-6">
-      <h2
-        id="students-heading"
-        className="text-xl font-bold tracking-tight text-ink"
-      >
-        Student Progress Overview
-      </h2>
+      <header>
+        <h2
+          id="students-heading"
+          className="text-xl font-bold tracking-tight text-ink"
+        >
+          Students for {courseTitle}
+        </h2>
+        <p className="mt-1 text-sm text-text-secondary">
+          Enrolled learners on this course. Detailed quiz analytics will appear
+          here as progress data becomes available.
+        </p>
+      </header>
 
-      <ul className="mt-4 flex list-none flex-col gap-4 p-0">
-        {students.map((student) => {
-          const interventionsResolved = resolvedStudentIds.includes(
-            student.id,
-          );
-          const showAttention =
-            student.needsAttention && interventionsResolved === false;
+      {isLoading ? (
+        <p className="mt-4 text-sm text-text-secondary">Loading students…</p>
+      ) : undefined}
 
-          return (
-            <li key={student.id}>
+      {loadErrorMessage === undefined ? undefined : (
+        <p className="mt-4 text-sm text-coral" role="alert">
+          {loadErrorMessage}
+        </p>
+      )}
+
+      {isLoading === false &&
+      loadErrorMessage === undefined &&
+      students.length === 0 ? (
+        <p className="mt-4 text-sm text-text-secondary" role="status">
+          No students enrolled in this course yet.
+        </p>
+      ) : undefined}
+
+      {students.length === 0 ? undefined : (
+        <ul className="mt-4 flex list-none flex-col gap-4 p-0">
+          {students.map((student) => (
+            <li key={student.enrollmentId}>
               <article className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
                 <header className="flex flex-wrap items-start justify-between gap-3">
                   <section>
-                    <h3 className="flex items-center gap-2 text-lg font-bold text-ink">
+                    <h3 className="flex flex-wrap items-center gap-2 text-lg font-bold text-ink">
                       {student.fullName}
-                      {showAttention ? (
-                        <span
-                          aria-label="Needs attention"
-                          className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-white"
-                        >
-                          !
-                        </span>
-                      ) : undefined}
+                      <StatusPill
+                        label={statusLabel(student.status)}
+                        tone={statusPillTone(student.status)}
+                      />
                     </h3>
                     <p className="mt-1 text-sm text-text-secondary">
-                      Overall: {student.overallPercent}%
+                      {student.emailAddress}
                     </p>
                   </section>
                   <button
@@ -67,58 +176,53 @@ export function StudentsTab({ students }: StudentsTabProps) {
                 <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div>
                     <dt className="text-xs font-medium text-text-secondary">
-                      Practice Quiz
+                      Enrollment status
                     </dt>
                     <dd className="mt-1 text-sm font-semibold text-ink">
-                      {student.practiceQuizPercent}%
+                      {statusLabel(student.status)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-text-secondary">
+                      Enrolled
+                    </dt>
+                    <dd className="mt-1 text-sm font-semibold text-ink">
+                      {student.enrolledAtLabel}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-text-secondary">
+                      Practice Quiz
+                    </dt>
+                    <dd className="mt-1 text-sm font-semibold text-text-secondary">
+                      {student.practiceQuizPercent === undefined
+                        ? "—"
+                        : `${student.practiceQuizPercent}%`}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-xs font-medium text-text-secondary">
                       Practice Attempts
                     </dt>
-                    <dd className="mt-1 text-sm font-semibold text-coral">
-                      {student.practiceAttemptCount}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-medium text-text-secondary">
-                      Time Spent
-                    </dt>
-                    <dd className="mt-1 text-sm font-semibold text-ink">
-                      {student.timeSpentLabel}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-medium text-text-secondary">
-                      Cheat Access
-                    </dt>
-                    <dd className="mt-1 text-sm font-semibold text-violet-700">
-                      {student.cheatAccessCount}x
+                    <dd className="mt-1 text-sm font-semibold text-text-secondary">
+                      {student.practiceAttemptCount === undefined
+                        ? "—"
+                        : student.practiceAttemptCount}
                     </dd>
                   </div>
                 </dl>
               </article>
             </li>
-          );
-        })}
-      </ul>
+          ))}
+        </ul>
+      )}
 
-      {selectedStudent !== undefined ? (
+      {selectedStudent === undefined ? undefined : (
         <StudentDetailsModal
           student={selectedStudent}
           onClose={() => setSelectedStudentId(undefined)}
-          onMarkInterventionsResolved={() => {
-            setResolvedStudentIds((previousIds) => {
-              if (previousIds.includes(selectedStudent.id)) {
-                return previousIds;
-              }
-              return [...previousIds, selectedStudent.id];
-            });
-            setSelectedStudentId(undefined);
-          }}
         />
-      ) : undefined}
+      )}
     </section>
   );
 }

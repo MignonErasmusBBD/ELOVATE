@@ -40,6 +40,10 @@ export class EnrollmentsService {
       status: string | undefined;
     },
   ) {
+    if (filters.courseId !== undefined) {
+      return this.listForCourse(actor, filters.courseId, filters.status);
+    }
+
     requirePermission(actor, ['enrollment.assign']);
     if (actor.organizationId === undefined) {
       throw new ForbiddenException(
@@ -56,9 +60,69 @@ export class EnrollmentsService {
     }
     const items = await this.enrollments.list({
       organizationId: actor.organizationId,
-      courseId: filters.courseId,
+      courseId: undefined,
       userId: filters.userId,
       status: filters.status,
+    });
+    return { items };
+  }
+
+  private async listForCourse(
+    actor: AuthUser,
+    courseId: string,
+    status: string | undefined,
+  ) {
+    const canAssign = hasPermission(actor, ['enrollment.assign']);
+    const canAuthorPrivate = hasPermission(actor, ['course.private.read']);
+    const canAuthorCommunity = hasPermission(actor, [
+      'course.community.update',
+    ]);
+    if (
+      canAssign === false &&
+      canAuthorPrivate === false &&
+      canAuthorCommunity === false
+    ) {
+      throw new ForbiddenException(
+        'Missing permission: enrollment.assign or course.private.read or course.community.update',
+      );
+    }
+
+    const course = await this.courses.findById(courseId);
+    if (course === undefined) {
+      throw new NotFoundException('Course not found');
+    }
+
+    if (course.visibility === 'private') {
+      if (canAssign === false && canAuthorPrivate === false) {
+        throw new ForbiddenException(
+          'Missing permission to view private course enrollments',
+        );
+      }
+      if (
+        course.organizationId !== undefined &&
+        actor.organizationId !== undefined &&
+        course.organizationId !== actor.organizationId
+      ) {
+        throw new ForbiddenException(
+          'Can only view enrollments for private courses in your organisation',
+        );
+      }
+      if (actor.organizationId === undefined && canAssign === false) {
+        throw new ForbiddenException(
+          'You need an organisation to view private course enrollments',
+        );
+      }
+    } else if (canAssign === false && canAuthorCommunity === false) {
+      throw new ForbiddenException(
+        'Missing permission to view community course enrollments',
+      );
+    }
+
+    const items = await this.enrollments.list({
+      organizationId: undefined,
+      courseId,
+      userId: undefined,
+      status,
     });
     return { items };
   }

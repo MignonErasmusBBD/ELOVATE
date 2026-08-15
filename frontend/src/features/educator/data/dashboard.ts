@@ -44,7 +44,12 @@ function buildDashboardForCourse(
     students: [
       {
         id: "student-a",
+        enrollmentId: "enrollment-a",
+        userId: "user-a",
         fullName: "Student A",
+        emailAddress: "student.a@example.com",
+        status: "active",
+        enrolledAtLabel: "1 Jan 2026",
         needsAttention: true,
         overallPercent: 85,
         practiceQuizPercent: 55,
@@ -67,7 +72,12 @@ function buildDashboardForCourse(
       },
       {
         id: "student-b",
+        enrollmentId: "enrollment-b",
+        userId: "user-b",
         fullName: "Student B",
+        emailAddress: "student.b@example.com",
+        status: "active",
+        enrolledAtLabel: "3 Jan 2026",
         needsAttention: false,
         overallPercent: 78,
         practiceQuizPercent: 45,
@@ -90,7 +100,12 @@ function buildDashboardForCourse(
       },
       {
         id: "student-c",
+        enrollmentId: "enrollment-c",
+        userId: "user-c",
         fullName: "Student C",
+        emailAddress: "student.c@example.com",
+        status: "active",
+        enrolledAtLabel: "5 Jan 2026",
         needsAttention: true,
         overallPercent: 62,
         practiceQuizPercent: 40,

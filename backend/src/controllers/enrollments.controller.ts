@@ -48,7 +48,7 @@ export class EnrollmentsController {
   @ApiOperation({
     summary: 'List enrollments',
     description:
-      'Select enrollments joined to users/courses. Filter by org, course, user, status. Org-scoped callers are limited to their organisation.\nPermission: enrollment.assign (org_admin).',
+      'Select enrollments joined to users/courses. With courseId: educators/org admins list students on that course (course.private.read / course.community.update / enrollment.assign). Without courseId: org-scoped list.\nPermission: enrollment.assign (org-wide) OR course authoring read when courseId is set.',
   })
   list(
     @CurrentUser() actor: AuthUser,

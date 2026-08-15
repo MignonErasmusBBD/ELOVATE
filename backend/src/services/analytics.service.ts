@@ -1,11 +1,19 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuthUser } from '../helpers/auth-user';
-import { requirePermission } from '../helpers/require-permission';
+import { hasPermission, requirePermission } from '../helpers/require-permission';
 import { AnalyticsRepository } from '../repositories/analytics.repository';
+import { CoursesRepository } from '../repositories/courses.repository';
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private readonly analytics: AnalyticsRepository) {}
+  constructor(
+    private readonly analytics: AnalyticsRepository,
+    private readonly courses: CoursesRepository,
+  ) {}
 
   async readOwnOverview(actor: AuthUser) {
     requirePermission(actor, ['analytics.read.self']);
@@ -55,6 +63,62 @@ export class AnalyticsService {
       courseId,
       userId,
     );
+  }
+
+  async readEducatorCourseOverview(actor: AuthUser, courseId: string) {
+    requirePermission(actor, ['analytics.read.org']);
+    const course = await this.courses.findById(courseId);
+    if (course === undefined) {
+      throw new NotFoundException('Course not found');
+    }
+    this.requireCourseOverviewAccess(actor, course);
+    const overview = await this.analytics.educatorCourseOverview(courseId);
+    return {
+      ...overview,
+      courseTitle: course.title,
+    };
+  }
+
+  private requireCourseOverviewAccess(
+    actor: AuthUser,
+    course: {
+      visibility: string;
+      organizationId: string | undefined;
+    },
+  ) {
+    if (course.visibility === 'community') {
+      if (
+        hasPermission(actor, [
+          'course.community.update',
+          'course.community.read',
+        ]) === false
+      ) {
+        throw new ForbiddenException(
+          'Missing permission to view community course analytics',
+        );
+      }
+      return;
+    }
+
+    if (hasPermission(actor, ['course.private.read']) === false) {
+      throw new ForbiddenException(
+        'Missing permission to view private course analytics',
+      );
+    }
+    if (
+      course.organizationId !== undefined &&
+      actor.organizationId !== undefined &&
+      course.organizationId !== actor.organizationId
+    ) {
+      throw new ForbiddenException(
+        'Can only view analytics for private courses in your organisation',
+      );
+    }
+    if (actor.organizationId === undefined) {
+      throw new ForbiddenException(
+        'You need an organisation to view private course analytics',
+      );
+    }
   }
 
   private requireOwnOrganization(

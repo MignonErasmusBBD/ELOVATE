@@ -10,9 +10,9 @@ export function LessonUnitBody({ unit }: LessonUnitBodyProps) {
 
   return (
     <>
-      {unit.paragraphs.map((paragraph) => (
+      {unit.paragraphs.map((paragraph, paragraphIndex) => (
         <p
-          key={paragraph}
+          key={`paragraph-${paragraphIndex}`}
           className="mt-4 text-sm leading-relaxed text-text-secondary md:text-base"
         >
           {paragraph}
@@ -25,8 +25,8 @@ export function LessonUnitBody({ unit }: LessonUnitBodyProps) {
       ) : undefined}
       {exercises !== undefined ? (
         <ol className="mt-6 list-decimal space-y-3 pl-5 text-sm leading-relaxed text-text-secondary md:text-base">
-          {exercises.map((exercise) => (
-            <li key={exercise}>{exercise}</li>
+          {exercises.map((exercise, exerciseIndex) => (
+            <li key={`exercise-${exerciseIndex}`}>{exercise}</li>
           ))}
         </ol>
       ) : undefined}

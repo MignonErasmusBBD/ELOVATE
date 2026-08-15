@@ -1,19 +1,38 @@
 "use client";
 
 import { useEffect } from "react";
+import { StatusPill } from "@/components/ui/StatusPill";
 import type { EducatorStudentSummary } from "../types";
 import { StudentCognitiveLevelChart } from "./StudentCognitiveLevelChart";
 
 type StudentDetailsModalProps = {
   student: EducatorStudentSummary;
   onClose: () => void;
-  onMarkInterventionsResolved: () => void;
 };
+
+function statusPillTone(status: EducatorStudentSummary["status"]) {
+  if (status === "active") {
+    return "success" as const;
+  }
+  if (status === "completed") {
+    return "muted" as const;
+  }
+  return "warning" as const;
+}
+
+function statusLabel(status: EducatorStudentSummary["status"]) {
+  if (status === "active") {
+    return "Active";
+  }
+  if (status === "completed") {
+    return "Completed";
+  }
+  return "Withdrawn";
+}
 
 export function StudentDetailsModal({
   student,
   onClose,
-  onMarkInterventionsResolved,
 }: StudentDetailsModalProps) {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -25,6 +44,9 @@ export function StudentDetailsModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
+
+  const hasCognitiveLevels = student.cognitiveLevels.length > 0;
+  const hasInterventions = student.interventionLabels.length > 0;
 
   return (
     <div
@@ -40,12 +62,17 @@ export function StudentDetailsModal({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4">
-          <h2
-            id="student-details-title"
-            className="text-2xl font-bold tracking-tight text-ink"
-          >
-            {student.fullName} — Detailed Overview
-          </h2>
+          <section>
+            <h2
+              id="student-details-title"
+              className="text-2xl font-bold tracking-tight text-ink"
+            >
+              {student.fullName}
+            </h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              {student.emailAddress}
+            </p>
+          </section>
           <button
             type="button"
             onClick={onClose}
@@ -59,27 +86,32 @@ export function StudentDetailsModal({
         <ul className="mt-6 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-3">
           <li>
             <article className="rounded-xl border border-border-ui border-l-4 border-l-emerald-600 bg-surface px-4 py-3">
-              <h3 className="text-xs font-semibold text-emerald-700">
-                Practice Quiz
-              </h3>
-              <p className="mt-1 text-xl font-bold text-ink">
-                {student.practiceQuizPercent}%
+              <h3 className="text-xs font-semibold text-emerald-700">Status</h3>
+              <p className="mt-2">
+                <StatusPill
+                  label={statusLabel(student.status)}
+                  tone={statusPillTone(student.status)}
+                />
               </p>
             </article>
           </li>
           <li>
             <article className="rounded-xl border border-border-ui border-l-4 border-l-coral bg-surface px-4 py-3">
-              <h3 className="text-xs font-semibold text-coral">Improvement</h3>
+              <h3 className="text-xs font-semibold text-coral">Enrolled</h3>
               <p className="mt-1 text-xl font-bold text-ink">
-                {student.improvementLabel}
+                {student.enrolledAtLabel}
               </p>
             </article>
           </li>
           <li>
             <article className="rounded-xl border border-border-ui border-l-4 border-l-sky-600 bg-surface px-4 py-3">
-              <h3 className="text-xs font-semibold text-sky-700">Time Spent</h3>
+              <h3 className="text-xs font-semibold text-sky-700">
+                Practice Quiz
+              </h3>
               <p className="mt-1 text-xl font-bold text-ink">
-                {student.timeSpentLabel}
+                {student.practiceQuizPercent === undefined
+                  ? "—"
+                  : `${student.practiceQuizPercent}%`}
               </p>
             </article>
           </li>
@@ -89,37 +121,31 @@ export function StudentDetailsModal({
           <h3 className="text-base font-bold text-ink">
             Performance by Cognitive Level
           </h3>
-          <StudentCognitiveLevelChart
-            cognitiveLevels={student.cognitiveLevels}
-          />
+          {hasCognitiveLevels ? (
+            <StudentCognitiveLevelChart
+              cognitiveLevels={student.cognitiveLevels}
+            />
+          ) : (
+            <p className="mt-3 text-sm text-text-secondary">
+              Cognitive-level performance is not available yet for this student.
+            </p>
+          )}
         </section>
 
         <section className="mt-6 rounded-xl border border-coral/40 bg-coral/10 p-5">
-          <header className="flex flex-wrap items-start justify-between gap-3">
-            <section>
-              <h3 className="text-base font-bold text-coral">
-                Trigger Interventions
-              </h3>
-              <p className="mt-1 text-sm text-ink">Cognitive Support</p>
-            </section>
-            <button
-              type="button"
-              onClick={onMarkInterventionsResolved}
-              className="rounded-lg bg-coral px-3 py-2 text-sm font-semibold text-white hover:brightness-[0.97]"
-            >
-              Mark as Resolved
-            </button>
-          </header>
-          {student.interventionLabels.length === 0 ? (
-            <p className="mt-3 text-sm text-text-secondary">
-              No open interventions.
-            </p>
-          ) : (
+          <h3 className="text-base font-bold text-coral">
+            Trigger Interventions
+          </h3>
+          {hasInterventions ? (
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-coral">
               {student.interventionLabels.map((label) => (
                 <li key={label}>{label}</li>
               ))}
             </ul>
+          ) : (
+            <p className="mt-3 text-sm text-text-secondary">
+              No open interventions.
+            </p>
           )}
         </section>
       </article>
