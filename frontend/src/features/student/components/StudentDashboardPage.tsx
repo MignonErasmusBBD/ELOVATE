@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
-import type { StudentDashboardSummary } from "../types";
+import { useEffect, useState } from "react";
+import { getCourse } from "@/helpers/coursesApi";
+import { getStudentDashboardSummary } from "../data/dashboard";
 import { CognitiveLevelChart } from "./CognitiveLevelChart";
 import { DashboardMetricsRow } from "./DashboardMetricsRow";
 import { DashboardRecommendations } from "./DashboardRecommendations";
@@ -7,12 +11,34 @@ import { DashboardStatusBannerCard } from "./DashboardStatusBannerCard";
 import { PracticeQuizProgressChart } from "./PracticeQuizProgressChart";
 
 type StudentDashboardPageProps = {
-  dashboardSummary: StudentDashboardSummary;
+  courseId: string;
+  studentEmail: string;
 };
 
 export function StudentDashboardPage({
-  dashboardSummary,
+  courseId,
+  studentEmail,
 }: StudentDashboardPageProps) {
+  const [courseTitle, setCourseTitle] = useState<string | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    getCourse(courseId)
+      .then((c) => {
+        if (!cancelled) setCourseTitle(c?.title);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  const dashboardSummary = getStudentDashboardSummary(
+    courseId,
+    courseTitle ?? "",
+    studentEmail,
+  );
+
   return (
     <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
       <header>
@@ -73,7 +99,7 @@ export function StudentDashboardPage({
 
       <footer className="mt-8 flex justify-end">
         <Link
-          href={`/student/courses/${dashboardSummary.courseId}`}
+          href={`/student/courses/${courseId}`}
           className="rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110"
         >
           Continue

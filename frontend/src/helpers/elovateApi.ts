@@ -33,7 +33,7 @@ let cachedAccessToken: string | undefined;
 let cachedAccessTokenExpiresAt = 0;
 let accessTokenInFlight: Promise<string | undefined> | undefined;
 
-function clearAccessTokenCache() {
+export function clearAccessTokenCache() {
   cachedAccessToken = undefined;
   cachedAccessTokenExpiresAt = 0;
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { Course } from "@/features/courses/types";
+import { useEffect, useState } from "react";
+import { getCourse } from "@/helpers/coursesApi";
 import { getPracticeQuiz } from "../data/quizzes";
 import type { QuizOptionId, QuizPhase } from "../types";
 import { BackToLessonLink } from "./BackToLessonLink";
@@ -10,11 +10,25 @@ import { QuizScoreCard } from "./QuizScoreCard";
 import { QuizStartCard } from "./QuizStartCard";
 
 type PracticeQuizPageProps = {
-  course: Course;
+  courseId: string;
 };
 
-export function PracticeQuizPage({ course }: PracticeQuizPageProps) {
-  const practiceQuiz = getPracticeQuiz(course.id);
+export function PracticeQuizPage({ courseId }: PracticeQuizPageProps) {
+  const [courseTitle, setCourseTitle] = useState<string | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    getCourse(courseId)
+      .then((c) => {
+        if (!cancelled) setCourseTitle(c?.title);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
+
+  const practiceQuiz = getPracticeQuiz(courseId);
   const questions = practiceQuiz.questions;
   const totalQuestionCount = questions.length;
 
@@ -107,7 +121,7 @@ export function PracticeQuizPage({ course }: PracticeQuizPageProps) {
     <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
       {quizPhase === "start" ? (
         <QuizStartCard
-          courseTitle={course.title}
+          courseTitle={courseTitle ?? "this course"}
           onStartQuiz={handleStartQuiz}
         />
       ) : undefined}
@@ -154,10 +168,10 @@ export function PracticeQuizPage({ course }: PracticeQuizPageProps) {
 
       {quizPhase === "score" ? (
         <QuizScoreCard
-          courseId={course.id}
+          courseId={courseId}
           correctAnswerCount={correctAnswerCount}
           totalQuestionCount={totalQuestionCount}
-          backToLesson={<BackToLessonLink courseId={course.id} />}
+          backToLesson={<BackToLessonLink courseId={courseId} />}
         />
       ) : undefined}
     </section>

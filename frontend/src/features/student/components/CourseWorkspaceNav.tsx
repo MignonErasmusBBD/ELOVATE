@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 type CourseWorkspaceNavProps = {
   courseId: string;
   courseTitle: string;
+  hideQuizLinks?: boolean;
 };
 
 function getCourseWorkspaceLinks(courseId: string) {
@@ -37,9 +38,13 @@ function getCourseWorkspaceLinks(courseId: string) {
 export function CourseWorkspaceNav({
   courseId,
   courseTitle,
+  hideQuizLinks = false,
 }: CourseWorkspaceNavProps) {
   const pathname = usePathname();
-  const workspaceLinks = getCourseWorkspaceLinks(courseId);
+  const allLinks = getCourseWorkspaceLinks(courseId);
+  const workspaceLinks = hideQuizLinks
+    ? allLinks.filter((l) => l.id === "lesson")
+    : allLinks;
 
   return (
     <header className="border-b border-border-ui bg-surface">

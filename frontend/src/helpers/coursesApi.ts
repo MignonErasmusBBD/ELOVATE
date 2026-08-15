@@ -1,4 +1,4 @@
-import { fetchElovateApi } from "@/helpers/elovateApi";
+import { ElovateApiError, fetchElovateApi } from "@/helpers/elovateApi";
 
 export type ElovateCourseStatus = "active" | "deactivated";
 
@@ -145,6 +145,21 @@ function readApiErrorMessage(body: unknown): string {
   }
 
   return "Could not create course.";
+}
+
+export async function getCourse(
+  courseId: string,
+): Promise<ElovateCourseSummary | undefined> {
+  const response = await fetchElovateApi(`/courses/${courseId}`);
+  if (response.status === 404) {
+    return undefined;
+  }
+  if (response.ok === false) {
+    const body: unknown = await response.json().catch(() => undefined);
+    throw new ElovateApiError(response.status, readApiErrorMessage(body));
+  }
+  const body: unknown = await response.json();
+  return parseCourseSummary(body);
 }
 
 export async function createCourse(
