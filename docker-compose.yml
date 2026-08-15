@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: elovate
       POSTGRES_PASSWORD: elovate
     ports:
-      - "5432:5432"
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U elovate -d elovate"]
       interval: 5s
@@ -19,7 +19,7 @@ services:
     network_mode: "service:postgres"
     command: migrate
     environment:
-      FLYWAY_URL: jdbc:postgresql://localhost:5432/elovate
+      FLYWAY_URL: jdbc:postgresql://localhost:5433/elovate
       FLYWAY_USER: elovate
       FLYWAY_PASSWORD: elovate
       FLYWAY_LOCATIONS: filesystem:/flyway/migrations

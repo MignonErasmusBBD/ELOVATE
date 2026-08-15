@@ -4,6 +4,8 @@ export type EducatorTabId =
   | "questions"
   | "learning-content";
 
+export type EducatorCourseVisibility = "community" | "private";
+
 export type BloomCoveragePoint = {
   levelName: string;
   coverageCount: number;

@@ -1,11 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import {
   getEducatorCourseDashboard,
   getEducatorCourseOptions,
 } from "../data/dashboard";
-import type { EducatorTabId } from "../types";
+import type { EducatorCourseVisibility, EducatorTabId } from "../types";
+import { AddCourseFormModal } from "./AddCourseFormModal";
+import { CourseVisibilityToggle } from "./CourseVisibilityToggle";
 import { EducatorCourseSelect } from "./EducatorCourseSelect";
 import { EducatorMetricsRow } from "./EducatorMetricsRow";
 import { EducatorTabNav } from "./EducatorTabNav";
@@ -22,6 +25,9 @@ export function EducatorDashboardPage() {
   const [selectedCourseId, setSelectedCourseId] = useState(defaultCourseId);
   const [selectedTabId, setSelectedTabId] =
     useState<EducatorTabId>("overview");
+  const [courseVisibilityFilter, setCourseVisibilityFilter] =
+    useState<EducatorCourseVisibility>("private");
+  const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
 
   const dashboard = useMemo(
     () => getEducatorCourseDashboard(selectedCourseId),
@@ -38,17 +44,41 @@ export function EducatorDashboardPage() {
 
   return (
     <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
-          Educator dashboard
-        </h1>
-        <p className="mt-2 max-w-2xl text-base text-text-secondary">
-          Monitor practice performance, students, and questions for a selected
-          course.
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
+            Educator dashboard
+          </h1>
+          <p className="mt-2 max-w-2xl text-base text-text-secondary">
+            Monitor practice performance, students, and questions for a selected
+            course.
+          </p>
+        </div>
+        <Button
+          variant="compact"
+          type="button"
+          className="inline-flex shrink-0 items-center gap-2 self-start"
+          onClick={() => setIsAddCourseModalOpen(true)}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="size-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.25"
+            aria-hidden="true"
+          >
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Add course
+        </Button>
       </header>
 
-      <section className="mt-8">
+      <section className="mt-8 flex flex-col gap-4">
+        <CourseVisibilityToggle
+          selectedVisibility={courseVisibilityFilter}
+          onSelectVisibility={setCourseVisibilityFilter}
+        />
         <EducatorCourseSelect
           courses={courseOptions}
           selectedCourseId={selectedCourseId}
@@ -96,6 +126,16 @@ export function EducatorDashboardPage() {
           />
         ) : undefined}
       </article>
+
+      {isAddCourseModalOpen ? (
+        <AddCourseFormModal
+          selectedVisibility={courseVisibilityFilter}
+          onClose={() => setIsAddCourseModalOpen(false)}
+          onSave={() => {
+            setIsAddCourseModalOpen(false);
+          }}
+        />
+      ) : undefined}
     </section>
   );
 }
