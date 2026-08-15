@@ -4,16 +4,16 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Request } from 'express';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { AuthedRequest } from '../helpers/auth-user';
+import { isUuid } from '../helpers/values';
+import { AuthContextService } from '../services/auth-context.service';
 
-// Lazily-initialised so the JWKS URL is read at runtime, not module load.
 let jwks: ReturnType<typeof createRemoteJWKSet> | undefined;
 
 function getJwks() {
   if (jwks === undefined) {
     const baseUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000';
-    // better-auth's JWT plugin exposes public keys at /api/auth/jwks
     jwks = createRemoteJWKSet(new URL(`${baseUrl}/api/auth/jwks`));
   }
   return jwks;
@@ -21,25 +21,44 @@ function getJwks() {
 
 @Injectable()
 export class AuthGuard implements CanActivate {
+  constructor(private readonly authContext: AuthContextService) {}
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    if (process.env.AUTH_DEV_BYPASS === 'true') {
-      return true;
-    }
-
-    const request = context.switchToHttp().getRequest<Request>();
-    const authHeader = request.headers.authorization;
-
-    if (authHeader === undefined || !authHeader.startsWith('Bearer ')) {
+    const request = context.switchToHttp().getRequest<AuthedRequest>();
+    const authorizationHeader = request.headers.authorization;
+    if (
+      authorizationHeader === undefined ||
+      authorizationHeader.startsWith('Bearer ') === false
+    ) {
       throw new UnauthorizedException('Missing Bearer token');
     }
 
-    const token = authHeader.slice(7);
+    const token = authorizationHeader.slice('Bearer '.length).trim();
+    if (token === '') {
+      throw new UnauthorizedException('Missing Bearer token');
+    }
 
+    let userId: string | undefined;
     try {
-      await jwtVerify(token, getJwks());
-      return true;
+      const verified = await jwtVerify(token, getJwks());
+      const subject = verified.payload.sub;
+      if (subject !== undefined && isUuid(subject)) {
+        userId = subject;
+      }
     } catch {
       throw new UnauthorizedException('Invalid or expired JWT');
     }
+
+    if (userId === undefined) {
+      throw new UnauthorizedException('JWT is missing a user subject');
+    }
+
+    const user = await this.authContext.loadById(userId);
+    if (user === undefined) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+
+    request.user = user;
+    return true;
   }
 }

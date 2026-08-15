@@ -1,10 +1,7 @@
 import { AppShell } from "@/features/platform";
-import { getCurrentUser } from "@/lib/session";
 
-export default async function PlatformLayout({
+export default function PlatformLayout({
   children,
 }: LayoutProps<"/">) {
-  const currentUser = await getCurrentUser();
-
-  return <AppShell currentUser={currentUser}>{children}</AppShell>;
+  return <AppShell>{children}</AppShell>;
 }

@@ -89,6 +89,9 @@ export class CoursesService {
     } else {
       requirePermission(actor, ['course.private.create']);
     }
+    if (actor.organizationId === undefined) {
+      throw new ForbiddenException('You are not assigned to an organisation');
+    }
     if (
       input.organizationId !== undefined &&
       input.organizationId !== actor.organizationId

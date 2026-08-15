@@ -12,9 +12,15 @@ async function bootstrap() {
   const swagger = new DocumentBuilder()
     .setTitle('Elovate API')
     .setVersion('0.1.0')
-    .addBearerAuth()
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'bearer',
+    )
+    .addSecurityRequirements('bearer')
     .build();
-  SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swagger));
+  SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swagger), {
+    swaggerOptions: { persistAuthorization: true },
+  });
 
   await app.listen(process.env.PORT ?? 3001);
 }
