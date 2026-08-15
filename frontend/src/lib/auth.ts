@@ -1,6 +1,33 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { betterAuth } from "better-auth";
 import { admin, jwt } from "better-auth/plugins";
 import { Pool } from "pg";
+
+const repoRootEnvPath = resolve(process.cwd(), "..", ".env");
+if (existsSync(repoRootEnvPath)) {
+  for (const rawLine of readFileSync(repoRootEnvPath, "utf8").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line === "" || line.startsWith("#")) {
+      continue;
+    }
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex === -1) {
+      continue;
+    }
+    const key = line.slice(0, separatorIndex);
+    let value = line.slice(separatorIndex + 1);
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
 
 function buildDatabaseUrl(): string {
   const databaseUrl = process.env.DATABASE_URL;
@@ -27,11 +54,27 @@ pool.on("connect", (client) => {
   client.query("SET search_path TO public").catch(console.error);
 });
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+const googleSocialProvider =
+  googleClientId !== undefined &&
+  googleClientId !== "" &&
+  googleClientSecret !== undefined &&
+  googleClientSecret !== ""
+    ? {
+        google: {
+          clientId: googleClientId,
+          clientSecret: googleClientSecret,
+        },
+      }
+    : undefined;
+
 export const auth = betterAuth({
   database: pool,
 
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
   secret: process.env.BETTER_AUTH_SECRET,
+  trustedOrigins: ["http://localhost:3000"],
 
   advanced: {
     database: {
@@ -86,12 +129,8 @@ export const auth = betterAuth({
     enabled: true,
   },
 
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    },
-  },
+  socialProviders:
+    googleSocialProvider === undefined ? {} : googleSocialProvider,
 
   plugins: [
     jwt({
@@ -127,40 +166,7 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          const emailLocal = user.email
-            .split("@")[0]
-            .toLowerCase()
-            .replace(/[^a-z0-9]/g, "-");
-          const slug = `${emailLocal}-${user.id.slice(0, 8)}`;
-
           try {
-            // 1. Create a personal workspace org
-            const orgInsert = await pool.query<{ id: string }>(
-              `INSERT INTO public.organizations (name, slug)
-               VALUES ($1, $2)
-               ON CONFLICT (slug) DO NOTHING
-               RETURNING id`,
-              [`${user.name ?? user.email}'s Workspace`, slug],
-            );
-
-            let orgId = orgInsert.rows[0]?.id;
-            if (orgId === undefined) {
-              const existing = await pool.query<{ id: string }>(
-                `SELECT id FROM public.organizations WHERE slug = $1`,
-                [slug],
-              );
-              orgId = existing.rows[0]?.id;
-            }
-
-            if (orgId === undefined) return;
-
-            // 2. Link the user to their new org
-            await pool.query(
-              `UPDATE public.users SET organization_id = $1 WHERE id = $2`,
-              [orgId, user.id],
-            );
-
-            // 3. Grant the base learner role
             await pool.query(
               `INSERT INTO public.user_roles (user_id, role_id)
                SELECT $1, r.role_id FROM public.roles r
@@ -169,7 +175,7 @@ export const auth = betterAuth({
               [user.id],
             );
           } catch (err) {
-            console.error("[auth] Failed to provision user workspace:", err);
+            console.error("[auth] Failed to grant learner role:", err);
           }
         },
       },

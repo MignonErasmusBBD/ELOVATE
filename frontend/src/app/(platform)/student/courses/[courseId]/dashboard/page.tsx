@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import { getCourseById } from "@/features/courses";
 import { getStudentDashboardSummary } from "@/features/student/data/dashboard";
 import { StudentDashboardPage } from "@/features/student";
-import { getCurrentUser } from "@/lib/session";
+import { auth } from "@/lib/auth";
 
 export async function generateMetadata({
   params,
@@ -31,11 +32,17 @@ export default async function StudentCourseDashboardPage({
     notFound();
   }
 
-  const currentUser = await getCurrentUser();
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (session === null || session === undefined) {
+    redirect("/login");
+  }
+
   const dashboardSummary = getStudentDashboardSummary(
     course.id,
     course.title,
-    currentUser.emailAddress,
+    session.user.email,
   );
 
   return <StudentDashboardPage dashboardSummary={dashboardSummary} />;

@@ -20,7 +20,8 @@ type UserRow = {
 
 type AuthUserRow = {
   id: string;
-  organization_id: string;
+  organization_id: string | null;
+  organization_name: string | null;
   email: string;
   full_name: string | null;
   status: string;
@@ -159,14 +160,16 @@ export class UsersRepository {
 
   async loadAuthById(userId: string): Promise<AuthUser | undefined> {
     const result = await this.postgres.query<AuthUserRow>(
-      `SELECT u.id, u.organization_id, u.email, u.full_name, us.status_code AS status
+      `SELECT u.id, u.organization_id, o.name AS organization_name,
+              u.email, u.full_name, us.status_code AS status
        FROM users u
        JOIN user_statuses us ON us.user_status_id = u.user_status_id
-       JOIN organizations o ON o.id = u.organization_id
-       JOIN organization_statuses os ON os.organization_status_id = o.organization_status_id
+       LEFT JOIN organizations o ON o.id = u.organization_id
+       LEFT JOIN organization_statuses os
+         ON os.organization_status_id = o.organization_status_id
        WHERE u.id = $1
          AND us.status_code = 'active'
-         AND os.status_code = 'active'`,
+         AND (u.organization_id IS NULL OR os.status_code = 'active')`,
       [userId],
     );
     const row = result.rows[0];
@@ -192,7 +195,8 @@ export class UsersRepository {
     );
     return {
       id: row.id,
-      organizationId: row.organization_id,
+      organizationId: textFromDatabase(row.organization_id),
+      organizationName: textFromDatabase(row.organization_name),
       email: row.email,
       fullName: textFromDatabase(row.full_name),
       status: row.status,

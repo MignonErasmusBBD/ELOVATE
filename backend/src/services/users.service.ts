@@ -7,6 +7,7 @@ function ownProfile(actor: AuthUser, fullName?: string) {
   return {
     id: actor.id,
     organizationId: actor.organizationId,
+    organizationName: actor.organizationName,
     email: actor.email,
     fullName: fullName === undefined ? actor.fullName : fullName,
     status: actor.status,

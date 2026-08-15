@@ -61,6 +61,9 @@ export class AnalyticsService {
     actor: AuthUser,
     organizationId: string | undefined,
   ): string {
+    if (actor.organizationId === undefined) {
+      throw new ForbiddenException('You are not assigned to an organisation');
+    }
     if (
       organizationId !== undefined &&
       organizationId !== actor.organizationId

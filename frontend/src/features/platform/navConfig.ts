@@ -1,5 +1,3 @@
-import type { UserRole } from "@/lib/session";
-
 export type PlatformNavItemId =
   | "courses"
   | "educator"
@@ -15,7 +13,7 @@ export type PlatformNavItem = {
   label: string;
   description: string;
   sectionId: PlatformNavSectionId;
-  allowedRoles: UserRole[];
+  allowedRoles: string[];
 };
 
 export type PlatformNavSection = {
@@ -32,11 +30,11 @@ export const platformNavItems: PlatformNavItem[] = [
     description: "Browse and open your courses",
     sectionId: "learning",
     allowedRoles: [
-      "Learner",
-      "Educator",
-      "Org Admin",
-      "Community Admin",
-      "Platform Admin",
+      "learner",
+      "educator",
+      "org_admin",
+      "community_admin",
+      "platform_admin",
     ],
   },
   {
@@ -45,7 +43,7 @@ export const platformNavItems: PlatformNavItem[] = [
     label: "Educator",
     description: "Course analytics and learning content",
     sectionId: "teaching",
-    allowedRoles: ["Educator"],
+    allowedRoles: ["educator"],
   },
   {
     id: "organisational-admin",
@@ -53,7 +51,7 @@ export const platformNavItems: PlatformNavItem[] = [
     label: "Organisational Admin",
     description: "People, private courses, and enrolments",
     sectionId: "administration",
-    allowedRoles: ["Org Admin"],
+    allowedRoles: ["org_admin"],
   },
   {
     id: "community-admin",
@@ -61,7 +59,7 @@ export const platformNavItems: PlatformNavItem[] = [
     label: "Community Admin",
     description: "Public course catalog",
     sectionId: "administration",
-    allowedRoles: ["Community Admin"],
+    allowedRoles: ["community_admin"],
   },
   {
     id: "platform-admin",
@@ -69,7 +67,7 @@ export const platformNavItems: PlatformNavItem[] = [
     label: "Platform Admin",
     description: "Organisations and global roles",
     sectionId: "administration",
-    allowedRoles: ["Platform Admin"],
+    allowedRoles: ["platform_admin"],
   },
 ];
 
@@ -86,7 +84,7 @@ const sectionLabels: Record<PlatformNavSectionId, string> = {
 };
 
 export function getPlatformNavItemsForRole(
-  role: UserRole,
+  role: string,
 ): PlatformNavItem[] {
   return platformNavItems.filter((item) =>
     item.allowedRoles.includes(role),
@@ -115,7 +113,7 @@ export function getAllPlatformNavSections(): PlatformNavSection[] {
 }
 
 export function getPlatformNavSectionsForRole(
-  role: UserRole,
+  role: string,
 ): PlatformNavSection[] {
   const accessibleItems = getPlatformNavItemsForRole(role);
 

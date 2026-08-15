@@ -7,7 +7,8 @@ import { Request } from 'express';
 
 export type AuthUser = {
   id: string;
-  organizationId: string;
+  organizationId: string | undefined;
+  organizationName: string | undefined;
   email: string;
   fullName: string | undefined;
   status: string;

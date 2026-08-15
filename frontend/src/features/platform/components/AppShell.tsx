@@ -3,17 +3,16 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import type { CurrentUser } from "@/lib/session";
+import { useEffect, useState } from "react";
+import { authClient } from "@/lib/auth-client";
 import {
   getAllPlatformNavSections,
   isPlatformNavItemActive,
 } from "../navConfig";
 
-type AppShellProps = {
-  currentUser: CurrentUser;
+type AppShellProps = Readonly<{
   children: ReactNode;
-};
+}>;
 
 function getNavItemInitial(label: string) {
   if (label === "Organisational Admin") {
@@ -28,7 +27,145 @@ function getNavItemInitial(label: string) {
   return label.slice(0, 1);
 }
 
-export function AppShell({ currentUser, children }: AppShellProps) {
+function readToken(body: object): string | undefined {
+  if ("token" in body === false) {
+    return undefined;
+  }
+  const token = body.token;
+  if (typeof token !== "string" || token === "") {
+    return undefined;
+  }
+  return token;
+}
+
+function readStringList(body: object, key: string): string[] {
+  if (key in body === false) {
+    return [];
+  }
+  const field = Reflect.get(body, key);
+  if (Array.isArray(field) === false) {
+    return [];
+  }
+  const values: string[] = [];
+  for (const item of field) {
+    if (typeof item === "string" && item !== "") {
+      values.push(item);
+    }
+  }
+  return values;
+}
+
+function readOptionalString(body: object, key: string): string | undefined {
+  if (key in body === false) {
+    return undefined;
+  }
+  const field = Reflect.get(body, key);
+  if (typeof field !== "string" || field === "") {
+    return undefined;
+  }
+  return field;
+}
+
+function AccountHeader() {
+  const session = authClient.useSession();
+  const sessionUser = session.data?.user;
+  const [roleNames, setRoleNames] = useState<string[]>([]);
+  const [organizationName, setOrganizationName] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (sessionUser === undefined) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadAccountDetails() {
+      const tokenResponse = await fetch("/api/auth/token");
+      if (tokenResponse.ok === false) {
+        return;
+      }
+      const tokenBody = await tokenResponse.json();
+      if (
+        typeof tokenBody !== "object" ||
+        tokenBody === null ||
+        Array.isArray(tokenBody)
+      ) {
+        return;
+      }
+      const accessToken = readToken(tokenBody);
+      if (accessToken === undefined) {
+        return;
+      }
+
+      const profileResponse = await fetch("/elovate-api/users/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (profileResponse.ok === false) {
+        return;
+      }
+      const profileBody = await profileResponse.json();
+      if (
+        typeof profileBody !== "object" ||
+        profileBody === null ||
+        Array.isArray(profileBody)
+      ) {
+        return;
+      }
+      if (cancelled) {
+        return;
+      }
+      setRoleNames(readStringList(profileBody, "roles"));
+      setOrganizationName(readOptionalString(profileBody, "organizationName"));
+    }
+
+    void loadAccountDetails();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionUser]);
+
+  if (sessionUser === undefined) {
+    return (
+      <p className="min-w-0 text-right text-sm text-text-secondary">
+        Not signed in
+      </p>
+    );
+  }
+
+  const fullName =
+    sessionUser.name === undefined || sessionUser.name === ""
+      ? sessionUser.email
+      : sessionUser.name;
+
+  return (
+    <p className="min-w-0 text-right">
+      <span className="block truncate text-sm font-medium text-ink">
+        {fullName}
+      </span>
+      <span className="block truncate text-xs text-text-secondary">
+        {sessionUser.email}
+      </span>
+      <span className="mt-1 flex flex-wrap items-center justify-end gap-1.5">
+        {roleNames.map((roleName) => (
+          <span
+            key={roleName}
+            className="rounded-full border border-border-ui bg-page px-2 py-0.5 text-xs font-medium text-text-secondary"
+          >
+            {roleName}
+          </span>
+        ))}
+        {organizationName === undefined ? undefined : (
+          <span className="rounded-full border border-coral/40 bg-coral/10 px-2 py-0.5 text-xs font-medium text-coral">
+            <span className="sr-only">Organisation: </span>
+            {organizationName}
+          </span>
+        )}
+      </span>
+    </p>
+  );
+}
+
+export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -184,18 +321,7 @@ export function AppShell({ currentUser, children }: AppShellProps) {
               aria-label="Account"
               className="ml-auto flex min-w-0 items-center gap-3"
             >
-              <p className="hidden min-w-0 text-right sm:block">
-                <span className="block truncate text-sm font-medium text-ink">
-                  {currentUser.emailAddress}
-                </span>
-                <span className="mt-0.5 flex items-center justify-end gap-2 text-xs text-text-secondary">
-                  <span>{currentUser.role}</span>
-                  <span className="rounded-full border border-coral/40 bg-coral/10 px-2 py-0.5 font-medium text-coral">
-                    <span className="sr-only">Organization: </span>
-                    {currentUser.organizationName}
-                  </span>
-                </span>
-              </p>
+              <AccountHeader />
               <Link
                 href="/login"
                 className="shrink-0 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
