@@ -43,7 +43,7 @@ export const platformNavItems: PlatformNavItem[] = [
     label: "Educator",
     description: "Course analytics and learning content",
     sectionId: "teaching",
-    allowedRoles: ["educator"],
+    allowedRoles: ["educator", "community_admin"],
   },
   {
     id: "organisational-admin",
@@ -91,6 +91,14 @@ export function getPlatformNavItemsForRole(
   );
 }
 
+export function getPlatformNavItemsForRoles(
+  roleNames: string[],
+): PlatformNavItem[] {
+  return platformNavItems.filter((item) =>
+    roleNames.some((roleName) => item.allowedRoles.includes(roleName)),
+  );
+}
+
 /** Full nav for prototyping before role-based access is enforced. */
 export function getAllPlatformNavSections(): PlatformNavSection[] {
   return sectionOrder.flatMap((sectionId) => {
@@ -112,11 +120,9 @@ export function getAllPlatformNavSections(): PlatformNavSection[] {
   });
 }
 
-export function getPlatformNavSectionsForRole(
-  role: string,
+function groupNavItemsBySection(
+  accessibleItems: PlatformNavItem[],
 ): PlatformNavSection[] {
-  const accessibleItems = getPlatformNavItemsForRole(role);
-
   return sectionOrder.flatMap((sectionId) => {
     const items = accessibleItems.filter(
       (item) => item.sectionId === sectionId,
@@ -134,6 +140,18 @@ export function getPlatformNavSectionsForRole(
       },
     ];
   });
+}
+
+export function getPlatformNavSectionsForRole(
+  role: string,
+): PlatformNavSection[] {
+  return groupNavItemsBySection(getPlatformNavItemsForRole(role));
+}
+
+export function getPlatformNavSectionsForRoles(
+  roleNames: string[],
+): PlatformNavSection[] {
+  return groupNavItemsBySection(getPlatformNavItemsForRoles(roleNames));
 }
 
 export function isPlatformNavItemActive(

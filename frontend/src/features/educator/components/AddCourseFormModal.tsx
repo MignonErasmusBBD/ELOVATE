@@ -23,7 +23,7 @@ type AddCourseFieldErrors = {
 type AddCourseFormModalProps = {
   selectedVisibility: EducatorCourseVisibility;
   onClose: () => void;
-  onSave: (formValues: AddCourseFormValues) => void;
+  onSave: (formValues: AddCourseFormValues) => Promise<void>;
 };
 
 export function AddCourseFormModal({
@@ -34,41 +34,61 @@ export function AddCourseFormModal({
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
   const [fieldErrors, setFieldErrors] = useState<AddCourseFieldErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitErrorMessage, setSubmitErrorMessage] = useState<
+    string | undefined
+  >();
   const isCommunityCourse = selectedVisibility === "community";
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && isSubmitting === false) {
         onClose();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [isSubmitting, onClose]);
 
-  function handleSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
 
     const courseTitleError = validateRequiredName(courseTitle, "Course title");
     setFieldErrors({ courseTitle: courseTitleError });
+    setSubmitErrorMessage(undefined);
 
     if (courseTitleError !== undefined) {
       return;
     }
 
-    onSave({
-      courseTitle: courseTitle.trim(),
-      courseDescription: courseDescription.trim(),
-      visibility: selectedVisibility,
-    });
+    setIsSubmitting(true);
+    try {
+      await onSave({
+        courseTitle: courseTitle.trim(),
+        courseDescription: courseDescription.trim(),
+        visibility: selectedVisibility,
+      });
+    } catch (errorValue) {
+      const message =
+        errorValue instanceof Error && errorValue.message !== ""
+          ? errorValue.message
+          : "Could not create course.";
+      setSubmitErrorMessage(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/50 p-4 md:p-8"
       role="presentation"
-      onClick={onClose}
+      onClick={() => {
+        if (isSubmitting === false) {
+          onClose();
+        }
+      }}
     >
       <article
         role="dialog"
@@ -87,7 +107,8 @@ export function AddCourseFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-2 py-1 text-lg font-semibold text-text-secondary hover:bg-page"
+            disabled={isSubmitting}
+            className="rounded-lg px-2 py-1 text-lg font-semibold text-text-secondary hover:bg-page disabled:opacity-60"
             aria-label="Close add course form"
           >
             ×
@@ -107,6 +128,7 @@ export function AddCourseFormModal({
               type="text"
               placeholder="Course title"
               value={courseTitle}
+              disabled={isSubmitting}
               invalid={fieldErrors.courseTitle !== undefined}
               onChange={(changeEvent) => {
                 setCourseTitle(changeEvent.target.value);
@@ -136,6 +158,7 @@ export function AddCourseFormModal({
               type="text"
               placeholder="What will people learn?"
               value={courseDescription}
+              disabled={isSubmitting}
               onChange={(changeEvent) =>
                 setCourseDescription(changeEvent.target.value)
               }
@@ -152,8 +175,19 @@ export function AddCourseFormModal({
             </p>
           ) : undefined}
 
-          <Button variant="compact" type="submit" className="self-start">
-            Add course
+          {submitErrorMessage === undefined ? undefined : (
+            <p className="text-sm text-coral" role="alert">
+              {submitErrorMessage}
+            </p>
+          )}
+
+          <Button
+            variant="compact"
+            type="submit"
+            className="self-start"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Adding…" : "Add course"}
           </Button>
         </form>
       </article>

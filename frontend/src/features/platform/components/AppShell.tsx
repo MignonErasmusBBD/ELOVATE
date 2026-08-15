@@ -3,12 +3,12 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { authClient } from "@/lib/auth-client";
+import { useState } from "react";
 import {
-  getAllPlatformNavSections,
+  getPlatformNavSectionsForRoles,
   isPlatformNavItemActive,
 } from "../navConfig";
+import { useCurrentUser } from "./CurrentUserProvider";
 
 type AppShellProps = Readonly<{
   children: ReactNode;
@@ -27,104 +27,18 @@ function getNavItemInitial(label: string) {
   return label.slice(0, 1);
 }
 
-function readToken(body: object): string | undefined {
-  if ("token" in body === false) {
-    return undefined;
-  }
-  const token = body.token;
-  if (typeof token !== "string" || token === "") {
-    return undefined;
-  }
-  return token;
-}
-
-function readStringList(body: object, key: string): string[] {
-  if (key in body === false) {
-    return [];
-  }
-  const field = Reflect.get(body, key);
-  if (Array.isArray(field) === false) {
-    return [];
-  }
-  const values: string[] = [];
-  for (const item of field) {
-    if (typeof item === "string" && item !== "") {
-      values.push(item);
-    }
-  }
-  return values;
-}
-
-function readOptionalString(body: object, key: string): string | undefined {
-  if (key in body === false) {
-    return undefined;
-  }
-  const field = Reflect.get(body, key);
-  if (typeof field !== "string" || field === "") {
-    return undefined;
-  }
-  return field;
-}
-
 function AccountHeader() {
-  const session = authClient.useSession();
-  const sessionUser = session.data?.user;
-  const [roleNames, setRoleNames] = useState<string[]>([]);
-  const [organizationName, setOrganizationName] = useState<string | undefined>();
+  const { profile, isLoading } = useCurrentUser();
 
-  useEffect(() => {
-    if (sessionUser === undefined) {
-      return;
-    }
+  if (isLoading) {
+    return (
+      <p className="min-w-0 text-right text-sm text-text-secondary">
+        Loading account…
+      </p>
+    );
+  }
 
-    let cancelled = false;
-
-    async function loadAccountDetails() {
-      const tokenResponse = await fetch("/api/auth/token");
-      if (tokenResponse.ok === false) {
-        return;
-      }
-      const tokenBody = await tokenResponse.json();
-      if (
-        typeof tokenBody !== "object" ||
-        tokenBody === null ||
-        Array.isArray(tokenBody)
-      ) {
-        return;
-      }
-      const accessToken = readToken(tokenBody);
-      if (accessToken === undefined) {
-        return;
-      }
-
-      const profileResponse = await fetch("/elovate-api/users/me", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (profileResponse.ok === false) {
-        return;
-      }
-      const profileBody = await profileResponse.json();
-      if (
-        typeof profileBody !== "object" ||
-        profileBody === null ||
-        Array.isArray(profileBody)
-      ) {
-        return;
-      }
-      if (cancelled) {
-        return;
-      }
-      setRoleNames(readStringList(profileBody, "roles"));
-      setOrganizationName(readOptionalString(profileBody, "organizationName"));
-    }
-
-    void loadAccountDetails();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionUser]);
-
-  if (sessionUser === undefined) {
+  if (profile === undefined) {
     return (
       <p className="min-w-0 text-right text-sm text-text-secondary">
         Not signed in
@@ -132,21 +46,21 @@ function AccountHeader() {
     );
   }
 
-  const fullName =
-    sessionUser.name === undefined || sessionUser.name === ""
-      ? sessionUser.email
-      : sessionUser.name;
+  const displayName =
+    profile.fullName === undefined || profile.fullName === ""
+      ? profile.email
+      : profile.fullName;
 
   return (
     <p className="min-w-0 text-right">
       <span className="block truncate text-sm font-medium text-ink">
-        {fullName}
+        {displayName}
       </span>
       <span className="block truncate text-xs text-text-secondary">
-        {sessionUser.email}
+        {profile.email}
       </span>
       <span className="mt-1 flex flex-wrap items-center justify-end gap-1.5">
-        {roleNames.map((roleName) => (
+        {profile.roles.map((roleName) => (
           <span
             key={roleName}
             className="rounded-full border border-border-ui bg-page px-2 py-0.5 text-xs font-medium text-text-secondary"
@@ -154,10 +68,10 @@ function AccountHeader() {
             {roleName}
           </span>
         ))}
-        {organizationName === undefined ? undefined : (
+        {profile.organizationName === undefined ? undefined : (
           <span className="rounded-full border border-coral/40 bg-coral/10 px-2 py-0.5 text-xs font-medium text-coral">
             <span className="sr-only">Organisation: </span>
-            {organizationName}
+            {profile.organizationName}
           </span>
         )}
       </span>
@@ -167,9 +81,11 @@ function AccountHeader() {
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const { profile } = useCurrentUser();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const navSections = getAllPlatformNavSections();
+  const roleNames = profile === undefined ? [] : profile.roles;
+  const navSections = getPlatformNavSectionsForRoles(roleNames);
   const desktopSidebarWidthClass = isSidebarCollapsed
     ? "lg:w-[4.5rem]"
     : "lg:w-72";
