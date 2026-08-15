@@ -8,4 +8,4 @@ cmds = ["pnpm install --frozen-lockfile"]
 cmds = ["pnpm build"]
 
 [start]
-cmd = "pnpm start"
+cmd = "pnpm exec next start --hostname 0.0.0.0 --port $PORT"
