@@ -6,6 +6,7 @@ export type ElovateCourseSummary = {
   id: string;
   title: string;
   status?: ElovateCourseStatus;
+  description?: string;
   visibility?: string;
   organizationId?: string;
 };
@@ -56,23 +57,24 @@ export function parseCourseSummary(
   return {
     id,
     title,
-    status,
+    description: readOptionalString(item, "description"),
     visibility: readOptionalString(item, "visibility"),
     organizationId: readOptionalString(item, "organizationId"),
+    status,
   };
 }
 
 export async function listCourses(
-  input: ListCoursesInput,
+  input?: ListCoursesInput,
 ): Promise<ElovateCourseSummary[]> {
   const queryParams = new URLSearchParams();
-  if (input.visibility !== undefined) {
+  if (input?.visibility !== undefined) {
     queryParams.set("visibility", input.visibility);
   }
-  if (input.organizationId !== undefined) {
+  if (input?.organizationId !== undefined) {
     queryParams.set("organizationId", input.organizationId);
   }
-  if (input.status !== undefined) {
+  if (input?.status !== undefined) {
     queryParams.set("status", input.status);
   }
 
