@@ -253,6 +253,7 @@ export class QuestionsRepository {
   async updateFields(
     questionId: string,
     input: {
+      courseSectionId: string | undefined;
       prompt: string | undefined;
       questionFormatId: number | undefined;
       bloomLevelId: number | undefined;
@@ -262,6 +263,10 @@ export class QuestionsRepository {
   ) {
     const assignments: string[] = [];
     const values: SqlParameter[] = [];
+    if (input.courseSectionId !== undefined) {
+      values.push(input.courseSectionId);
+      assignments.push(`course_section_id = $${values.length}`);
+    }
     if (input.prompt !== undefined) {
       values.push(input.prompt);
       assignments.push(`prompt = $${values.length}`);

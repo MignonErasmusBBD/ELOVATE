@@ -1,81 +1,177 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { EducatorQuestion, EducatorQuestionFormat } from "../types";
+import type {
+  BloomLevelLookup,
+  DifficultyLevelLookup,
+  QuestionFormatLookup,
+} from "@/helpers/lookupsApi";
+import { baseDifficultyFromRank } from "@/helpers/questionsApi";
+import type { EducatorQuestion } from "../types";
+
+export type QuestionFormOption = {
+  key: string;
+  optionText: string;
+  isCorrect: boolean;
+};
 
 export type QuestionFormValues = {
   prompt: string;
-  format: EducatorQuestionFormat;
-  difficulty: string;
-  bloomLevel: string;
-  sectionName: string;
-  points: number;
-  questionDataJson: string;
-  answerDataJson: string;
+  courseSectionId: string;
+  questionFormatId: number;
+  bloomLevelId: number;
+  difficultyLevelId: number;
+  baseDifficulty: number;
+  options: QuestionFormOption[];
+};
+
+export type QuestionFormLookups = {
+  bloomLevels: BloomLevelLookup[];
+  difficultyLevels: DifficultyLevelLookup[];
+  questionFormats: QuestionFormatLookup[];
+};
+
+type QuestionFormSectionOption = {
+  id: string;
+  title: string;
 };
 
 type QuestionFormModalProps = {
   initialQuestion?: EducatorQuestion;
+  sections: QuestionFormSectionOption[];
+  lookups: QuestionFormLookups;
+  isSubmitting?: boolean;
+  submitErrorMessage?: string;
   onClose: () => void;
-  onSave: (formValues: QuestionFormValues) => void;
+  onSave: (formValues: QuestionFormValues) => void | Promise<void>;
 };
 
-function parsePointsValue(pointsValue: string) {
-  const parsedPoints = Number.parseInt(pointsValue, 10);
-  if (Number.isNaN(parsedPoints) || parsedPoints < 1) {
-    return 1;
+function defaultOptions(): QuestionFormOption[] {
+  return [
+    { key: "opt-0", optionText: "", isCorrect: true },
+    { key: "opt-1", optionText: "", isCorrect: false },
+  ];
+}
+
+function mcqFormatId(formats: QuestionFormatLookup[]): number | undefined {
+  const mcq = formats.find((format) => format.formatCode === "mcq");
+  if (mcq !== undefined) {
+    return mcq.questionFormatId;
   }
-  return parsedPoints;
+  return formats[0]?.questionFormatId;
 }
 
 export function QuestionFormModal({
   initialQuestion,
+  sections,
+  lookups,
+  isSubmitting = false,
+  submitErrorMessage,
   onClose,
   onSave,
 }: QuestionFormModalProps) {
   const isEditing = initialQuestion !== undefined;
+  const mcqFormats = lookups.questionFormats.filter(
+    (format) => format.formatCode === "mcq",
+  );
+  const availableFormats =
+    mcqFormats.length > 0 ? mcqFormats : lookups.questionFormats;
+
+  const initialFormatId =
+    initialQuestion?.questionFormatId ??
+    mcqFormatId(availableFormats) ??
+    0;
+  const initialBloomId =
+    initialQuestion?.bloomLevelId ?? lookups.bloomLevels[0]?.bloomLevelId ?? 0;
+  const initialDifficultyId =
+    initialQuestion?.difficultyLevelId ??
+    lookups.difficultyLevels[0]?.difficultyLevelId ??
+    0;
+  const initialSectionId =
+    initialQuestion?.courseSectionId ?? sections[0]?.id ?? "";
 
   const [questionPrompt, setQuestionPrompt] = useState(
     initialQuestion?.prompt ?? "",
   );
-  const [questionFormat, setQuestionFormat] = useState<EducatorQuestionFormat>(
-    initialQuestion?.format ?? "multiple-choice",
-  );
-  const [difficulty, setDifficulty] = useState(
-    initialQuestion?.difficulty ?? "Easy",
-  );
-  const [bloomLevel, setBloomLevel] = useState(
-    initialQuestion?.bloomLevel ?? "Remember",
-  );
-  const [sectionName, setSectionName] = useState(
-    initialQuestion?.sectionName ?? "Theory & Concepts",
-  );
-  const [points, setPoints] = useState(
-    initialQuestion === undefined ? "1" : `${initialQuestion.points}`,
-  );
-  const [questionDataJson, setQuestionDataJson] = useState(
-    initialQuestion?.questionDataJson ?? "{}",
-  );
-  const [answerDataJson, setAnswerDataJson] = useState(
-    initialQuestion?.answerDataJson ?? "{}",
-  );
+  const [courseSectionId, setCourseSectionId] = useState(initialSectionId);
+  const [questionFormatId, setQuestionFormatId] = useState(initialFormatId);
+  const [bloomLevelId, setBloomLevelId] = useState(initialBloomId);
+  const [difficultyLevelId, setDifficultyLevelId] =
+    useState(initialDifficultyId);
+  const [options, setOptions] = useState<QuestionFormOption[]>(() => {
+    if (initialQuestion === undefined || initialQuestion.options.length === 0) {
+      return defaultOptions();
+    }
+    return initialQuestion.options.map((option, optionIndex) => ({
+      key: option.id === "" ? `opt-${optionIndex}` : option.id,
+      optionText: option.optionText,
+      isCorrect: option.isCorrect,
+    }));
+  });
+  const [validationMessage, setValidationMessage] = useState<
+    string | undefined
+  >();
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && isSubmitting === false) {
         onClose();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [isSubmitting, onClose]);
+
+  function updateOption(
+    optionKey: string,
+    patch: Partial<Pick<QuestionFormOption, "optionText" | "isCorrect">>,
+  ) {
+    setOptions((previousOptions) =>
+      previousOptions.map((option) => {
+        if (option.key !== optionKey) {
+          if (patch.isCorrect === true) {
+            return { ...option, isCorrect: false };
+          }
+          return option;
+        }
+        return { ...option, ...patch };
+      }),
+    );
+  }
+
+  function removeOption(optionKey: string) {
+    setOptions((previousOptions) => {
+      if (previousOptions.length <= 2) {
+        return previousOptions;
+      }
+      const nextOptions = previousOptions.filter(
+        (option) => option.key !== optionKey,
+      );
+      const hasCorrect = nextOptions.some((option) => option.isCorrect);
+      if (hasCorrect) {
+        return nextOptions;
+      }
+      const firstOption = nextOptions[0];
+      if (firstOption === undefined) {
+        return nextOptions;
+      }
+      return nextOptions.map((option, optionIndex) => ({
+        ...option,
+        isCorrect: optionIndex === 0,
+      }));
+    });
+  }
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/50 p-4 md:p-8"
       role="presentation"
-      onClick={onClose}
+      onClick={() => {
+        if (isSubmitting === false) {
+          onClose();
+        }
+      }}
     >
       <article
         role="dialog"
@@ -94,6 +190,7 @@ export function QuestionFormModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={isSubmitting}
             className="rounded-lg px-2 py-1 text-lg font-semibold text-text-secondary hover:bg-page"
             aria-label="Close question form"
           >
@@ -101,23 +198,67 @@ export function QuestionFormModal({
           </button>
         </header>
 
+        {sections.length === 0 ? (
+          <p className="mt-6 text-sm text-coral" role="status">
+            Add a Learning Content section for this course before creating
+            questions.
+          </p>
+        ) : undefined}
+
         <form
           className="mt-6 flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault();
+            setValidationMessage(undefined);
+
+            if (sections.length === 0) {
+              setValidationMessage(
+                "Add a Learning Content section before creating questions.",
+              );
+              return;
+            }
             if (questionPrompt.trim() === "") {
+              setValidationMessage("Question text is required.");
+              return;
+            }
+            if (courseSectionId === "") {
+              setValidationMessage("Select a section.");
               return;
             }
 
-            onSave({
+            const filledOptions = options.filter(
+              (option) => option.optionText.trim() !== "",
+            );
+            if (filledOptions.length < 2) {
+              setValidationMessage("Add at least two answer options.");
+              return;
+            }
+            const correctCount = filledOptions.filter(
+              (option) => option.isCorrect,
+            ).length;
+            if (correctCount !== 1) {
+              setValidationMessage("Mark exactly one option as correct.");
+              return;
+            }
+
+            const selectedDifficulty = lookups.difficultyLevels.find(
+              (level) => level.difficultyLevelId === difficultyLevelId,
+            );
+            const difficultyRank =
+              selectedDifficulty === undefined ? 1 : selectedDifficulty.rank;
+
+            void onSave({
               prompt: questionPrompt.trim(),
-              format: questionFormat,
-              difficulty,
-              bloomLevel,
-              sectionName,
-              points: parsePointsValue(points),
-              questionDataJson,
-              answerDataJson,
+              courseSectionId,
+              questionFormatId,
+              bloomLevelId,
+              difficultyLevelId,
+              baseDifficulty: baseDifficultyFromRank(difficultyRank),
+              options: filledOptions.map((option, optionIndex) => ({
+                key: option.key,
+                optionText: option.optionText.trim(),
+                isCorrect: option.isCorrect,
+              })),
             });
           }}
         >
@@ -128,43 +269,78 @@ export function QuestionFormModal({
             <textarea
               required
               value={questionPrompt}
+              disabled={isSubmitting}
               onChange={(event) => setQuestionPrompt(event.target.value)}
               placeholder="Enter your question here..."
               className="mt-2 min-h-28 w-full rounded-lg border border-border-ui bg-surface px-3 py-2 text-sm text-ink"
             />
           </label>
 
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">
-              Question Format *
-            </span>
-            <select
-              value={questionFormat}
-              onChange={(event) => {
-                if (event.target.value === "multiple-choice") {
-                  setQuestionFormat("multiple-choice");
-                }
-              }}
-              className="mt-2 w-full rounded-lg border border-border-ui bg-surface px-3 py-2.5 text-sm text-ink"
-            >
-              <option value="multiple-choice">multiple-choice</option>
-            </select>
-          </label>
-
-          <fieldset className="grid grid-cols-1 gap-4 border-0 p-0 md:grid-cols-3">
+          <fieldset className="grid grid-cols-1 gap-4 border-0 p-0 md:grid-cols-2">
             <legend className="sr-only">Question attributes</legend>
+            <label className="block">
+              <span className="text-sm font-semibold text-ink">Section *</span>
+              <select
+                value={courseSectionId}
+                disabled={isSubmitting || sections.length === 0}
+                onChange={(event) => setCourseSectionId(event.target.value)}
+                className="mt-2 w-full rounded-lg border border-border-ui bg-surface px-3 py-2.5 text-sm text-ink"
+              >
+                {sections.map((section) => (
+                  <option key={section.id} value={section.id}>
+                    {section.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold text-ink">Format *</span>
+              <select
+                value={questionFormatId}
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  const nextId = Number.parseInt(event.target.value, 10);
+                  if (Number.isNaN(nextId)) {
+                    return;
+                  }
+                  setQuestionFormatId(nextId);
+                }}
+                className="mt-2 w-full rounded-lg border border-border-ui bg-surface px-3 py-2.5 text-sm text-ink"
+              >
+                {availableFormats.map((format) => (
+                  <option
+                    key={format.questionFormatId}
+                    value={format.questionFormatId}
+                  >
+                    {format.formatCode}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="block">
               <span className="text-sm font-semibold text-ink">
                 Difficulty *
               </span>
               <select
-                value={difficulty}
-                onChange={(event) => setDifficulty(event.target.value)}
+                value={difficultyLevelId}
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  const nextId = Number.parseInt(event.target.value, 10);
+                  if (Number.isNaN(nextId)) {
+                    return;
+                  }
+                  setDifficultyLevelId(nextId);
+                }}
                 className="mt-2 w-full rounded-lg border border-border-ui bg-surface px-3 py-2.5 text-sm text-ink"
               >
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
+                {lookups.difficultyLevels.map((level) => (
+                  <option
+                    key={level.difficultyLevelId}
+                    value={level.difficultyLevelId}
+                  >
+                    {level.name}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="block">
@@ -172,73 +348,113 @@ export function QuestionFormModal({
                 Bloom Level *
               </span>
               <select
-                value={bloomLevel}
-                onChange={(event) => setBloomLevel(event.target.value)}
+                value={bloomLevelId}
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  const nextId = Number.parseInt(event.target.value, 10);
+                  if (Number.isNaN(nextId)) {
+                    return;
+                  }
+                  setBloomLevelId(nextId);
+                }}
                 className="mt-2 w-full rounded-lg border border-border-ui bg-surface px-3 py-2.5 text-sm text-ink"
               >
-                <option value="Remember">Remember</option>
-                <option value="Understand">Understand</option>
-                <option value="Apply">Apply</option>
-                <option value="Analyze">Analyze</option>
-                <option value="Evaluate">Evaluate</option>
-                <option value="Create">Create</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-ink">Section *</span>
-              <select
-                value={sectionName}
-                onChange={(event) => setSectionName(event.target.value)}
-                className="mt-2 w-full rounded-lg border border-border-ui bg-surface px-3 py-2.5 text-sm text-ink"
-              >
-                <option value="Theory & Concepts">Theory & Concepts</option>
-                <option value="Code Implementation">Code Implementation</option>
-                <option value="Pattern Participants/Relationships">
-                  Pattern Participants/Relationships
-                </option>
-                <option value="UML Diagrams">UML Diagrams</option>
+                {lookups.bloomLevels.map((level) => (
+                  <option key={level.bloomLevelId} value={level.bloomLevelId}>
+                    {level.name}
+                  </option>
+                ))}
               </select>
             </label>
           </fieldset>
 
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">Points *</span>
-            <input
-              type="number"
-              min={1}
-              value={points}
-              onChange={(event) => setPoints(event.target.value)}
-              className="mt-2 w-full rounded-lg border border-border-ui bg-surface px-3 py-2.5 text-sm text-ink"
-            />
-          </label>
+          <fieldset className="flex flex-col gap-3">
+            <legend className="text-sm font-semibold text-ink">
+              Answer options *
+            </legend>
+            <p className="text-sm text-text-secondary">
+              Provide at least two options and mark exactly one as correct.
+            </p>
+            {options.map((option, optionIndex) => (
+              <article
+                key={option.key}
+                className="rounded-xl border border-border-ui bg-page p-4"
+              >
+                <header className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-ink">
+                    <input
+                      type="radio"
+                      name="correct-option"
+                      checked={option.isCorrect}
+                      disabled={isSubmitting}
+                      onChange={() =>
+                        updateOption(option.key, { isCorrect: true })
+                      }
+                    />
+                    <span>Correct answer</span>
+                  </label>
+                  <button
+                    type="button"
+                    disabled={isSubmitting || options.length <= 2}
+                    onClick={() => removeOption(option.key)}
+                    className="rounded-lg border border-border-ui bg-surface px-2 py-1 text-xs font-semibold text-coral disabled:opacity-40"
+                  >
+                    Remove
+                  </button>
+                </header>
+                <label className="mt-3 block">
+                  <span className="sr-only">Option {optionIndex + 1}</span>
+                  <input
+                    type="text"
+                    value={option.optionText}
+                    disabled={isSubmitting}
+                    onChange={(event) =>
+                      updateOption(option.key, {
+                        optionText: event.target.value,
+                      })
+                    }
+                    placeholder={`Option ${optionIndex + 1}`}
+                    className="w-full rounded-lg border border-border-ui bg-surface px-3 py-2 text-sm text-ink"
+                  />
+                </label>
+              </article>
+            ))}
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() =>
+                setOptions((previousOptions) => [
+                  ...previousOptions,
+                  {
+                    key: `opt-${Date.now()}-${previousOptions.length}`,
+                    optionText: "",
+                    isCorrect: false,
+                  },
+                ])
+              }
+              className="self-start rounded-lg border border-ink bg-surface px-3 py-2 text-sm font-semibold text-ink hover:bg-page"
+            >
+              + Add option
+            </button>
+          </fieldset>
 
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">
-              Question Data (JSON)
-            </span>
-            <textarea
-              value={questionDataJson}
-              onChange={(event) => setQuestionDataJson(event.target.value)}
-              className="mt-2 min-h-28 w-full rounded-lg border border-border-ui bg-page px-3 py-2 font-mono text-xs text-ink"
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">
-              Question Answer (JSON)
-            </span>
-            <textarea
-              value={answerDataJson}
-              onChange={(event) => setAnswerDataJson(event.target.value)}
-              className="mt-2 min-h-28 w-full rounded-lg border border-border-ui bg-page px-3 py-2 font-mono text-xs text-ink"
-            />
-          </label>
+          {validationMessage === undefined ? undefined : (
+            <p className="text-sm text-coral" role="alert">
+              {validationMessage}
+            </p>
+          )}
+          {submitErrorMessage === undefined ? undefined : (
+            <p className="text-sm text-coral" role="alert">
+              {submitErrorMessage}
+            </p>
+          )}
 
           <menu className="mt-2 flex list-none justify-end gap-3 p-0">
             <li>
               <button
                 type="button"
                 onClick={onClose}
+                disabled={isSubmitting}
                 className="rounded-lg border border-border-ui bg-surface px-4 py-2.5 text-sm font-semibold text-text-secondary hover:bg-page"
               >
                 Cancel
@@ -247,9 +463,14 @@ export function QuestionFormModal({
             <li>
               <button
                 type="submit"
-                className="rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97]"
+                disabled={isSubmitting || sections.length === 0}
+                className="rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] disabled:opacity-60"
               >
-                {isEditing ? "Save Changes" : "Create Question"}
+                {isSubmitting
+                  ? "Saving…"
+                  : isEditing
+                    ? "Save Changes"
+                    : "Create Question"}
               </button>
             </li>
           </menu>

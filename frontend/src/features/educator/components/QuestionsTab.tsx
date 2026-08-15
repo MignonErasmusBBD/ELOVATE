@@ -1,12 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { StatusPill } from "@/components/ui/StatusPill";
+import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import { listLearningContentSections } from "@/helpers/learningContentApi";
+import {
+  listBloomLevels,
+  listDifficultyLevels,
+  listQuestionFormats,
+  type BloomLevelLookup,
+  type DifficultyLevelLookup,
+} from "@/helpers/lookupsApi";
+import {
+  activateQuestion,
+  createQuestion,
+  deactivateQuestion,
+  listQuestions,
+  updateQuestion,
+  type ElovateQuestion,
+} from "@/helpers/questionsApi";
 import type { EducatorQuestion } from "../types";
-import { QuestionFormModal } from "./QuestionFormModal";
+import {
+  QuestionFormModal,
+  type QuestionFormLookups,
+  type QuestionFormValues,
+} from "./QuestionFormModal";
 
 type QuestionsTabProps = {
+  courseId: string;
   courseTitle: string;
-  questions: EducatorQuestion[];
 };
 
 type QuestionModalMode =
@@ -14,21 +36,221 @@ type QuestionModalMode =
   | { kind: "create" }
   | { kind: "edit"; questionId: string };
 
-export function QuestionsTab({ courseTitle, questions }: QuestionsTabProps) {
+type CourseSectionOption = {
+  id: string;
+  title: string;
+};
+
+function toEducatorQuestion(
+  question: ElovateQuestion,
+  sections: CourseSectionOption[],
+  bloomLevels: BloomLevelLookup[],
+  difficultyLevels: DifficultyLevelLookup[],
+): EducatorQuestion {
+  const section = sections.find(
+    (entry) => entry.id === question.courseSectionId,
+  );
+  const bloom = bloomLevels.find(
+    (level) => level.bloomLevelId === question.bloomLevelId,
+  );
+  const difficulty = difficultyLevels.find(
+    (level) => level.difficultyLevelId === question.difficultyLevelId,
+  );
+
+  return {
+    id: question.id,
+    prompt: question.prompt,
+    formatCode: question.formatCode,
+    questionFormatId: question.questionFormatId,
+    bloomLevelId: question.bloomLevelId,
+    bloomLevelName: bloom === undefined ? `Bloom ${question.bloomLevelId}` : bloom.name,
+    difficultyLevelId: question.difficultyLevelId,
+    difficultyName:
+      difficulty === undefined
+        ? `Difficulty ${question.difficultyLevelId}`
+        : difficulty.name,
+    courseSectionId: question.courseSectionId,
+    sectionTitle: section === undefined ? "Unknown section" : section.title,
+    status: question.status,
+    baseDifficulty: question.baseDifficulty,
+    options: question.options,
+  };
+}
+
+export function QuestionsTab({ courseId, courseTitle }: QuestionsTabProps) {
+  const [questions, setQuestions] = useState<EducatorQuestion[]>([]);
+  const [sections, setSections] = useState<CourseSectionOption[]>([]);
+  const [lookups, setLookups] = useState<QuestionFormLookups>({
+    bloomLevels: [],
+    difficultyLevels: [],
+    questionFormats: [],
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadErrorMessage, setLoadErrorMessage] = useState<string | undefined>();
+  const [reloadToken, setReloadToken] = useState(0);
   const [expandedQuestionId, setExpandedQuestionId] = useState<
     string | undefined
-  >(questions[0]?.id);
+  >();
   const [questionModalMode, setQuestionModalMode] = useState<QuestionModalMode>(
     { kind: "closed" },
   );
-  const [localQuestions, setLocalQuestions] = useState(questions);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitErrorMessage, setSubmitErrorMessage] = useState<
+    string | undefined
+  >();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadQuestionsTab() {
+      setIsLoading(true);
+      setLoadErrorMessage(undefined);
+      try {
+        const [
+          activeQuestions,
+          deactivatedQuestions,
+          apiSections,
+          bloomLevels,
+          difficultyLevels,
+          questionFormats,
+        ] = await Promise.all([
+          listQuestions({ courseId, status: "active" }),
+          listQuestions({ courseId, status: "deactivated" }),
+          listLearningContentSections(courseId),
+          listBloomLevels(),
+          listDifficultyLevels(),
+          listQuestionFormats(),
+        ]);
+        if (cancelled) {
+          return;
+        }
+
+        const apiQuestions = [...activeQuestions, ...deactivatedQuestions];
+        const nextSections = apiSections.map((section) => ({
+          id: section.id,
+          title: section.title,
+        }));
+        const nextLookups = {
+          bloomLevels,
+          difficultyLevels,
+          questionFormats,
+        };
+        const nextQuestions = apiQuestions.map((question) =>
+          toEducatorQuestion(
+            question,
+            nextSections,
+            bloomLevels,
+            difficultyLevels,
+          ),
+        );
+
+        setSections(nextSections);
+        setLookups(nextLookups);
+        setQuestions(nextQuestions);
+        setExpandedQuestionId((currentId) => {
+          if (
+            currentId !== undefined &&
+            nextQuestions.some((question) => question.id === currentId)
+          ) {
+            return currentId;
+          }
+          return nextQuestions[0]?.id;
+        });
+      } catch (error) {
+        if (cancelled === false) {
+          setQuestions([]);
+          setSections([]);
+          setLoadErrorMessage(
+            errorMessageFromUnknown(error, "Could not load questions."),
+          );
+        }
+      } finally {
+        if (cancelled === false) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadQuestionsTab();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, reloadToken]);
 
   const editingQuestion =
     questionModalMode.kind === "edit"
-      ? localQuestions.find(
+      ? questions.find(
           (question) => question.id === questionModalMode.questionId,
         )
       : undefined;
+
+  async function handleSaveQuestion(formValues: QuestionFormValues) {
+    setIsSubmitting(true);
+    setSubmitErrorMessage(undefined);
+    const options = formValues.options.map((option, optionIndex) => ({
+      optionText: option.optionText,
+      isCorrect: option.isCorrect,
+      position: optionIndex,
+    }));
+
+    try {
+      if (questionModalMode.kind === "create") {
+        const created = await createQuestion({
+          courseSectionId: formValues.courseSectionId,
+          questionFormatId: formValues.questionFormatId,
+          prompt: formValues.prompt,
+          bloomLevelId: formValues.bloomLevelId,
+          difficultyLevelId: formValues.difficultyLevelId,
+          baseDifficulty: formValues.baseDifficulty,
+          options,
+        });
+        setExpandedQuestionId(created.id);
+      } else if (
+        questionModalMode.kind === "edit" &&
+        editingQuestion !== undefined
+      ) {
+        await updateQuestion(editingQuestion.id, {
+          courseSectionId: formValues.courseSectionId,
+          prompt: formValues.prompt,
+          questionFormatId: formValues.questionFormatId,
+          bloomLevelId: formValues.bloomLevelId,
+          difficultyLevelId: formValues.difficultyLevelId,
+          baseDifficulty: formValues.baseDifficulty,
+          options,
+        });
+      }
+      setQuestionModalMode({ kind: "closed" });
+      setReloadToken((currentToken) => currentToken + 1);
+    } catch (error) {
+      setSubmitErrorMessage(
+        errorMessageFromUnknown(error, "Could not save question."),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleToggleStatus(question: EducatorQuestion) {
+    setLoadErrorMessage(undefined);
+    try {
+      if (question.status === "active") {
+        await deactivateQuestion(question.id);
+      } else {
+        await activateQuestion(question.id);
+      }
+      setReloadToken((currentToken) => currentToken + 1);
+    } catch (error) {
+      setLoadErrorMessage(
+        errorMessageFromUnknown(error, "Could not update question status."),
+      );
+    }
+  }
+
+  function openCreateModal() {
+    setSubmitErrorMessage(undefined);
+    setLoadErrorMessage(undefined);
+    setQuestionModalMode({ kind: "create" });
+  }
 
   return (
     <section aria-labelledby="questions-heading" className="mt-6">
@@ -41,162 +263,173 @@ export function QuestionsTab({ courseTitle, questions }: QuestionsTabProps) {
         </h2>
         <button
           type="button"
-          onClick={() => setQuestionModalMode({ kind: "create" })}
+          onClick={openCreateModal}
           className="rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97]"
         >
           + Add Question
         </button>
       </header>
 
-      <ul className="mt-4 flex list-none flex-col gap-3 p-0">
-        {localQuestions.map((question) => {
-          const isExpanded = expandedQuestionId === question.id;
+      {isLoading ? (
+        <p className="mt-4 text-sm text-text-secondary">Loading questions…</p>
+      ) : undefined}
 
-          return (
-            <li key={question.id}>
-              <article className="rounded-2xl border border-border-ui bg-surface shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
-                <button
-                  type="button"
-                  className="flex w-full items-start justify-between gap-3 px-5 py-4 text-left"
-                  onClick={() =>
-                    setExpandedQuestionId(isExpanded ? undefined : question.id)
-                  }
-                  aria-expanded={isExpanded}
-                >
-                  <span className="min-w-0">
-                    <span className="block text-base font-bold text-ink">
-                      {question.prompt}
-                    </span>
-                    <ul className="mt-2 flex list-none flex-wrap gap-2 p-0">
-                      <li className="rounded-full bg-ink/10 px-2.5 py-1 text-xs font-semibold text-ink">
-                        {question.format}
-                      </li>
-                      <li className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800">
-                        {question.bloomLevel}
-                      </li>
-                      <li className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-800">
-                        {question.difficulty}
-                      </li>
-                      <li className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
-                        {question.sectionName}
-                      </li>
-                      {question.quizTypes.map((quizType) => (
-                        <li
-                          key={quizType}
-                          className="rounded-full bg-coral/15 px-2.5 py-1 text-xs font-semibold text-coral"
-                        >
-                          {quizType}
+      {loadErrorMessage === undefined ? undefined : (
+        <p className="mt-4 text-sm text-coral" role="alert">
+          {loadErrorMessage}
+        </p>
+      )}
+
+      {isLoading === false &&
+      loadErrorMessage === undefined &&
+      questions.length === 0 ? (
+        <p className="mt-4 text-sm text-text-secondary">
+          No questions yet. Add a question to get started.
+        </p>
+      ) : undefined}
+
+      {questions.length === 0 ? undefined : (
+        <ul className="mt-4 flex list-none flex-col gap-3 p-0">
+          {questions.map((question) => {
+            const isExpanded = expandedQuestionId === question.id;
+            const isActive = question.status === "active";
+
+            return (
+              <li key={question.id}>
+                <article className="rounded-2xl border border-border-ui bg-surface shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
+                  <button
+                    type="button"
+                    className="flex w-full items-start justify-between gap-3 px-5 py-4 text-left"
+                    onClick={() =>
+                      setExpandedQuestionId(
+                        isExpanded ? undefined : question.id,
+                      )
+                    }
+                    aria-expanded={isExpanded}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-base font-bold text-ink">
+                        {question.prompt}
+                      </span>
+                      <ul className="mt-2 flex list-none flex-wrap gap-2 p-0">
+                        <li className="rounded-full bg-ink/10 px-2.5 py-1 text-xs font-semibold text-ink">
+                          {question.formatCode}
                         </li>
-                      ))}
-                    </ul>
-                  </span>
-                  <span className="text-sm font-semibold text-text-secondary">
-                    {isExpanded ? "▴" : "▾"}
-                  </span>
-                </button>
+                        <li className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                          {question.bloomLevelName}
+                        </li>
+                        <li className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-800">
+                          {question.difficultyName}
+                        </li>
+                        <li className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                          {question.sectionTitle}
+                        </li>
+                        <li>
+                          <StatusPill
+                            label={isActive ? "Active" : "Inactive"}
+                            tone={isActive ? "success" : "warning"}
+                          />
+                        </li>
+                      </ul>
+                    </span>
+                    <span className="text-sm font-semibold text-text-secondary">
+                      {isExpanded ? "▴" : "▾"}
+                    </span>
+                  </button>
 
-                {isExpanded ? (
-                  <section className="border-t border-border-ui px-5 py-4">
-                    <p className="text-sm text-text-secondary">
-                      Points: {question.points}
-                    </p>
-                    <h3 className="mt-4 text-sm font-semibold text-ink">
-                      Question Data:
-                    </h3>
-                    <pre className="mt-2 overflow-x-auto rounded-xl bg-page p-3 text-xs text-ink">
-                      <code>{question.questionDataJson}</code>
-                    </pre>
-                    <h3 className="mt-4 text-sm font-semibold text-ink">
-                      Correct Answer:
-                    </h3>
-                    <pre className="mt-2 overflow-x-auto rounded-xl bg-page p-3 text-xs text-ink">
-                      <code>{question.answerDataJson}</code>
-                    </pre>
-                    <menu className="mt-4 flex list-none gap-2 p-0">
-                      <li>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setQuestionModalMode({
-                              kind: "edit",
-                              questionId: question.id,
-                            })
-                          }
-                          className="rounded-lg border border-ink bg-surface px-3 py-2 text-sm font-semibold text-ink hover:bg-page"
-                        >
-                          Edit Question
-                        </button>
-                      </li>
-                      <li>
-                        <button
-                          type="button"
-                          className="rounded-lg bg-coral px-3 py-2 text-sm font-semibold text-white hover:brightness-[0.97]"
-                        >
-                          Deactivate
-                        </button>
-                      </li>
-                    </menu>
-                  </section>
-                ) : undefined}
-              </article>
-            </li>
-          );
-        })}
-      </ul>
+                  {isExpanded ? (
+                    <section className="border-t border-border-ui px-5 py-4">
+                      <h3 className="text-sm font-semibold text-ink">
+                        Options
+                      </h3>
+                      <ul className="mt-2 flex list-none flex-col gap-2 p-0">
+                        {question.options.map((option) => (
+                          <li
+                            key={option.id}
+                            className={`rounded-lg border px-3 py-2 text-sm ${
+                              option.isCorrect
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                                : "border-border-ui bg-page text-text-secondary"
+                            }`}
+                          >
+                            {option.optionText}
+                            {option.isCorrect ? (
+                              <span className="ml-2 text-xs font-semibold">
+                                Correct
+                              </span>
+                            ) : undefined}
+                          </li>
+                        ))}
+                      </ul>
+                      <menu className="mt-4 flex list-none gap-2 p-0">
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSubmitErrorMessage(undefined);
+                              setQuestionModalMode({
+                                kind: "edit",
+                                questionId: question.id,
+                              });
+                            }}
+                            className="rounded-lg border border-ink bg-surface px-3 py-2 text-sm font-semibold text-ink hover:bg-page"
+                          >
+                            Edit Question
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleToggleStatus(question);
+                            }}
+                            className={
+                              isActive
+                                ? "rounded-lg bg-coral px-3 py-2 text-sm font-semibold text-white hover:brightness-[0.97]"
+                                : "rounded-lg border border-emerald-600 bg-surface px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
+                            }
+                          >
+                            {isActive ? "Deactivate" : "Activate"}
+                          </button>
+                        </li>
+                      </menu>
+                    </section>
+                  ) : undefined}
+                </article>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {questionModalMode.kind === "create" ? (
         <QuestionFormModal
-          onClose={() => setQuestionModalMode({ kind: "closed" })}
-          onSave={(formValues) => {
-            const newQuestion: EducatorQuestion = {
-              id: `q-${localQuestions.length + 1}`,
-              prompt: formValues.prompt,
-              format: formValues.format,
-              bloomLevel: formValues.bloomLevel,
-              difficulty: formValues.difficulty,
-              sectionName: formValues.sectionName,
-              quizTypes: ["Practice Quiz"],
-              points: formValues.points,
-              questionDataJson: formValues.questionDataJson,
-              answerDataJson: formValues.answerDataJson,
-              isActive: true,
-            };
-            setLocalQuestions((previousQuestions) => [
-              newQuestion,
-              ...previousQuestions,
-            ]);
-            setExpandedQuestionId(newQuestion.id);
-            setQuestionModalMode({ kind: "closed" });
+          sections={sections}
+          lookups={lookups}
+          isSubmitting={isSubmitting}
+          submitErrorMessage={submitErrorMessage}
+          onClose={() => {
+            if (isSubmitting === false) {
+              setQuestionModalMode({ kind: "closed" });
+            }
           }}
+          onSave={handleSaveQuestion}
         />
       ) : undefined}
 
       {questionModalMode.kind === "edit" && editingQuestion !== undefined ? (
         <QuestionFormModal
           initialQuestion={editingQuestion}
-          onClose={() => setQuestionModalMode({ kind: "closed" })}
-          onSave={(formValues) => {
-            setLocalQuestions((previousQuestions) =>
-              previousQuestions.map((question) => {
-                if (question.id !== editingQuestion.id) {
-                  return question;
-                }
-
-                return {
-                  ...question,
-                  prompt: formValues.prompt,
-                  format: formValues.format,
-                  bloomLevel: formValues.bloomLevel,
-                  difficulty: formValues.difficulty,
-                  sectionName: formValues.sectionName,
-                  points: formValues.points,
-                  questionDataJson: formValues.questionDataJson,
-                  answerDataJson: formValues.answerDataJson,
-                };
-              }),
-            );
-            setQuestionModalMode({ kind: "closed" });
+          sections={sections}
+          lookups={lookups}
+          isSubmitting={isSubmitting}
+          submitErrorMessage={submitErrorMessage}
+          onClose={() => {
+            if (isSubmitting === false) {
+              setQuestionModalMode({ kind: "closed" });
+            }
           }}
+          onSave={handleSaveQuestion}
         />
       ) : undefined}
     </section>

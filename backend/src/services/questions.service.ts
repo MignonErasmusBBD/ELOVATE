@@ -98,6 +98,7 @@ export class QuestionsService {
     actor: AuthUser,
     questionId: string,
     input: {
+      courseSectionId: string | undefined;
       prompt: string | undefined;
       questionFormatId: number | undefined;
       bloomLevelId: number | undefined;
@@ -109,7 +110,19 @@ export class QuestionsService {
     requirePermission(actor, ['question.update']);
     const question = await this.requireQuestion(questionId);
     await this.requireAuthoring(actor, question.courseId);
+    if (input.courseSectionId !== undefined) {
+      const section = await this.content.findSectionById(input.courseSectionId);
+      if (section === undefined) {
+        throw new NotFoundException('Section not found');
+      }
+      if (section.courseId !== question.courseId) {
+        throw new ForbiddenException(
+          'Section must belong to the same course as the question',
+        );
+      }
+    }
     await this.questions.updateFields(questionId, {
+      courseSectionId: input.courseSectionId,
       prompt: input.prompt,
       questionFormatId: input.questionFormatId,
       bloomLevelId: input.bloomLevelId,
