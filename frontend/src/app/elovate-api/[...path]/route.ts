@@ -5,7 +5,9 @@ type RouteContext = {
 };
 
 const HOP_BY_HOP_HEADERS = new Set([
+  "accept-encoding",
   "connection",
+  "content-encoding",
   "content-length",
   "host",
   "keep-alive",
