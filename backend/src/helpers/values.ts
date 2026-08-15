@@ -2,7 +2,7 @@ const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Values we bind to `$1`, `$2`, … in parameterized SQL. */
-export type SqlParameter = string | number | boolean | undefined;
+export type SqlParameter = string | number | boolean | undefined | null;
 
 export type SqlQuery = <T extends object>(
   text: string,

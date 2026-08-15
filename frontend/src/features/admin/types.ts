@@ -4,10 +4,22 @@ export type CompanyStatus = "active" | "suspended";
 
 export type AdminPerson = {
   id: string;
-  organizationId: string;
+  organizationId: string | undefined;
   emailAddress: string;
   fullName: string;
   roleNames: string[];
+};
+
+export type DirectoryOrganization = {
+  id: string;
+  name: string;
+  slug: string;
+  status: CompanyStatus;
+};
+
+export type DirectoryRole = {
+  roleName: string;
+  description: string | undefined;
 };
 
 export type AdminCourse = {

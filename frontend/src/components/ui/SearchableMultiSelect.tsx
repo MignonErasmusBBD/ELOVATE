@@ -9,7 +9,7 @@ export type SearchableMultiSelectOption = {
   description?: string;
 };
 
-type SearchableMultiSelectProps = {
+type SearchableMultiSelectProps = Readonly<{
   id: string;
   placeholder?: string;
   options: SearchableMultiSelectOption[];
@@ -17,7 +17,7 @@ type SearchableMultiSelectProps = {
   onSelectedIdsChange: (selectedIds: string[]) => void;
   invalid?: boolean;
   describedBy?: string;
-};
+}>;
 
 export function SearchableMultiSelect({
   id,
@@ -29,9 +29,17 @@ export function SearchableMultiSelect({
   describedBy,
 }: SearchableMultiSelectProps) {
   const listboxId = useId();
-  const containerRef = useRef<HTMLSpanElement>(null);
+  const containerElementRef = useRef<HTMLSpanElement | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [isListOpen, setIsListOpen] = useState(false);
+
+  const selectedOptions = selectedIds.flatMap((selectedId) => {
+    const selectedOption = options.find((option) => option.id === selectedId);
+    if (selectedOption === undefined) {
+      return [];
+    }
+    return [selectedOption];
+  });
 
   const availableOptions = options.filter((option) => {
     if (selectedIds.includes(option.id)) {
@@ -48,14 +56,15 @@ export function SearchableMultiSelect({
 
   useEffect(() => {
     function handlePointerDown(pointerEvent: PointerEvent) {
-      const containerElement = containerRef.current;
+      const containerElement = containerElementRef.current;
       const eventTarget = pointerEvent.target;
-
-      if (containerElement === null || !(eventTarget instanceof Node)) {
+      if (
+        containerElement instanceof HTMLElement === false ||
+        eventTarget instanceof Node === false
+      ) {
         return;
       }
-
-      if (!containerElement.contains(eventTarget)) {
+      if (containerElement.contains(eventTarget) === false) {
         setIsListOpen(false);
       }
     }
@@ -69,6 +78,7 @@ export function SearchableMultiSelect({
   function addSelectedId(optionId: string) {
     onSelectedIdsChange([...selectedIds, optionId]);
     setSearchQuery("");
+    setIsListOpen(false);
   }
 
   function removeSelectedId(optionId: string) {
@@ -78,31 +88,26 @@ export function SearchableMultiSelect({
   }
 
   return (
-    <span ref={containerRef} className="relative block">
-      {selectedIds.length > 0 ? (
+    <span
+      ref={(element) => {
+        containerElementRef.current = element ?? undefined;
+      }}
+      className="relative block"
+    >
+      {selectedOptions.length > 0 ? (
         <ul className="mb-2 flex flex-wrap gap-2">
-          {selectedIds.map((selectedId) => {
-            const selectedOption = options.find(
-              (option) => option.id === selectedId,
-            );
-
-            if (selectedOption === undefined) {
-              return undefined;
-            }
-
-            return (
-              <li key={selectedId}>
-                <button
-                  type="button"
-                  className="rounded-full border border-coral/50 bg-coral/15 px-2.5 py-1 text-xs font-medium text-coral hover:bg-coral/25"
-                  onClick={() => removeSelectedId(selectedId)}
-                  aria-label={`Remove ${selectedOption.label}`}
-                >
-                  {selectedOption.label} ×
-                </button>
-              </li>
-            );
-          })}
+          {selectedOptions.map((selectedOption) => (
+            <li key={selectedOption.id}>
+              <button
+                type="button"
+                className="rounded-full border border-coral/50 bg-coral/15 px-2.5 py-1 text-xs font-medium text-coral hover:bg-coral/25"
+                onClick={() => removeSelectedId(selectedOption.id)}
+                aria-label={`Remove ${selectedOption.label}`}
+              >
+                {selectedOption.label} ×
+              </button>
+            </li>
+          ))}
         </ul>
       ) : undefined}
 
@@ -126,6 +131,16 @@ export function SearchableMultiSelect({
           setIsListOpen(true);
         }}
         onFocus={() => setIsListOpen(true)}
+        onBlur={(blurEvent) => {
+          const nextFocus = blurEvent.relatedTarget;
+          if (
+            nextFocus instanceof Node &&
+            containerElementRef.current?.contains(nextFocus)
+          ) {
+            return;
+          }
+          setIsListOpen(false);
+        }}
         onKeyDown={(keyboardEvent) => {
           if (keyboardEvent.key === "Escape") {
             setIsListOpen(false);
@@ -164,7 +179,10 @@ export function SearchableMultiSelect({
                 <button
                   type="button"
                   className="w-full px-3 py-2.5 text-left hover:bg-page"
-                  onClick={() => addSelectedId(option.id)}
+                  onMouseDown={(mouseEvent) => {
+                    mouseEvent.preventDefault();
+                    addSelectedId(option.id);
+                  }}
                 >
                   <span className="block text-sm font-medium text-ink">
                     {option.label}
