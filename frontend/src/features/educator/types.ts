@@ -49,20 +49,27 @@ export type EducatorStudentSummary = {
   interventionLabels: string[];
 };
 
-export type EducatorQuestionFormat = "multiple-choice";
+export type EducatorQuestionOption = {
+  id: string;
+  optionText: string;
+  isCorrect: boolean;
+  position: number;
+};
 
 export type EducatorQuestion = {
   id: string;
   prompt: string;
-  format: EducatorQuestionFormat;
-  bloomLevel: string;
-  difficulty: string;
-  sectionName: string;
-  quizTypes: string[];
-  points: number;
-  questionDataJson: string;
-  answerDataJson: string;
-  isActive: boolean;
+  formatCode: string;
+  questionFormatId: number;
+  bloomLevelId: number;
+  bloomLevelName: string;
+  difficultyLevelId: number;
+  difficultyName: string;
+  courseSectionId: string;
+  sectionTitle: string;
+  status: "active" | "deactivated";
+  baseDifficulty: number;
+  options: EducatorQuestionOption[];
 };
 
 export type LearningContentBlock = {

@@ -74,6 +74,11 @@ class CreateQuestionDto {
 class UpdateQuestionDto {
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsUUID()
+  courseSectionId?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
   prompt?: string;
 
@@ -194,6 +199,7 @@ export class QuestionsController {
     @Body() dto: UpdateQuestionDto,
   ) {
     return this.questions.update(actor, id, {
+      courseSectionId: dto.courseSectionId,
       prompt: dto.prompt,
       questionFormatId: dto.questionFormatId,
       bloomLevelId: dto.bloomLevelId,

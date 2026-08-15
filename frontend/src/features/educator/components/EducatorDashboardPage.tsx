@@ -373,11 +373,7 @@ export function EducatorDashboardPage() {
             dashboard === undefined ? 0 : dashboard.averagePracticeQuizPercent
           }
           totalQuestions={
-            selectedCourseId === ""
-              ? 0
-              : dashboard === undefined
-                ? 12
-                : dashboard.questions.length
+            dashboard === undefined ? 0 : dashboard.questions.length
           }
         />
       </section>
@@ -403,11 +399,15 @@ export function EducatorDashboardPage() {
             students={dashboard.students}
           />
         ) : undefined}
-        {dashboard !== undefined && selectedTabId === "questions" ? (
+        {selectedCourseId !== "" && selectedTabId === "questions" ? (
           <QuestionsTab
-            key={dashboard.courseId}
-            courseTitle={dashboard.courseTitle}
-            questions={dashboard.questions}
+            key={selectedCourseId}
+            courseId={selectedCourseId}
+            courseTitle={
+              selectedCourseTitle === undefined
+                ? "this course"
+                : selectedCourseTitle
+            }
           />
         ) : undefined}
         {selectedCourseId !== "" &&

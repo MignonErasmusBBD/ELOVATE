@@ -113,48 +113,82 @@ function buildDashboardForCourse(
       {
         id: "q-1",
         prompt: "What is the primary purpose of the Observer pattern?",
-        format: "multiple-choice",
-        bloomLevel: "Remember",
-        difficulty: "Easy",
-        sectionName: "Theory & Concepts",
-        quizTypes: ["Practice Quiz"],
-        points: 1,
-        questionDataJson: `{
-  "options": [
-    { "id": "A", "text": "Decouple subjects from dependents" },
-    { "id": "B", "text": "Create objects without specifying class" },
-    { "id": "C", "text": "Cache expensive results" },
-    { "id": "D", "text": "Enforce a single instance" }
-  ]
-}`,
-        answerDataJson: `{
-  "answer": "A",
-  "reason": "Observer lets a subject notify dependents without tight coupling."
-}`,
-        isActive: true,
+        formatCode: "mcq",
+        questionFormatId: 1,
+        bloomLevelId: 1,
+        bloomLevelName: "Remember",
+        difficultyLevelId: 1,
+        difficultyName: "Easy",
+        courseSectionId: "section-introduction",
+        sectionTitle: "Introduction",
+        status: "active",
+        baseDifficulty: 0.3,
+        options: [
+          {
+            id: "opt-1a",
+            optionText: "Decouple subjects from dependents",
+            isCorrect: true,
+            position: 0,
+          },
+          {
+            id: "opt-1b",
+            optionText: "Create objects without specifying class",
+            isCorrect: false,
+            position: 1,
+          },
+          {
+            id: "opt-1c",
+            optionText: "Cache expensive results",
+            isCorrect: false,
+            position: 2,
+          },
+          {
+            id: "opt-1d",
+            optionText: "Enforce a single instance",
+            isCorrect: false,
+            position: 3,
+          },
+        ],
       },
       {
         id: "q-2",
         prompt: "How should observers attach to a subject at runtime?",
-        format: "multiple-choice",
-        bloomLevel: "Apply",
-        difficulty: "Medium",
-        sectionName: "Pattern Participants/Relationships",
-        quizTypes: ["Practice Quiz"],
-        points: 1,
-        questionDataJson: `{
-  "options": [
-    { "id": "A", "text": "Hard-code every listener in the subject" },
-    { "id": "B", "text": "Call attach/detach on the subject" },
-    { "id": "C", "text": "Restart the process for each listener" },
-    { "id": "D", "text": "Store observers only in localStorage" }
-  ]
-}`,
-        answerDataJson: `{
-  "answer": "B",
-  "reason": "Attach and detach keep subscriptions dynamic."
-}`,
-        isActive: true,
+        formatCode: "mcq",
+        questionFormatId: 1,
+        bloomLevelId: 3,
+        bloomLevelName: "Apply",
+        difficultyLevelId: 2,
+        difficultyName: "Medium",
+        courseSectionId: "section-structure",
+        sectionTitle: "Structure",
+        status: "active",
+        baseDifficulty: 0.5,
+        options: [
+          {
+            id: "opt-2a",
+            optionText: "Hard-code every listener in the subject",
+            isCorrect: false,
+            position: 0,
+          },
+          {
+            id: "opt-2b",
+            optionText: "Call attach/detach on the subject",
+            isCorrect: true,
+            position: 1,
+          },
+          {
+            id: "opt-2c",
+            optionText: "Restart the process for each listener",
+            isCorrect: false,
+            position: 2,
+          },
+          {
+            id: "opt-2d",
+            optionText: "Store observers only in localStorage",
+            isCorrect: false,
+            position: 3,
+          },
+        ],
       },
     ],
     learningContentSections: [
