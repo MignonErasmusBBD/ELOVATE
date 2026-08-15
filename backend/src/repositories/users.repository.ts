@@ -10,7 +10,7 @@ import { PostgresService } from '../services/postgres.service';
 
 type UserRow = {
   id: string;
-  organization_id: string;
+  organization_id: string | null;
   email: string;
   full_name: string | null;
   status: string;
@@ -29,7 +29,7 @@ type AuthUserRow = {
 
 export type PublicUser = {
   id: string;
-  organizationId: string;
+  organizationId: string | undefined;
   email: string;
   fullName: string | undefined;
   status: string;
@@ -52,18 +52,21 @@ const userSelectSql = `SELECT
   us.status_code AS status,
   u.created_at,
   coalesce(
-    array_agg(r.role_name ORDER BY r.role_id) FILTER (WHERE r.role_id IS NOT NULL),
+    (
+      SELECT array_agg(r.role_name ORDER BY r.role_id)
+      FROM user_roles ur
+      JOIN roles r ON r.role_id = ur.role_id
+      WHERE ur.user_id = u.id
+    ),
     '{}'
   ) AS roles
 FROM users u
-JOIN user_statuses us ON us.user_status_id = u.user_status_id
-LEFT JOIN user_roles ur ON ur.user_id = u.id
-LEFT JOIN roles r ON r.role_id = ur.role_id`;
+JOIN user_statuses us ON us.user_status_id = u.user_status_id`;
 
 function toPublicUser(row: UserRow): PublicUser {
   return {
     id: row.id,
-    organizationId: row.organization_id,
+    organizationId: textFromDatabase(row.organization_id),
     email: row.email,
     fullName: textFromDatabase(row.full_name),
     status: row.status,
@@ -81,7 +84,7 @@ export class UsersRepository {
       return undefined;
     }
     const result = await this.postgres.query<UserRow>(
-      `${userSelectSql} WHERE u.id = $1 GROUP BY u.id, us.status_code`,
+      `${userSelectSql} WHERE u.id = $1`,
       [userId],
     );
     const row = result.rows[0];
@@ -91,19 +94,18 @@ export class UsersRepository {
     return toPublicUser(row);
   }
 
-  async findOrganizationId(userId: string): Promise<string | undefined> {
-    if (isUuid(userId) === false) {
-      return undefined;
-    }
-    const result = await this.postgres.query<{ organization_id: string }>(
-      'SELECT organization_id FROM users WHERE id = $1',
+  async setOrganizationId(userId: string, organizationId: string) {
+    await this.postgres.query(
+      'UPDATE users SET organization_id = $1 WHERE id = $2',
+      [organizationId, userId],
+    );
+  }
+
+  async clearOrganizationId(userId: string) {
+    await this.postgres.query(
+      'UPDATE users SET organization_id = NULL WHERE id = $1',
       [userId],
     );
-    const row = result.rows[0];
-    if (row === undefined) {
-      return undefined;
-    }
-    return row.organization_id;
   }
 
   async list(filters: UserListFilters): Promise<PublicUser[]> {
@@ -134,7 +136,6 @@ export class UsersRepository {
     const result = await this.postgres.query<UserRow>(
       `${userSelectSql}
        ${whereClause(conditions)}
-       GROUP BY u.id, us.status_code
        ORDER BY u.created_at DESC`,
       values,
     );

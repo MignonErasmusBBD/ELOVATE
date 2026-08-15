@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from "react";
 
-type ButtonVariant = "primary" | "ghost" | "compact";
+type ButtonVariant = "primary" | "ghost" | "compact" | "outline";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -13,6 +13,8 @@ const variantClasses: Record<ButtonVariant, string> = {
     "rounded-md bg-transparent px-2 py-1 text-sm font-semibold uppercase tracking-wide text-ink hover:bg-ink/5",
   compact:
     "rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white focus-coral hover:brightness-[0.97] disabled:cursor-not-allowed disabled:opacity-60",
+  outline:
+    "rounded-lg border border-ink bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:bg-page disabled:cursor-not-allowed disabled:opacity-60",
 };
 
 export function Button({

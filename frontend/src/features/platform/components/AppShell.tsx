@@ -4,6 +4,9 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ACCOUNT_CHANGED_EVENT } from "@/helpers/accountEvents";
+import { elovateApiJson } from "@/helpers/elovateApi";
+import { isPlainObject, readOptionalString, readStringList } from "@/helpers/jsonFields";
 import { authClient } from "@/lib/auth-client";
 import {
   getAllPlatformNavSections,
@@ -27,45 +30,6 @@ function getNavItemInitial(label: string) {
   return label.slice(0, 1);
 }
 
-function readToken(body: object): string | undefined {
-  if ("token" in body === false) {
-    return undefined;
-  }
-  const token = body.token;
-  if (typeof token !== "string" || token === "") {
-    return undefined;
-  }
-  return token;
-}
-
-function readStringList(body: object, key: string): string[] {
-  if (key in body === false) {
-    return [];
-  }
-  const field = Reflect.get(body, key);
-  if (Array.isArray(field) === false) {
-    return [];
-  }
-  const values: string[] = [];
-  for (const item of field) {
-    if (typeof item === "string" && item !== "") {
-      values.push(item);
-    }
-  }
-  return values;
-}
-
-function readOptionalString(body: object, key: string): string | undefined {
-  if (key in body === false) {
-    return undefined;
-  }
-  const field = Reflect.get(body, key);
-  if (typeof field !== "string" || field === "") {
-    return undefined;
-  }
-  return field;
-}
-
 function AccountHeader() {
   const session = authClient.useSession();
   const sessionUser = session.data?.user;
@@ -80,47 +44,27 @@ function AccountHeader() {
     let cancelled = false;
 
     async function loadAccountDetails() {
-      const tokenResponse = await fetch("/api/auth/token");
-      if (tokenResponse.ok === false) {
+      try {
+        const profileBody = await elovateApiJson("/users/me");
+        if (cancelled || isPlainObject(profileBody) === false) {
+          return;
+        }
+        setRoleNames(readStringList(profileBody, "roles"));
+        setOrganizationName(readOptionalString(profileBody, "organizationName"));
+      } catch {
         return;
       }
-      const tokenBody = await tokenResponse.json();
-      if (
-        typeof tokenBody !== "object" ||
-        tokenBody === null ||
-        Array.isArray(tokenBody)
-      ) {
-        return;
-      }
-      const accessToken = readToken(tokenBody);
-      if (accessToken === undefined) {
-        return;
-      }
+    }
 
-      const profileResponse = await fetch("/elovate-api/users/me", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (profileResponse.ok === false) {
-        return;
-      }
-      const profileBody = await profileResponse.json();
-      if (
-        typeof profileBody !== "object" ||
-        profileBody === null ||
-        Array.isArray(profileBody)
-      ) {
-        return;
-      }
-      if (cancelled) {
-        return;
-      }
-      setRoleNames(readStringList(profileBody, "roles"));
-      setOrganizationName(readOptionalString(profileBody, "organizationName"));
+    function handleAccountChanged() {
+      void loadAccountDetails();
     }
 
     void loadAccountDetails();
+    window.addEventListener(ACCOUNT_CHANGED_EVENT, handleAccountChanged);
     return () => {
       cancelled = true;
+      window.removeEventListener(ACCOUNT_CHANGED_EVENT, handleAccountChanged);
     };
   }, [sessionUser]);
 

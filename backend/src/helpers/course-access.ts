@@ -3,7 +3,7 @@ import { hasPermission } from './require-permission';
 
 export type CourseAuthoringTarget = {
   visibility: string;
-  organizationId: string;
+  organizationId: string | undefined;
 };
 
 export function canAuthorCourse(
