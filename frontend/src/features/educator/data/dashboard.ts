@@ -161,25 +161,64 @@ function buildDashboardForCourse(
       {
         id: "section-introduction",
         title: "Introduction",
-        content: `Welcome to ${courseTitle}. This section introduces the core ideas students will practice: how one object can notify many others when state changes, without tight coupling.`,
+        position: 0,
+        contentBlocks: [
+          {
+            id: "block-intro-1",
+            contentType: "text",
+            bodyText: `Welcome to ${courseTitle}. This section introduces the core ideas students will practice: how one object can notify many others when state changes, without tight coupling.`,
+            position: 0,
+          },
+        ],
       },
       {
         id: "section-identification",
         title: "Identification",
-        content:
-          "Students should recognise when a subject must tell several dependents about a change without hard-coding those dependents. Look for publish-subscribe relationships and event listeners.",
+        position: 1,
+        contentBlocks: [
+          {
+            id: "block-id-1",
+            contentType: "text",
+            bodyText:
+              "Students should recognise when a subject must tell several dependents about a change without hard-coding those dependents. Look for publish-subscribe relationships and event listeners.",
+            position: 0,
+          },
+        ],
       },
       {
         id: "section-structure",
         title: "Structure",
-        content:
-          "Cover subject, concrete subject, observer, and concrete observer. Explain attach, detach, and notify with a short code sample when useful.",
+        position: 2,
+        contentBlocks: [
+          {
+            id: "block-structure-1",
+            contentType: "text",
+            bodyText:
+              "Cover subject, concrete subject, observer, and concrete observer. Explain attach, detach, and notify with a short code sample when useful.",
+            position: 0,
+          },
+          {
+            id: "block-structure-2",
+            contentType: "code",
+            bodyText: `subject.attach(observer);
+subject.notify();`,
+            position: 1,
+          },
+        ],
       },
       {
         id: "section-exercise",
         title: "Exercise",
-        content:
-          "Prompt students to name participants, describe notify behaviour, and sketch why a dashboard should subscribe instead of being called directly.",
+        position: 3,
+        contentBlocks: [
+          {
+            id: "block-exercise-1",
+            contentType: "text",
+            bodyText:
+              "Prompt students to name participants, describe notify behaviour, and sketch why a dashboard should subscribe instead of being called directly.",
+            position: 0,
+          },
+        ],
       },
     ],
   };

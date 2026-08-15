@@ -1,6 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { AuthGuard } from '../guards/auth.guard';
 import { AuthUser, CurrentUser } from '../helpers/auth-user';
 import { optionalText } from '../helpers/values';
@@ -38,7 +47,58 @@ class UpdateCourseDto {
   description?: string;
 }
 
+class SectionContentBlockDto {
+  @ApiProperty({ enum: ['text', 'code'] })
+  @IsIn(['text', 'code'])
+  contentType: 'text' | 'code';
+
+  @ApiProperty()
+  @IsString()
+  bodyText: string;
+
+  @ApiProperty()
+  @IsInt()
+  @Min(0)
+  position: number;
+}
+
 class CreateSectionDto {
+  @ApiProperty()
+  @IsString()
+  title: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  position?: number;
+
+  @ApiProperty({ required: false, type: [SectionContentBlockDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SectionContentBlockDto)
+  contentBlocks?: SectionContentBlockDto[];
+}
+
+class ReplaceSectionDto {
+  @ApiProperty()
+  @IsString()
+  title: string;
+
+  @ApiProperty()
+  @IsInt()
+  @Min(0)
+  position: number;
+
+  @ApiProperty({ type: [SectionContentBlockDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SectionContentBlockDto)
+  contentBlocks: SectionContentBlockDto[];
+}
+
+class PatchSectionDto {
   @ApiProperty()
   @IsString()
   title: string;
@@ -105,7 +165,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Get course',
     description:
-      'Select courses + course_sections + topics.\nCommunity: course.community.read. Private: course.private.read in the same org, or an active enrollments row.\nCommunity courses may omit owning_organization_id (V12).',
+      'Select courses + course_sections (with course_section_content) + topics.\nCommunity: course.community.read. Private: course.private.read in the same org, or an active enrollments row.\nCommunity courses may omit owning_organization_id (V12).',
   })
   getOne(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
     return this.courses.getOne(actor, id);
@@ -115,7 +175,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Create course',
     description:
-      'Insert courses (course_visibility_id from course_visibilities). Community courses do not require an organisation. Private courses use the caller org.\nPermission: course.community.create (community_admin, org_admin, educator) OR course.private.create (org_admin, educator).',
+      'Insert courses (course_visibility_id from course_visibilities, course_status_id defaults to deactivated). Community courses do not require an organisation. Private courses use the caller org.\nPermission: course.community.create (community_admin, org_admin, educator) OR course.private.create (org_admin, educator).',
   })
   create(@CurrentUser() actor: AuthUser, @Body() dto: CreateCourseDto) {
     return this.courses.create(actor, {
@@ -191,7 +251,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'List sections',
     description:
-      'Select course_sections. Same visibility as GET course.\nNo lessons table in V3 — course.lesson.write is seeded but unused until a lessons migration.',
+      'Select course_sections with nested course_section_content (content_types text|code).\nSame visibility as GET course.\nPermission: course.community.read / course.private.read (or active enrollment).',
   })
   listSections(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
     return this.courses.listSections(actor, id);
@@ -200,7 +260,8 @@ export class CoursesController {
   @Get(':id/sections/:sectionId')
   @ApiOperation({
     summary: 'Get one section',
-    description: 'Select course_sections by id.\nSame visibility as GET course.',
+    description:
+      'Select course_sections by id with nested course_section_content.\nSame visibility as GET course.',
   })
   getSection(
     @CurrentUser() actor: AuthUser,
@@ -214,27 +275,55 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Add section',
     description:
-      'Insert course_sections.\nPermission: course.section.write (community_admin, org_admin, educator).',
+      'Insert course_sections and optional course_section_content rows.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
   addSection(
     @CurrentUser() actor: AuthUser,
     @Param('id') id: string,
     @Body() dto: CreateSectionDto,
   ) {
-    return this.courses.addSection(actor, id, dto.title, dto.position);
+    return this.courses.addSection(
+      actor,
+      id,
+      dto.title,
+      dto.position === undefined ? 0 : dto.position,
+      dto.contentBlocks,
+    );
+  }
+
+  @Put(':id/sections/:sectionId')
+  @ApiOperation({
+    summary: 'Replace section and content blocks',
+    description:
+      'Update course_sections title/position and replace all course_section_content for the section.\nPermission: course.section.write (community_admin, org_admin, educator).',
+  })
+  replaceSection(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Param('sectionId') sectionId: string,
+    @Body() dto: ReplaceSectionDto,
+  ) {
+    return this.courses.replaceSection(
+      actor,
+      id,
+      sectionId,
+      dto.title,
+      dto.position,
+      dto.contentBlocks,
+    );
   }
 
   @Patch(':id/sections/:sectionId')
   @ApiOperation({
-    summary: 'Update section',
+    summary: 'Update section title/position',
     description:
-      'Update course_sections.\nPermission: course.section.write (community_admin, org_admin, educator).',
+      'Update course_sections title and position only (content blocks unchanged).\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
   updateSection(
     @CurrentUser() actor: AuthUser,
     @Param('id') id: string,
     @Param('sectionId') sectionId: string,
-    @Body() dto: CreateSectionDto,
+    @Body() dto: PatchSectionDto,
   ) {
     return this.courses.updateSection(actor, id, sectionId, dto.title, dto.position);
   }
@@ -243,7 +332,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Delete section',
     description:
-      'Delete unused course_sections (authoring only). 409 if the section still has questions. Do not use this to retire a course — deactivate the course instead.\nPermission: course.section.write (community_admin, org_admin, educator).',
+      'Delete unused course_sections (authoring only); course_section_content cascades. 409 if the section still has questions. Do not use this to retire a course — deactivate the course instead.\nPermission: course.section.write (community_admin, org_admin, educator).',
   })
   removeSection(
     @CurrentUser() actor: AuthUser,
