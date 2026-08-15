@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 import { AuthGuard } from '../guards/auth.guard';
 import { AuthUser, CurrentUser } from '../helpers/auth-user';
 import { optionalText } from '../helpers/values';
@@ -10,11 +10,28 @@ class CreateOrgDto {
   @ApiProperty()
   @IsString()
   @MinLength(2)
-  name: string;
+  name!: string;
 
-  @ApiProperty()
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
-  slug: string;
+  slug?: string;
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Users to place in the org and grant org_admin',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  adminUserIds?: string[];
+}
+
+class AddMemberDto {
+  @ApiProperty()
+  @IsUUID()
+  userId!: string;
 }
 
 class UpdateOrgDto {
@@ -35,10 +52,15 @@ export class OrganizationsController {
   @ApiOperation({
     summary: 'Create organisation',
     description:
-      'Insert organizations (status defaults to active via organization_statuses).\nPermission: org.create (platform_admin).',
+      'Insert organizations (status defaults to active). Slug is generated from the name when omitted. Optional adminUserIds are placed in the org and granted org_admin.\nPermission: org.create (platform_admin).',
   })
   create(@CurrentUser() actor: AuthUser, @Body() dto: CreateOrgDto) {
-    return this.organizations.create(actor, dto.name, dto.slug);
+    return this.organizations.create(
+      actor,
+      dto.name,
+      optionalText(dto.slug),
+      dto.adminUserIds,
+    );
   }
 
   @Get()
@@ -58,6 +80,35 @@ export class OrganizationsController {
       search: optionalText(search),
       status: optionalText(status),
     });
+  }
+
+  @Post(':id/members')
+  @ApiOperation({
+    summary: 'Place a user in an organisation',
+    description:
+      'Set users.organization_id and grant org_admin. Rejects users who already belong to an organisation.\nPermission: org.create (platform_admin).',
+  })
+  addMember(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: AddMemberDto,
+  ) {
+    return this.organizations.addMember(actor, id, dto.userId);
+  }
+
+  @Post(':id/members/remove')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Remove a user from an organisation',
+    description:
+      'Clear users.organization_id and remove org_admin if present. Does not delete the user.\nPermission: org.create (platform_admin).',
+  })
+  removeMember(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: AddMemberDto,
+  ) {
+    return this.organizations.removeMember(actor, id, dto.userId);
   }
 
   @Get(':id')

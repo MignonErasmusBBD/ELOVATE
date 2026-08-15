@@ -88,11 +88,12 @@ export class CoursesService {
       requirePermission(actor, ['course.community.create']);
     } else {
       requirePermission(actor, ['course.private.create']);
-    }
-    if (actor.organizationId === undefined) {
-      throw new ForbiddenException('You are not assigned to an organisation');
+      if (actor.organizationId === undefined) {
+        throw new ForbiddenException('You are not assigned to an organisation');
+      }
     }
     if (
+      input.visibility === 'private' &&
       input.organizationId !== undefined &&
       input.organizationId !== actor.organizationId
     ) {
@@ -101,7 +102,8 @@ export class CoursesService {
       );
     }
     const courseId = await this.courses.insert({
-      organizationId: actor.organizationId,
+      organizationId:
+        input.visibility === 'community' ? undefined : actor.organizationId,
       title: input.title,
       description: input.description,
       visibility: input.visibility,

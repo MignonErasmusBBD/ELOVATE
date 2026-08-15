@@ -105,7 +105,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Get course',
     description:
-      'Select courses + course_sections + topics.\nCommunity: course.community.read. Private: course.private.read in the same org, or an active enrollments row.\nowning_organization_id is NOT NULL in V3.',
+      'Select courses + course_sections + topics.\nCommunity: course.community.read. Private: course.private.read in the same org, or an active enrollments row.\nCommunity courses may omit owning_organization_id (V12).',
   })
   getOne(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
     return this.courses.getOne(actor, id);
@@ -115,7 +115,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Create course',
     description:
-      'Insert courses (course_visibility_id from course_visibilities). owning_organization_id is the caller org.\nPermission: course.community.create (community_admin, org_admin, educator) OR course.private.create (org_admin, educator).',
+      'Insert courses (course_visibility_id from course_visibilities). Community courses do not require an organisation. Private courses use the caller org.\nPermission: course.community.create (community_admin, org_admin, educator) OR course.private.create (org_admin, educator).',
   })
   create(@CurrentUser() actor: AuthUser, @Body() dto: CreateCourseDto) {
     return this.courses.create(actor, {

@@ -9,7 +9,7 @@ import { PostgresService } from '../services/postgres.service';
 
 type CourseRow = {
   id: string;
-  owning_organization_id: string;
+  owning_organization_id: string | null;
   title: string;
   description: string | null;
   visibility: string;
@@ -21,7 +21,7 @@ type CourseRow = {
 
 export type PublicCourse = {
   id: string;
-  organizationId: string;
+  organizationId: string | undefined;
   title: string;
   description: string | undefined;
   visibility: string;
@@ -61,7 +61,7 @@ JOIN course_statuses cs ON cs.course_status_id = c.course_status_id`;
 function toPublicCourse(row: CourseRow): PublicCourse {
   return {
     id: row.id,
-    organizationId: row.owning_organization_id,
+    organizationId: textFromDatabase(row.owning_organization_id),
     title: row.title,
     description: textFromDatabase(row.description),
     visibility: row.visibility,
@@ -169,7 +169,7 @@ export class CoursesRepository {
   }
 
   async insert(input: {
-    organizationId: string;
+    organizationId: string | undefined;
     title: string;
     description: string | undefined;
     visibility: 'private' | 'community';
@@ -184,7 +184,7 @@ export class CoursesRepository {
        WHERE cv.visibility_code = $5
        RETURNING id`,
       [
-        input.organizationId,
+        input.organizationId === undefined ? null : input.organizationId,
         input.title,
         input.description,
         input.createdBy,

@@ -21,7 +21,7 @@ export type PermissionRow = {
 type AssignmentRow = {
   user_id: string;
   email: string;
-  organization_id: string;
+  organization_id: string | null;
   role_name: string;
   granted_at: Date;
 };
@@ -41,7 +41,7 @@ export type PublicPermission = {
 export type PublicAssignment = {
   userId: string;
   email: string;
-  organizationId: string;
+  organizationId: string | undefined;
   roleName: string;
   grantedAt: Date;
 };
@@ -161,7 +161,7 @@ export class RbacRepository {
     return result.rows.map((row) => ({
       userId: row.user_id,
       email: row.email,
-      organizationId: row.organization_id,
+      organizationId: textFromDatabase(row.organization_id),
       roleName: row.role_name,
       grantedAt: row.granted_at,
     }));

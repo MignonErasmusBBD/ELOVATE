@@ -7,34 +7,73 @@ import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { SearchableMultiSelect } from "@/components/ui/SearchableMultiSelect";
-import {
-  clearFieldError,
-  hasFieldErrors,
-} from "@/helpers/formErrors";
+import { notifyAccountChanged } from "@/helpers/accountEvents";
+import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import { clearFieldError, hasFieldErrors } from "@/helpers/formErrors";
 import {
   validateAtLeastOneSelected,
   validateRequiredName,
 } from "@/helpers/validation";
-import { adminCompanies, adminPeople } from "../data/placeholder";
-import { StatusPill } from "./StatusPill";
+import {
+  organisationAdminNames,
+  peopleAvailableForOrganisationAdmin,
+  personSelectOptions,
+  previewSlugFromName,
+  withOrganisationAdmin,
+} from "../parseDirectory";
+import {
+  createOrganisation,
+  setOrganisationStatus,
+} from "../platformAdminApi";
+import type { OrganizationStatusFilter } from "../organizationStatusFilter";
+import {
+  emptyOrganizationsMessage,
+  visibleOrganizationsForFilter,
+} from "../organizationStatusFilter";
+import type { AdminPerson, DirectoryOrganization } from "../types";
+import { OrganizationCardHeader } from "./OrganizationCardHeader";
+import { OrganizationStatusFilterNav } from "./OrganizationStatusFilterNav";
 
 type CompanyFieldErrors = {
   companyName?: string;
   companyAdmins?: string;
+  form?: string;
 };
 
-const personOptions = adminPeople.map((person) => ({
-  id: person.id,
-  label: person.fullName,
-  description: person.emailAddress,
-}));
+type CompaniesSectionProps = Readonly<{
+  organizations: DirectoryOrganization[];
+  people: AdminPerson[];
+  isLoading: boolean;
+  currentUserId: string | undefined;
+  onPeopleChange: (nextPeople: AdminPerson[]) => void;
+  onOrganizationsChange: (nextOrganizations: DirectoryOrganization[]) => void;
+}>;
 
-export function CompaniesSection() {
+export function CompaniesSection({
+  organizations,
+  people,
+  isLoading,
+  currentUserId,
+  onPeopleChange,
+  onOrganizationsChange,
+}: CompaniesSectionProps) {
   const [companyName, setCompanyName] = useState("");
   const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<CompanyFieldErrors>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [statusErrorByOrganizationId, setStatusErrorByOrganizationId] =
+    useState<Record<string, string>>({});
+  const [statusFilter, setStatusFilter] =
+    useState<OrganizationStatusFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  function handleCreateSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
+  const visibleOrganizations = visibleOrganizationsForFilter(
+    organizations,
+    statusFilter,
+    searchQuery,
+  );
+
+  async function handleCreateSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
 
     const nextFieldErrors: CompanyFieldErrors = {
@@ -46,6 +85,104 @@ export function CompaniesSection() {
     if (hasFieldErrors(nextFieldErrors)) {
       return;
     }
+
+    const trimmedName = companyName.trim();
+    const pendingOrganizationId = crypto.randomUUID();
+    const pendingOrganization: DirectoryOrganization = {
+      id: pendingOrganizationId,
+      name: trimmedName,
+      slug: previewSlugFromName(trimmedName),
+      status: "active",
+    };
+    const previousPeople = people;
+    const previousOrganizations = organizations;
+
+    setCompanyName("");
+    setSelectedAdminIds([]);
+    setFieldErrors({});
+    onOrganizationsChange([pendingOrganization, ...organizations]);
+    onPeopleChange(
+      withOrganisationAdmin(people, pendingOrganizationId, selectedAdminIds),
+    );
+
+    setIsSaving(true);
+    try {
+      const createdOrganization = await createOrganisation({
+        name: trimmedName,
+        adminUserIds: selectedAdminIds,
+      });
+      if (createdOrganization === undefined) {
+        onOrganizationsChange(previousOrganizations);
+        onPeopleChange(previousPeople);
+        setFieldErrors({
+          form: "Could not create the organisation.",
+        });
+        return;
+      }
+      onOrganizationsChange([
+        createdOrganization,
+        ...previousOrganizations,
+      ]);
+      onPeopleChange(
+        withOrganisationAdmin(
+          previousPeople,
+          createdOrganization.id,
+          selectedAdminIds,
+        ),
+      );
+      if (
+        currentUserId !== undefined &&
+        selectedAdminIds.includes(currentUserId)
+      ) {
+        notifyAccountChanged();
+      }
+    } catch (error) {
+      onOrganizationsChange(previousOrganizations);
+      onPeopleChange(previousPeople);
+      setFieldErrors({
+        form: errorMessageFromUnknown(
+          error,
+          "Could not create the organisation.",
+        ),
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleStatusChange(
+    organizationId: string,
+    status: "active" | "suspended",
+  ) {
+    setStatusErrorByOrganizationId((currentErrors) => {
+      const nextErrors = { ...currentErrors };
+      delete nextErrors[organizationId];
+      return nextErrors;
+    });
+    const previousOrganizations = organizations;
+    onOrganizationsChange(
+      organizations.map((organization) => {
+        if (organization.id !== organizationId) {
+          return organization;
+        }
+        return {
+          ...organization,
+          status,
+        };
+      }),
+    );
+    try {
+      await setOrganisationStatus(organizationId, status);
+    } catch (error) {
+      onOrganizationsChange(previousOrganizations);
+      setStatusErrorByOrganizationId((currentErrors) => ({
+        ...currentErrors,
+        [organizationId]: errorMessageFromUnknown(
+          error,
+          "Could not update organisation status.",
+        ),
+      }));
+    }
   }
 
   return (
@@ -55,7 +192,9 @@ export function CompaniesSection() {
           Organisations
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
-          Create organisations and assign at least one admin.
+          Create organisations and assign at least one admin. Only people who
+          are not already in an organisation can be assigned. They are placed
+          in the new organisation and granted org_admin.
         </p>
       </header>
 
@@ -97,8 +236,10 @@ export function CompaniesSection() {
           <Label htmlFor="company-admins">Organisation admins</Label>
           <SearchableMultiSelect
             id="company-admins"
-            placeholder="Search people to assign as admin"
-            options={personOptions}
+            placeholder="Search people not in an organisation"
+            options={personSelectOptions(
+              peopleAvailableForOrganisationAdmin(people, selectedAdminIds),
+            )}
             selectedIds={selectedAdminIds}
             onSelectedIdsChange={(nextSelectedIds) => {
               setSelectedAdminIds(nextSelectedIds);
@@ -121,44 +262,96 @@ export function CompaniesSection() {
           ) : undefined}
         </FormField>
 
-        <Button variant="compact" type="submit" className="self-start">
-          Create
+        {fieldErrors.form !== undefined ? (
+          <FieldError id="company-form-error" message={fieldErrors.form} />
+        ) : undefined}
+
+        <Button
+          variant="compact"
+          type="submit"
+          className="self-start"
+          disabled={isSaving}
+        >
+          {isSaving ? "Creating…" : "Create"}
         </Button>
       </form>
 
+      {organizations.length > 0 ? (
+        <OrganizationStatusFilterNav
+          selectedFilter={statusFilter}
+          onSelectFilter={setStatusFilter}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          searchInputId="companies-organization-search"
+        />
+      ) : undefined}
+
+      {isLoading && organizations.length === 0 ? (
+        <p className="text-sm text-text-secondary">Loading organisations…</p>
+      ) : undefined}
+
+      {isLoading === false && organizations.length === 0 ? (
+        <p className="text-sm text-text-secondary">
+          No organisations yet. Create one above.
+        </p>
+      ) : undefined}
+
+      {organizations.length > 0 && visibleOrganizations.length === 0 ? (
+        <p className="text-sm text-text-secondary">
+          {emptyOrganizationsMessage(statusFilter, searchQuery)}
+        </p>
+      ) : undefined}
+
       <ul className="flex flex-col gap-4">
-        {adminCompanies.map((company) => (
-          <li key={company.id}>
-            <article className="flex flex-col gap-3 rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)] sm:flex-row sm:items-center sm:justify-between">
-              <header>
-                <h3 className="text-base font-bold text-ink">{company.name}</h3>
-                <ul className="mt-2 flex flex-wrap gap-2">
-                  {company.adminFullNames.map((adminFullName) => (
-                    <li key={adminFullName}>
-                      <StatusPill label={adminFullName} />
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-2">
-                  <StatusPill
-                    label={
-                      company.status === "active" ? "Active" : "Suspended"
-                    }
-                    tone={company.status === "active" ? "accent" : "muted"}
+        {visibleOrganizations.map((organization) => {
+          const adminFullNames = organisationAdminNames(
+            people,
+            organization.id,
+          );
+          const statusError = statusErrorByOrganizationId[organization.id];
+
+          return (
+            <li key={organization.id}>
+              <article className="flex flex-col gap-3 rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)] sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <OrganizationCardHeader
+                    title={organization.name}
+                    headingLevel="h3"
+                    slug={organization.slug}
+                    status={organization.status}
+                    adminFullNames={adminFullNames}
                   />
-                </p>
-              </header>
-              {company.status === "active" ? (
-                <button
-                  type="button"
-                  className="self-start text-sm font-semibold text-coral sm:self-center"
-                >
-                  Suspend
-                </button>
-              ) : undefined}
-            </article>
-          </li>
-        ))}
+                  {statusError === undefined ? undefined : (
+                    <p className="mt-2 text-sm text-coral">{statusError}</p>
+                  )}
+                </div>
+                {organization.status === "active" ? (
+                  <Button
+                    variant="outline"
+                    type="button"
+                    className="self-start sm:self-center"
+                    onClick={() =>
+                      void handleStatusChange(organization.id, "suspended")
+                    }
+                  >
+                    Suspend
+                  </Button>
+                ) : (
+                  <Button
+                    variant="compact"
+                    type="button"
+                    className="self-start sm:self-center"
+                    onClick={() =>
+                      void handleStatusChange(organization.id, "active")
+                    }
+                  >
+                    Activate
+                  </Button>
+                )}
+              </article>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

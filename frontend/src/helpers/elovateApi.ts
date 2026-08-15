@@ -1,48 +1,175 @@
-export async function getAccessToken(): Promise<string | undefined> {
+import {
+  isPlainObject,
+  readErrorMessage,
+  readRequiredString,
+} from "./jsonFields";
+
+export class ElovateApiError extends Error {
+  readonly statusCode: number;
+
+  constructor(statusCode: number, message: string) {
+    super(message);
+    this.name = "ElovateApiError";
+    this.statusCode = statusCode;
+  }
+}
+
+export function errorMessageFromUnknown(
+  error: unknown,
+  fallback: string,
+): string {
+  if (error instanceof ElovateApiError) {
+    return error.message;
+  }
+  if (error instanceof Error && error.message !== "") {
+    return error.message;
+  }
+  return fallback;
+}
+
+const ACCESS_TOKEN_CACHE_MS = 10 * 60 * 1000;
+
+let cachedAccessToken: string | undefined;
+let cachedAccessTokenExpiresAt = 0;
+let accessTokenInFlight: Promise<string | undefined> | undefined;
+
+function clearAccessTokenCache() {
+  cachedAccessToken = undefined;
+  cachedAccessTokenExpiresAt = 0;
+}
+
+function normalizeElovatePath(path: string): string {
+  return path.startsWith("/") ? path : `/${path}`;
+}
+
+async function fetchAccessToken(): Promise<string | undefined> {
   const tokenResponse = await fetch("/api/auth/token");
   if (tokenResponse.ok === false) {
+    clearAccessTokenCache();
     return undefined;
   }
+  const tokenBody: unknown = await tokenResponse.json();
+  if (isPlainObject(tokenBody) === false) {
+    return undefined;
+  }
+  const accessToken = readRequiredString(tokenBody, "token");
+  if (accessToken === undefined) {
+    return undefined;
+  }
+  cachedAccessToken = accessToken;
+  cachedAccessTokenExpiresAt = Date.now() + ACCESS_TOKEN_CACHE_MS;
+  return accessToken;
+}
 
-  const tokenBody = await tokenResponse.json();
+async function readAccessToken(): Promise<string | undefined> {
   if (
-    typeof tokenBody !== "object" ||
-    tokenBody === null ||
-    Array.isArray(tokenBody)
+    cachedAccessToken !== undefined &&
+    Date.now() < cachedAccessTokenExpiresAt
   ) {
-    return undefined;
+    return cachedAccessToken;
+  }
+  if (accessTokenInFlight !== undefined) {
+    return accessTokenInFlight;
+  }
+  accessTokenInFlight = fetchAccessToken().finally(() => {
+    accessTokenInFlight = undefined;
+  });
+  return accessTokenInFlight;
+}
+
+export async function getAccessToken(): Promise<string | undefined> {
+  return readAccessToken();
+}
+
+export async function ensureAccessToken(): Promise<string | undefined> {
+  return readAccessToken();
+}
+
+async function sendElovateRequest(
+  path: string,
+  init: RequestInit | undefined,
+  accessToken: string,
+): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  headers.set("Authorization", `Bearer ${accessToken}`);
+  if (headers.has("Accept") === false) {
+    headers.set("Accept", "application/json");
+  }
+  if (init?.body !== undefined && headers.has("Content-Type") === false) {
+    headers.set("Content-Type", "application/json");
   }
 
-  if ("token" in tokenBody === false) {
-    return undefined;
-  }
-
-  const token = tokenBody.token;
-  if (typeof token !== "string" || token === "") {
-    return undefined;
-  }
-
-  return token;
+  return fetch(`/elovate-api${normalizeElovatePath(path)}`, {
+    ...init,
+    headers,
+  });
 }
 
 export async function fetchElovateApi(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const accessToken = await getAccessToken();
+  const accessToken = await readAccessToken();
   if (accessToken === undefined) {
     throw new Error("Missing access token");
   }
 
-  const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${accessToken}`);
-  if (headers.has("Accept") === false) {
-    headers.set("Accept", "application/json");
+  let response = await sendElovateRequest(path, init, accessToken);
+  if (response.status === 401) {
+    clearAccessTokenCache();
+    const refreshedAccessToken = await readAccessToken();
+    if (refreshedAccessToken === undefined) {
+      throw new Error("Missing access token");
+    }
+    response = await sendElovateRequest(path, init, refreshedAccessToken);
   }
 
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return fetch(`/elovate-api${normalizedPath}`, {
-    ...init,
-    headers,
-  });
+  return response;
+}
+
+export async function elovateApiJson(
+  path: string,
+  init?: RequestInit,
+): Promise<unknown> {
+  let accessToken = await readAccessToken();
+  if (accessToken === undefined) {
+    throw new ElovateApiError(401, "Not signed in.");
+  }
+
+  let response = await sendElovateRequest(path, init, accessToken);
+  if (response.status === 401) {
+    clearAccessTokenCache();
+    accessToken = await readAccessToken();
+    if (accessToken === undefined) {
+      throw new ElovateApiError(401, "Not signed in.");
+    }
+    response = await sendElovateRequest(path, init, accessToken);
+  }
+
+  if (response.ok === false) {
+    let errorBody: unknown;
+    try {
+      errorBody = await response.json();
+    } catch {
+      errorBody = undefined;
+    }
+    throw new ElovateApiError(
+      response.status,
+      readErrorMessage(errorBody, "Request failed."),
+    );
+  }
+
+  if (response.status === 204) {
+    return undefined;
+  }
+
+  const contentType = response.headers.get("content-type") ?? undefined;
+  if (
+    contentType === undefined ||
+    contentType.includes("application/json") === false
+  ) {
+    return undefined;
+  }
+
+  return response.json();
 }

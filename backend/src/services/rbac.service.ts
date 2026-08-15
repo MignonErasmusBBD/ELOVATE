@@ -125,13 +125,13 @@ export class RbacService {
     roleName: string,
   ): Promise<PublicRole> {
     const role = await this.requireRole(roleName);
-    const organizationId = await this.users.findOrganizationId(userId);
-    if (organizationId === undefined) {
+    const user = await this.users.findById(userId);
+    if (user === undefined) {
       throw new NotFoundException('User not found');
     }
     if (
       hasPermission(actor, ['user.read.all']) === false &&
-      organizationId !== actor.organizationId
+      user.organizationId !== actor.organizationId
     ) {
       throw new ForbiddenException(
         'Can only change role grants for users in your own organisation',

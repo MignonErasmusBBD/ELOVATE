@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { ACCOUNT_CHANGED_EVENT } from "@/helpers/accountEvents";
 import { fetchElovateApi } from "@/helpers/elovateApi";
 import {
   parseCurrentUserProfile,
@@ -35,6 +36,18 @@ export function CurrentUserProvider({ children }: CurrentUserProviderProps) {
   const [profile, setProfile] = useState<CurrentUserProfile | undefined>();
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  const [profileReloadKey, setProfileReloadKey] = useState(0);
+
+  useEffect(() => {
+    function handleAccountChanged() {
+      setProfileReloadKey((current) => current + 1);
+    }
+
+    window.addEventListener(ACCOUNT_CHANGED_EVENT, handleAccountChanged);
+    return () => {
+      window.removeEventListener(ACCOUNT_CHANGED_EVENT, handleAccountChanged);
+    };
+  }, []);
 
   useEffect(() => {
     if (isSessionPending) {
@@ -94,7 +107,7 @@ export function CurrentUserProvider({ children }: CurrentUserProviderProps) {
     return () => {
       cancelled = true;
     };
-  }, [isSessionPending, sessionUser]);
+  }, [isSessionPending, sessionUser, profileReloadKey]);
 
   const isLoading =
     isSessionPending || (sessionUser !== undefined && isProfileLoading);

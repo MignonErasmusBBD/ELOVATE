@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -6,23 +7,72 @@ import {
 } from '@nestjs/common';
 import { AuthUser } from '../helpers/auth-user';
 import { hasPermission, requirePermission } from '../helpers/require-permission';
+import { slugFromName } from '../helpers/slug';
 import {
   OrganizationsRepository,
   PublicOrganization,
 } from '../repositories/organizations.repository';
+import { RbacRepository } from '../repositories/rbac.repository';
+import { UsersRepository } from '../repositories/users.repository';
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly organizations: OrganizationsRepository) {}
+  constructor(
+    private readonly organizations: OrganizationsRepository,
+    private readonly users: UsersRepository,
+    private readonly rbac: RbacRepository,
+  ) {}
 
-  async create(actor: AuthUser, name: string, slug: string) {
+  async create(
+    actor: AuthUser,
+    name: string,
+    slug: string | undefined,
+    adminUserIds: string[] | undefined,
+  ) {
     requirePermission(actor, ['org.create']);
-    const existingId = await this.organizations.findIdBySlug(slug);
-    if (existingId !== undefined) {
-      throw new ConflictException('Organisation slug already exists');
+    const resolvedSlug = await this.resolveSlug(name, slug);
+    const adminIds: string[] = [];
+    for (const userId of adminUserIds ?? []) {
+      if (adminIds.includes(userId) === false) {
+        adminIds.push(userId);
+      }
     }
-    const organizationId = await this.organizations.insert(name, slug);
+    for (const userId of adminIds) {
+      await this.requireUserAvailableForOrganisation(userId);
+    }
+
+    const organizationId = await this.organizations.insert(
+      name.trim(),
+      resolvedSlug,
+    );
+    for (const userId of adminIds) {
+      await this.placeAdminInOrganisation(organizationId, userId);
+    }
     return this.requireOrganization(organizationId);
+  }
+
+  async addMember(actor: AuthUser, organizationId: string, userId: string) {
+    requirePermission(actor, ['org.create']);
+    await this.requireOrganization(organizationId);
+    await this.placeAdminInOrganisation(organizationId, userId);
+    return this.users.findById(userId);
+  }
+
+  async removeMember(actor: AuthUser, organizationId: string, userId: string) {
+    requirePermission(actor, ['org.create']);
+    await this.requireOrganization(organizationId);
+    const user = await this.users.findById(userId);
+    if (user === undefined) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.organizationId !== organizationId) {
+      throw new BadRequestException(
+        'User is not a member of that organisation',
+      );
+    }
+    await this.users.clearOrganizationId(userId);
+    await this.rbac.deleteAssignment(userId, 'org_admin');
+    return this.users.findById(userId);
   }
 
   async list(
@@ -86,5 +136,57 @@ export class OrganizationsService {
       throw new NotFoundException('Organisation not found');
     }
     return organization;
+  }
+
+  private async resolveSlug(
+    name: string,
+    slug: string | undefined,
+  ): Promise<string> {
+    if (slug !== undefined && slug !== '') {
+      const existingId = await this.organizations.findIdBySlug(slug);
+      if (existingId !== undefined) {
+        throw new ConflictException('Organisation slug already exists');
+      }
+      return slug;
+    }
+
+    const baseSlug = slugFromName(name);
+    const existingBase = await this.organizations.findIdBySlug(baseSlug);
+    if (existingBase === undefined) {
+      return baseSlug;
+    }
+
+    let suffix = 2;
+    while (suffix < 1000) {
+      const candidate = `${baseSlug}-${suffix}`;
+      const taken = await this.organizations.findIdBySlug(candidate);
+      if (taken === undefined) {
+        return candidate;
+      }
+      suffix += 1;
+    }
+    throw new ConflictException('Could not generate a unique organisation slug');
+  }
+
+  private async requireUserAvailableForOrganisation(userId: string) {
+    const user = await this.users.findById(userId);
+    if (user === undefined) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.organizationId !== undefined) {
+      throw new BadRequestException(
+        'User already belongs to an organisation',
+      );
+    }
+    return user;
+  }
+
+  private async placeAdminInOrganisation(
+    organizationId: string,
+    userId: string,
+  ) {
+    await this.requireUserAvailableForOrganisation(userId);
+    await this.users.setOrganizationId(userId, organizationId);
+    await this.rbac.insertAssignment(userId, 'org_admin');
   }
 }
