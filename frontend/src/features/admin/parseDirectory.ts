@@ -12,7 +12,7 @@ import type {
   DirectoryOrganization,
   DirectoryRole,
   EnrolmentStatus,
-  OrgPrivateCourse,
+  AdminCourse,
   PersonStatus,
 } from "./types";
 
@@ -260,9 +260,9 @@ export function withoutOrganisationMembership(
   });
 }
 
-export function parseOrgPrivateCourse(
+export function parseAdminCourse(
   body: unknown,
-): OrgPrivateCourse | undefined {
+): AdminCourse | undefined {
   if (isPlainObject(body) === false) {
     return undefined;
   }
@@ -280,13 +280,13 @@ export function parseOrgPrivateCourse(
   };
 }
 
-export function parseOrgPrivateCourses(body: unknown): OrgPrivateCourse[] {
+export function parseAdminCourses(body: unknown): AdminCourse[] {
   if (isPlainObject(body) === false) {
     return [];
   }
-  const courses: OrgPrivateCourse[] = [];
+  const courses: AdminCourse[] = [];
   for (const item of readObjectList(body, "items")) {
-    const course = parseOrgPrivateCourse(item);
+    const course = parseAdminCourse(item);
     if (course !== undefined) {
       courses.push(course);
     }

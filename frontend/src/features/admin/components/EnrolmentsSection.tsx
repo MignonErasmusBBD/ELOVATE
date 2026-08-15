@@ -24,7 +24,7 @@ import type {
   AdminEnrolment,
   AdminPerson,
   EnrolmentStatus,
-  OrgPrivateCourse,
+  AdminCourse,
 } from "../types";
 import { StatusFilterNav } from "./StatusFilterNav";
 import { StatusPill } from "./StatusPill";
@@ -43,7 +43,7 @@ type EnrolmentGroupView = "course" | "person";
 type EnrolmentsSectionProps = Readonly<{
   organizationName: string | undefined;
   people: AdminPerson[];
-  courses: OrgPrivateCourse[];
+  courses: AdminCourse[];
   enrolments: AdminEnrolment[];
   isLoading: boolean;
   isLoadingPeople: boolean;

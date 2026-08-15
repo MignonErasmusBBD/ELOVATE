@@ -10,12 +10,12 @@ import {
   listOrgPrivateCourses,
   listUnassignedPeople,
 } from "./orgAdminApi";
-import type { AdminEnrolment, AdminPerson, OrgPrivateCourse } from "./types";
+import type { AdminCourse, AdminEnrolment, AdminPerson } from "./types";
 
 type DirectoryCache = {
   people: AdminPerson[];
   unassignedPeople: AdminPerson[];
-  courses: OrgPrivateCourse[];
+  courses: AdminCourse[];
   enrolments: AdminEnrolment[];
   hasLoadedPeople: boolean;
   hasLoadedUnassignedPeople: boolean;
@@ -49,7 +49,7 @@ function rememberDirectory(nextCache: Partial<DirectoryCache>) {
 export type OrgAdminDirectory = {
   people: AdminPerson[];
   unassignedPeople: AdminPerson[];
-  courses: OrgPrivateCourse[];
+  courses: AdminCourse[];
   enrolments: AdminEnrolment[];
   isLoadingPeople: boolean;
   isLoadingUnassignedPeople: boolean;
@@ -59,7 +59,7 @@ export type OrgAdminDirectory = {
   reload: () => Promise<void>;
   updatePeople: (nextPeople: AdminPerson[]) => void;
   updateUnassignedPeople: (nextPeople: AdminPerson[]) => void;
-  updateCourses: (nextCourses: OrgPrivateCourse[]) => void;
+  updateCourses: (nextCourses: AdminCourse[]) => void;
   updateEnrolments: (nextEnrolments: AdminEnrolment[]) => void;
 };
 
@@ -71,7 +71,7 @@ export function useOrgAdminDirectory(
   const [unassignedPeople, setUnassignedPeople] = useState<AdminPerson[]>(
     directoryCache.unassignedPeople,
   );
-  const [courses, setCourses] = useState<OrgPrivateCourse[]>(
+  const [courses, setCourses] = useState<AdminCourse[]>(
     directoryCache.courses,
   );
   const [enrolments, setEnrolments] = useState<AdminEnrolment[]>(

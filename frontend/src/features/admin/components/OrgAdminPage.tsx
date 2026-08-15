@@ -9,6 +9,7 @@ import {
 } from "@/helpers/currentUserProfile";
 import type { OrgAdminSectionId } from "../types";
 import { useOrgAdminDirectory } from "../useOrgAdminDirectory";
+import { createOrgPrivateCourse } from "../orgAdminApi";
 import { AdminCoursesSection } from "./AdminCoursesSection";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { AdminSectionNav } from "./AdminSectionNav";
@@ -80,6 +81,9 @@ export function OrgAdminPage() {
     );
   }
 
+  const organizationId = profile.organizationId;
+  const organisationName = profile.organizationName ?? "your organisation";
+
   return (
     <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
       <AdminPageHeader
@@ -99,7 +103,7 @@ export function OrgAdminPage() {
       {selectedSectionId === "people" ? (
         <PeopleSection
           organizationName={profile.organizationName}
-          organizationId={profile.organizationId}
+          organizationId={organizationId}
           people={directory.people}
           unassignedPeople={directory.unassignedPeople}
           isLoading={directory.isLoadingPeople}
@@ -112,10 +116,21 @@ export function OrgAdminPage() {
       ) : undefined}
       {selectedSectionId === "courses" ? (
         <AdminCoursesSection
-          organizationName={profile.organizationName}
-          organizationId={profile.organizationId}
+          heading="Private courses"
+          description={`These courses belong to ${organisationName}, not to a single educator. Removing the Educator role does not remove the course. Enrol people from Enrolments to grant access.`}
+          emptyMessage={`No private courses in ${organisationName} yet. Add one above.`}
+          titleFieldId="private-course-title"
+          titlePlaceholder="Private course title"
+          descriptionFieldId="private-course-description"
+          searchInputId="courses-search"
+          visibilityLabel="Private"
+          canCreate={true}
+          createBlockedMessage={undefined}
           courses={directory.courses}
           isLoading={directory.isLoadingCourses}
+          onCreate={(title, description) =>
+            createOrgPrivateCourse(organizationId, title, description)
+          }
           onCoursesChange={directory.updateCourses}
           onDirectoryChanged={directory.reload}
         />

@@ -36,7 +36,7 @@ export type AdminEnrolment = {
 
 export type CourseStatus = "active" | "deactivated";
 
-export type OrgPrivateCourse = {
+export type AdminCourse = {
   id: string;
   title: string;
   description: string | undefined;
