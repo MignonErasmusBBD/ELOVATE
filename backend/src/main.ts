@@ -22,7 +22,8 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  await app.listen(process.env.PORT ?? 3001);
+  const port = process.env.PORT ?? "3001";
+  await app.listen(port, "0.0.0.0");
 }
 
 bootstrap();

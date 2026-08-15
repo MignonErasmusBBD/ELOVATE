@@ -69,12 +69,25 @@ const googleSocialProvider =
       }
     : undefined;
 
+function betterAuthTrustedOrigins(): string[] {
+  const origins = ["http://localhost:3000"];
+  const betterAuthUrl = process.env.BETTER_AUTH_URL;
+  if (
+    betterAuthUrl !== undefined &&
+    betterAuthUrl !== "" &&
+    origins.includes(betterAuthUrl) === false
+  ) {
+    origins.push(betterAuthUrl);
+  }
+  return origins;
+}
+
 export const auth = betterAuth({
   database: pool,
 
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
   secret: process.env.BETTER_AUTH_SECRET,
-  trustedOrigins: ["http://localhost:3000"],
+  trustedOrigins: betterAuthTrustedOrigins(),
 
   advanced: {
     database: {
