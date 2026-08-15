@@ -62,7 +62,14 @@ export class CoursesService {
       filters.status === 'deactivated' &&
       this.canSeeDeactivated(actor) === false
     ) {
-      return { items: [] };
+      // Learners can still see their own enrolled deactivated courses
+      const enrolledAccess: CourseAccess = {
+        includeCommunity: false,
+        privateOrganizationId: undefined,
+        enrolledUserId: actor.id,
+      };
+      const items = await this.courses.list(filters, enrolledAccess);
+      return { items };
     }
     const items = await this.courses.list(filters, this.accessFor(actor));
     if (
