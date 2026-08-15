@@ -65,10 +65,18 @@ export type EducatorQuestion = {
   isActive: boolean;
 };
 
+export type LearningContentBlock = {
+  id: string;
+  contentType: "text" | "code";
+  bodyText: string;
+  position: number;
+};
+
 export type LearningContentSection = {
   id: string;
   title: string;
-  content: string;
+  position: number;
+  contentBlocks: LearningContentBlock[];
 };
 
 export type EducatorCourseDashboard = {

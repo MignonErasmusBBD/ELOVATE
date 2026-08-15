@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { isUuid } from '../helpers/values';
+import { isUuid, SqlQuery } from '../helpers/values';
 import { PostgresService } from '../services/postgres.service';
 
 type SectionRow = {
@@ -15,11 +15,27 @@ type TopicRow = {
   name: string;
 };
 
+type ContentBlockRow = {
+  id: string;
+  course_section_id: string;
+  body_text: string;
+  content_type: string;
+  position: number;
+};
+
+export type PublicContentBlock = {
+  id: string;
+  contentType: 'text' | 'code';
+  bodyText: string;
+  position: number;
+};
+
 export type PublicSection = {
   id: string;
   courseId: string;
   title: string;
   position: number;
+  contentBlocks: PublicContentBlock[];
 };
 
 export type PublicTopic = {
@@ -28,12 +44,34 @@ export type PublicTopic = {
   name: string;
 };
 
-function toPublicSection(row: SectionRow): PublicSection {
+export type ContentBlockInput = {
+  contentType: 'text' | 'code';
+  bodyText: string;
+  position: number;
+};
+
+function toPublicContentBlock(row: ContentBlockRow): PublicContentBlock | undefined {
+  if (row.content_type !== 'text' && row.content_type !== 'code') {
+    return undefined;
+  }
+  return {
+    id: row.id,
+    contentType: row.content_type,
+    bodyText: row.body_text,
+    position: row.position,
+  };
+}
+
+function toPublicSection(
+  row: SectionRow,
+  contentBlocks: PublicContentBlock[],
+): PublicSection {
   return {
     id: row.id,
     courseId: row.course_id,
     title: row.title,
     position: row.position,
+    contentBlocks,
   };
 }
 
@@ -57,7 +95,15 @@ export class CoursesContentRepository {
        ORDER BY position, title`,
       [courseId],
     );
-    return result.rows.map(toPublicSection);
+    const sections = result.rows;
+    if (sections.length === 0) {
+      return [];
+    }
+    const contentBySectionId = await this.listContentBlocksForCourse(courseId);
+    return sections.map((row) => {
+      const blocks = contentBySectionId.get(row.id);
+      return toPublicSection(row, blocks === undefined ? [] : blocks);
+    });
   }
 
   async findSection(
@@ -77,7 +123,8 @@ export class CoursesContentRepository {
     if (row === undefined) {
       return undefined;
     }
-    return toPublicSection(row);
+    const contentBlocks = await this.listContentBlocksForSection(sectionId);
+    return toPublicSection(row, contentBlocks);
   }
 
   async findSectionById(sectionId: string): Promise<PublicSection | undefined> {
@@ -94,25 +141,62 @@ export class CoursesContentRepository {
     if (row === undefined) {
       return undefined;
     }
-    return toPublicSection(row);
+    const contentBlocks = await this.listContentBlocksForSection(sectionId);
+    return toPublicSection(row, contentBlocks);
   }
 
   async insertSection(
     courseId: string,
     title: string,
     position: number,
+    contentBlocks: ContentBlockInput[],
   ): Promise<PublicSection> {
-    const inserted = await this.postgres.query<SectionRow>(
-      `INSERT INTO course_sections (course_id, title, position)
-       VALUES ($1, $2, $3)
-       RETURNING id, course_id, title, position`,
-      [courseId, title, position],
-    );
-    const row = inserted.rows[0];
-    if (row === undefined) {
-      throw new Error('Section insert returned no row');
+    return this.postgres.withTransaction(async (query) => {
+      const inserted = await query<SectionRow>(
+        `INSERT INTO course_sections (course_id, title, position)
+         VALUES ($1, $2, $3)
+         RETURNING id, course_id, title, position`,
+        [courseId, title, position],
+      );
+      const row = inserted.rows[0];
+      if (row === undefined) {
+        throw new Error('Section insert returned no row');
+      }
+      await this.insertContentBlocks(query, row.id, contentBlocks);
+      const blocks = await this.listContentBlocksForSectionWithQuery(query, row.id);
+      return toPublicSection(row, blocks);
+    });
+  }
+
+  async replaceSection(
+    courseId: string,
+    sectionId: string,
+    title: string,
+    position: number,
+    contentBlocks: ContentBlockInput[],
+  ): Promise<PublicSection | undefined> {
+    if (isUuid(sectionId) === false) {
+      return undefined;
     }
-    return toPublicSection(row);
+    return this.postgres.withTransaction(async (query) => {
+      const updated = await query<SectionRow>(
+        `UPDATE course_sections
+         SET title = $3, position = $4
+         WHERE id = $1 AND course_id = $2
+         RETURNING id, course_id, title, position`,
+        [sectionId, courseId, title, position],
+      );
+      const row = updated.rows[0];
+      if (row === undefined) {
+        return undefined;
+      }
+      await query('DELETE FROM course_section_content WHERE course_section_id = $1', [
+        sectionId,
+      ]);
+      await this.insertContentBlocks(query, sectionId, contentBlocks);
+      const blocks = await this.listContentBlocksForSectionWithQuery(query, sectionId);
+      return toPublicSection(row, blocks);
+    });
   }
 
   async updateSection(
@@ -223,5 +307,109 @@ export class CoursesContentRepository {
       );
       return deleted.rows[0] !== undefined;
     });
+  }
+
+  private async listContentBlocksForSection(
+    sectionId: string,
+  ): Promise<PublicContentBlock[]> {
+    const result = await this.postgres.query<ContentBlockRow>(
+      `SELECT
+         c.id,
+         c.course_section_id,
+         c.body_text,
+         ct.content_type_code AS content_type,
+         c.position
+       FROM course_section_content c
+       JOIN content_types ct ON ct.content_type_id = c.content_type_id
+       WHERE c.course_section_id = $1
+       ORDER BY c.position, c.id`,
+      [sectionId],
+    );
+    const blocks: PublicContentBlock[] = [];
+    for (const row of result.rows) {
+      const block = toPublicContentBlock(row);
+      if (block !== undefined) {
+        blocks.push(block);
+      }
+    }
+    return blocks;
+  }
+
+  private async listContentBlocksForSectionWithQuery(
+    query: SqlQuery,
+    sectionId: string,
+  ): Promise<PublicContentBlock[]> {
+    const result = await query<ContentBlockRow>(
+      `SELECT
+         c.id,
+         c.course_section_id,
+         c.body_text,
+         ct.content_type_code AS content_type,
+         c.position
+       FROM course_section_content c
+       JOIN content_types ct ON ct.content_type_id = c.content_type_id
+       WHERE c.course_section_id = $1
+       ORDER BY c.position, c.id`,
+      [sectionId],
+    );
+    const blocks: PublicContentBlock[] = [];
+    for (const row of result.rows) {
+      const block = toPublicContentBlock(row);
+      if (block !== undefined) {
+        blocks.push(block);
+      }
+    }
+    return blocks;
+  }
+
+  private async listContentBlocksForCourse(
+    courseId: string,
+  ): Promise<Map<string, PublicContentBlock[]>> {
+    const result = await this.postgres.query<ContentBlockRow>(
+      `SELECT
+         c.id,
+         c.course_section_id,
+         c.body_text,
+         ct.content_type_code AS content_type,
+         c.position
+       FROM course_section_content c
+       JOIN content_types ct ON ct.content_type_id = c.content_type_id
+       JOIN course_sections s ON s.id = c.course_section_id
+       WHERE s.course_id = $1
+       ORDER BY c.position, c.id`,
+      [courseId],
+    );
+    const contentBySectionId = new Map<string, PublicContentBlock[]>();
+    for (const row of result.rows) {
+      const block = toPublicContentBlock(row);
+      if (block === undefined) {
+        continue;
+      }
+      const existing = contentBySectionId.get(row.course_section_id);
+      if (existing === undefined) {
+        contentBySectionId.set(row.course_section_id, [block]);
+      } else {
+        existing.push(block);
+      }
+    }
+    return contentBySectionId;
+  }
+
+  private async insertContentBlocks(
+    query: SqlQuery,
+    sectionId: string,
+    contentBlocks: ContentBlockInput[],
+  ) {
+    for (const block of contentBlocks) {
+      await query(
+        `INSERT INTO course_section_content (
+           course_section_id, body_text, content_type_id, position
+         )
+         SELECT $1, $2, ct.content_type_id, $3
+         FROM content_types ct
+         WHERE ct.content_type_code = $4`,
+        [sectionId, block.bodyText, block.position, block.contentType],
+      );
+    }
   }
 }

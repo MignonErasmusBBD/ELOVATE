@@ -1,8 +1,11 @@
 import { fetchElovateApi } from "@/helpers/elovateApi";
 
+export type ElovateCourseStatus = "active" | "deactivated";
+
 export type ElovateCourseSummary = {
   id: string;
   title: string;
+  status?: ElovateCourseStatus;
   visibility?: string;
   organizationId?: string;
 };
@@ -12,6 +15,12 @@ export type CreateCourseInput = {
   description?: string;
   visibility: "private" | "community";
   organizationId?: string;
+};
+
+export type ListCoursesInput = {
+  visibility?: "private" | "community";
+  organizationId?: string;
+  status?: ElovateCourseStatus;
 };
 
 function readOptionalString(body: object, key: string): string | undefined {
@@ -38,12 +47,50 @@ export function parseCourseSummary(
     return undefined;
   }
 
+  const statusValue = readOptionalString(item, "status");
+  const status =
+    statusValue === "active" || statusValue === "deactivated"
+      ? statusValue
+      : undefined;
+
   return {
     id,
     title,
+    status,
     visibility: readOptionalString(item, "visibility"),
     organizationId: readOptionalString(item, "organizationId"),
   };
+}
+
+export async function listCourses(
+  input: ListCoursesInput,
+): Promise<ElovateCourseSummary[]> {
+  const queryParams = new URLSearchParams();
+  if (input.visibility !== undefined) {
+    queryParams.set("visibility", input.visibility);
+  }
+  if (input.organizationId !== undefined) {
+    queryParams.set("organizationId", input.organizationId);
+  }
+  if (input.status !== undefined) {
+    queryParams.set("status", input.status);
+  }
+
+  const queryString = queryParams.toString();
+  const coursesResponse = await fetchElovateApi(
+    queryString === "" ? "/courses" : `/courses?${queryString}`,
+  );
+  if (coursesResponse.ok === false) {
+    throw new Error("Could not load courses.");
+  }
+
+  const coursesBody = await coursesResponse.json();
+  const parsedCourses = parseCourseListResponse(coursesBody);
+  if (parsedCourses === undefined) {
+    throw new Error("Course list response was invalid.");
+  }
+
+  return parsedCourses;
 }
 
 export function parseCourseListResponse(

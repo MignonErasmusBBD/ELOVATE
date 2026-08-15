@@ -177,11 +177,24 @@ export class CoursesRepository {
   }): Promise<string | undefined> {
     const inserted = await this.postgres.query<{ id: string }>(
       `INSERT INTO courses (
-         owning_organization_id, title, description, course_visibility_id, created_by
+         owning_organization_id,
+         title,
+         description,
+         course_visibility_id,
+         course_status_id,
+         created_by
        )
-       SELECT $1, $2, $3, cv.course_visibility_id, $4
+       SELECT
+         $1,
+         $2,
+         $3,
+         cv.course_visibility_id,
+         cs.course_status_id,
+         $4
        FROM course_visibilities cv
+       CROSS JOIN course_statuses cs
        WHERE cv.visibility_code = $5
+         AND cs.status_code = 'deactivated'
        RETURNING id`,
       [
         input.organizationId === undefined ? null : input.organizationId,

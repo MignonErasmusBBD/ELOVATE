@@ -1,12 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  createLearningContentSection,
+  deleteLearningContentSection,
+  listLearningContentSections,
+  replaceLearningContentSection,
+  type LearningContentSection as ApiLearningContentSection,
+} from "@/helpers/learningContentApi";
+import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import type { LearningContentSection } from "../types";
-import { LearningContentFormModal } from "./LearningContentFormModal";
+import {
+  LearningContentFormModal,
+  type LearningContentFormValues,
+} from "./LearningContentFormModal";
 
 type LearningContentTabProps = {
+  courseId: string;
   courseTitle: string;
-  learningContentSections: LearningContentSection[];
 };
 
 type SectionModalMode =
@@ -14,24 +25,147 @@ type SectionModalMode =
   | { kind: "create" }
   | { kind: "edit"; sectionId: string };
 
+function toUiSection(section: ApiLearningContentSection): LearningContentSection {
+  return {
+    id: section.id,
+    title: section.title,
+    position: section.position,
+    contentBlocks: section.contentBlocks,
+  };
+}
+
+function previewText(section: LearningContentSection): string {
+  const firstTextBlock = section.contentBlocks.find(
+    (block) => block.contentType === "text" && block.bodyText !== "",
+  );
+  if (firstTextBlock !== undefined) {
+    return firstTextBlock.bodyText;
+  }
+  const firstBlock = section.contentBlocks[0];
+  if (firstBlock === undefined) {
+    return "No content yet.";
+  }
+  return firstBlock.bodyText === "" ? "No content yet." : firstBlock.bodyText;
+}
+
 export function LearningContentTab({
+  courseId,
   courseTitle,
-  learningContentSections,
 }: LearningContentTabProps) {
-  const [expandedSectionId, setExpandedSectionId] = useState<
-    string | undefined
-  >(learningContentSections[0]?.id);
+  const [sections, setSections] = useState<LearningContentSection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadErrorMessage, setLoadErrorMessage] = useState<string | undefined>();
+  const [reloadToken, setReloadToken] = useState(0);
+  const [expandedSectionId, setExpandedSectionId] = useState<string | undefined>();
   const [sectionModalMode, setSectionModalMode] = useState<SectionModalMode>({
     kind: "closed",
   });
-  const [localSections, setLocalSections] = useState(learningContentSections);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitErrorMessage, setSubmitErrorMessage] = useState<
+    string | undefined
+  >();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSections() {
+      setIsLoading(true);
+      setLoadErrorMessage(undefined);
+      try {
+        const apiSections = await listLearningContentSections(courseId);
+        if (cancelled) {
+          return;
+        }
+        const nextSections = apiSections.map(toUiSection);
+        setSections(nextSections);
+        setExpandedSectionId((currentId) => {
+          if (
+            currentId !== undefined &&
+            nextSections.some((section) => section.id === currentId)
+          ) {
+            return currentId;
+          }
+          return nextSections[0]?.id;
+        });
+      } catch (error) {
+        if (cancelled === false) {
+          setSections([]);
+          setLoadErrorMessage(
+            errorMessageFromUnknown(error, "Could not load learning content."),
+          );
+        }
+      } finally {
+        if (cancelled === false) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadSections();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, reloadToken]);
 
   const editingSection =
     sectionModalMode.kind === "edit"
-      ? localSections.find(
-          (section) => section.id === sectionModalMode.sectionId,
-        )
+      ? sections.find((section) => section.id === sectionModalMode.sectionId)
       : undefined;
+
+  async function handleSaveSection(formValues: LearningContentFormValues) {
+    setIsSubmitting(true);
+    setSubmitErrorMessage(undefined);
+    const contentBlocks = formValues.contentBlocks
+      .filter((block) => block.bodyText !== "")
+      .map((block, blockIndex) => ({
+        contentType: block.contentType,
+        bodyText: block.bodyText,
+        position: blockIndex,
+      }));
+
+    try {
+      if (sectionModalMode.kind === "create") {
+        const created = await createLearningContentSection(courseId, {
+          title: formValues.title,
+          position: sections.length,
+          contentBlocks,
+        });
+        setExpandedSectionId(created.id);
+      } else if (
+        sectionModalMode.kind === "edit" &&
+        editingSection !== undefined
+      ) {
+        await replaceLearningContentSection(courseId, editingSection.id, {
+          title: formValues.title,
+          position: editingSection.position,
+          contentBlocks,
+        });
+      }
+      setSectionModalMode({ kind: "closed" });
+      setReloadToken((currentToken) => currentToken + 1);
+    } catch (error) {
+      setSubmitErrorMessage(
+        errorMessageFromUnknown(error, "Could not save learning section."),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleDeleteSection(sectionId: string) {
+    setSubmitErrorMessage(undefined);
+    try {
+      await deleteLearningContentSection(courseId, sectionId);
+      if (expandedSectionId === sectionId) {
+        setExpandedSectionId(undefined);
+      }
+      setReloadToken((currentToken) => currentToken + 1);
+    } catch (error) {
+      setLoadErrorMessage(
+        errorMessageFromUnknown(error, "Could not delete learning section."),
+      );
+    }
+  }
 
   return (
     <section aria-labelledby="learning-content-heading" className="mt-6">
@@ -44,20 +178,37 @@ export function LearningContentTab({
         </h2>
         <button
           type="button"
-          onClick={() => setSectionModalMode({ kind: "create" })}
+          onClick={() => {
+            setSubmitErrorMessage(undefined);
+            setSectionModalMode({ kind: "create" });
+          }}
           className="rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97]"
         >
           + Add Section
         </button>
       </header>
 
-      {localSections.length === 0 ? (
+      {isLoading ? (
+        <p className="mt-4 text-sm text-text-secondary">Loading learning content…</p>
+      ) : undefined}
+
+      {loadErrorMessage === undefined ? undefined : (
+        <p className="mt-4 text-sm text-coral" role="alert">
+          {loadErrorMessage}
+        </p>
+      )}
+
+      {isLoading === false &&
+      loadErrorMessage === undefined &&
+      sections.length === 0 ? (
         <p className="mt-4 text-sm text-text-secondary">
           No learning sections yet. Add a section to get started.
         </p>
-      ) : (
+      ) : undefined}
+
+      {sections.length === 0 ? undefined : (
         <ul className="mt-4 flex list-none flex-col gap-3 p-0">
-          {localSections.map((section) => {
+          {sections.map((section) => {
             const isExpanded = expandedSectionId === section.id;
 
             return (
@@ -67,9 +218,7 @@ export function LearningContentTab({
                     type="button"
                     className="flex w-full items-start justify-between gap-3 px-5 py-4 text-left"
                     onClick={() =>
-                      setExpandedSectionId(
-                        isExpanded ? undefined : section.id,
-                      )
+                      setExpandedSectionId(isExpanded ? undefined : section.id)
                     }
                     aria-expanded={isExpanded}
                   >
@@ -79,7 +228,7 @@ export function LearningContentTab({
                       </span>
                       {isExpanded === false ? (
                         <span className="mt-1 line-clamp-2 block text-sm text-text-secondary">
-                          {section.content}
+                          {previewText(section)}
                         </span>
                       ) : undefined}
                     </span>
@@ -90,22 +239,46 @@ export function LearningContentTab({
 
                   {isExpanded ? (
                     <section className="border-t border-border-ui px-5 py-4">
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
-                        {section.content}
-                      </p>
+                      <ul className="flex list-none flex-col gap-3 p-0">
+                        {section.contentBlocks.map((block) => (
+                          <li key={block.id}>
+                            {block.contentType === "code" ? (
+                              <pre className="overflow-x-auto rounded-lg border border-border-ui bg-page p-3 font-mono text-sm text-ink">
+                                <code>{block.bodyText}</code>
+                              </pre>
+                            ) : (
+                              <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
+                                {block.bodyText}
+                              </p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
                       <menu className="mt-4 flex list-none gap-2 p-0">
                         <li>
                           <button
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
+                              setSubmitErrorMessage(undefined);
                               setSectionModalMode({
                                 kind: "edit",
                                 sectionId: section.id,
-                              })
-                            }
+                              });
+                            }}
                             className="rounded-lg border border-ink bg-surface px-3 py-2 text-sm font-semibold text-ink hover:bg-page"
                           >
                             Edit Section
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleDeleteSection(section.id);
+                            }}
+                            className="rounded-lg border border-coral/40 bg-surface px-3 py-2 text-sm font-semibold text-coral hover:bg-coral/10"
+                          >
+                            Delete
                           </button>
                         </li>
                       </menu>
@@ -120,43 +293,28 @@ export function LearningContentTab({
 
       {sectionModalMode.kind === "create" ? (
         <LearningContentFormModal
-          onClose={() => setSectionModalMode({ kind: "closed" })}
-          onSave={(formValues) => {
-            const newSection: LearningContentSection = {
-              id: `section-${localSections.length + 1}`,
-              title: formValues.title,
-              content: formValues.content,
-            };
-            setLocalSections((previousSections) => [
-              ...previousSections,
-              newSection,
-            ]);
-            setExpandedSectionId(newSection.id);
-            setSectionModalMode({ kind: "closed" });
+          isSubmitting={isSubmitting}
+          submitErrorMessage={submitErrorMessage}
+          onClose={() => {
+            if (isSubmitting === false) {
+              setSectionModalMode({ kind: "closed" });
+            }
           }}
+          onSave={handleSaveSection}
         />
       ) : undefined}
 
       {sectionModalMode.kind === "edit" && editingSection !== undefined ? (
         <LearningContentFormModal
           initialSection={editingSection}
-          onClose={() => setSectionModalMode({ kind: "closed" })}
-          onSave={(formValues) => {
-            setLocalSections((previousSections) =>
-              previousSections.map((section) => {
-                if (section.id !== editingSection.id) {
-                  return section;
-                }
-
-                return {
-                  ...section,
-                  title: formValues.title,
-                  content: formValues.content,
-                };
-              }),
-            );
-            setSectionModalMode({ kind: "closed" });
+          isSubmitting={isSubmitting}
+          submitErrorMessage={submitErrorMessage}
+          onClose={() => {
+            if (isSubmitting === false) {
+              setSectionModalMode({ kind: "closed" });
+            }
           }}
+          onSave={handleSaveSection}
         />
       ) : undefined}
     </section>

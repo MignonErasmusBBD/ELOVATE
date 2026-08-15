@@ -4,12 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { useCurrentUser } from "@/features/platform";
-import { createCourse, parseCourseListResponse } from "@/helpers/coursesApi";
+import {
+  createCourse,
+  listCourses,
+  type ElovateCourseStatus,
+} from "@/helpers/coursesApi";
 import {
   EDUCATOR_PAGE_ROLES,
   userHasAnyRole,
 } from "@/helpers/currentUserProfile";
-import { fetchElovateApi } from "@/helpers/elovateApi";
 import { getEducatorCourseDashboard } from "../data/dashboard";
 import type { EducatorCourseVisibility, EducatorTabId } from "../types";
 import {
@@ -28,6 +31,7 @@ import { StudentsTab } from "./StudentsTab";
 type EducatorCourseOption = {
   id: string;
   title: string;
+  status: ElovateCourseStatus;
 };
 
 export function EducatorDashboardPage() {
@@ -119,43 +123,51 @@ export function EducatorDashboardPage() {
       setCoursesErrorMessage(undefined);
 
       try {
-        const queryParams = new URLSearchParams({
+        const listInput = {
           visibility: courseVisibilityFilter,
-          status: "active",
-        });
-        if (organizationId !== undefined) {
-          queryParams.set("organizationId", organizationId);
-        }
+          organizationId:
+            courseVisibilityFilter === "private" ? organizationId : undefined,
+        };
 
-        const coursesResponse = await fetchElovateApi(
-          `/courses?${queryParams.toString()}`,
-        );
-        if (coursesResponse.ok === false) {
-          if (cancelled === false) {
-            setCourseOptions([]);
-            setSelectedCourseId("");
-            setCoursesErrorMessage("Could not load courses.");
-          }
-          return;
-        }
-
-        const coursesBody = await coursesResponse.json();
-        const parsedCourses = parseCourseListResponse(coursesBody);
+        const settledCourseLists = await Promise.allSettled([
+          listCourses({ ...listInput, status: "active" }),
+          listCourses({ ...listInput, status: "deactivated" }),
+        ]);
         if (cancelled) {
           return;
         }
 
-        if (parsedCourses === undefined) {
+        const activeCourses =
+          settledCourseLists[0].status === "fulfilled"
+            ? settledCourseLists[0].value
+            : [];
+        const deactivatedCourses =
+          settledCourseLists[1].status === "fulfilled"
+            ? settledCourseLists[1].value
+            : [];
+
+        if (
+          settledCourseLists[0].status === "rejected" &&
+          settledCourseLists[1].status === "rejected"
+        ) {
           setCourseOptions([]);
           setSelectedCourseId("");
-          setCoursesErrorMessage("Course list response was invalid.");
+          setCoursesErrorMessage("Could not load courses.");
           return;
         }
 
-        const nextOptions = parsedCourses.map((course) => ({
-          id: course.id,
-          title: course.title,
-        }));
+        const nextOptions = [
+          ...activeCourses.map((course) => ({
+            id: course.id,
+            title: course.title,
+            status: "active" as const,
+          })),
+          ...deactivatedCourses.map((course) => ({
+            id: course.id,
+            title: course.title,
+            status: "deactivated" as const,
+          })),
+        ];
         setCourseOptions(nextOptions);
         setSelectedCourseId((currentCourseId) => {
           const pendingSelectedCourseId = pendingSelectedCourseIdRef.current;
@@ -376,11 +388,9 @@ export function EducatorDashboardPage() {
           onSelectTab={setSelectedTabId}
         />
 
-        {dashboard === undefined ? (
+        {selectedCourseId === "" ? (
           <p className="mt-6 text-sm text-text-secondary">
-            {selectedCourseTitle === undefined
-              ? "Select a course to view educator insights."
-              : `Detailed analytics for “${selectedCourseTitle}” are not available yet.`}
+            Select a course to view educator insights.
           </p>
         ) : undefined}
 
@@ -400,11 +410,16 @@ export function EducatorDashboardPage() {
             questions={dashboard.questions}
           />
         ) : undefined}
-        {dashboard !== undefined && selectedTabId === "learning-content" ? (
+        {selectedCourseId !== "" &&
+        selectedTabId === "learning-content" ? (
           <LearningContentTab
-            key={dashboard.courseId}
-            courseTitle={dashboard.courseTitle}
-            learningContentSections={dashboard.learningContentSections}
+            key={selectedCourseId}
+            courseId={selectedCourseId}
+            courseTitle={
+              selectedCourseTitle === undefined
+                ? "this course"
+                : selectedCourseTitle
+            }
           />
         ) : undefined}
       </article>

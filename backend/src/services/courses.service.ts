@@ -196,10 +196,22 @@ export class CoursesService {
     courseId: string,
     title: string,
     position: number,
+    contentBlocks:
+      | {
+          contentType: 'text' | 'code';
+          bodyText: string;
+          position: number;
+        }[]
+      | undefined,
   ) {
     const course = await this.requireCourse(courseId);
     this.requireSectionWrite(actor, course);
-    const section = await this.content.insertSection(courseId, title, position);
+    const section = await this.content.insertSection(
+      courseId,
+      title,
+      position,
+      contentBlocks === undefined ? [] : contentBlocks,
+    );
     await this.courses.touch(courseId);
     return section;
   }
@@ -217,6 +229,35 @@ export class CoursesService {
     await this.content.updateSection(courseId, sectionId, title, position);
     await this.courses.touch(courseId);
     return this.requireSection(courseId, sectionId);
+  }
+
+  async replaceSection(
+    actor: AuthUser,
+    courseId: string,
+    sectionId: string,
+    title: string,
+    position: number,
+    contentBlocks: {
+      contentType: 'text' | 'code';
+      bodyText: string;
+      position: number;
+    }[],
+  ) {
+    const course = await this.requireCourse(courseId);
+    this.requireSectionWrite(actor, course);
+    await this.requireSection(courseId, sectionId);
+    const section = await this.content.replaceSection(
+      courseId,
+      sectionId,
+      title,
+      position,
+      contentBlocks,
+    );
+    if (section === undefined) {
+      throw new NotFoundException('Section not found');
+    }
+    await this.courses.touch(courseId);
+    return section;
   }
 
   async removeSection(actor: AuthUser, courseId: string, sectionId: string) {

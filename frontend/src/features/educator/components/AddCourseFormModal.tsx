@@ -170,8 +170,8 @@ export function AddCourseFormModal({
               role="status"
               className="rounded-lg border border-coral/30 bg-coral/10 px-3 py-2.5 text-sm text-ink"
             >
-              You are adding a <strong>community</strong> course. It will be
-              visible to everyone in the shared catalogue.
+              You are adding a <strong>community</strong> course. It starts
+              inactive until you activate it for the shared catalogue.
             </p>
           ) : undefined}
 
