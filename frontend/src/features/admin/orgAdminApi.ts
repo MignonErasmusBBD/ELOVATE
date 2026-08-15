@@ -4,14 +4,14 @@ import {
   parseAdminEnrolments,
   parseDirectoryPeople,
   parseDirectoryPerson,
-  parseOrgPrivateCourse,
-  parseOrgPrivateCourses,
+  parseAdminCourse,
+  parseAdminCourses,
 } from "./parseDirectory";
 import type {
   AdminEnrolment,
   AdminPerson,
   CourseStatus,
-  OrgPrivateCourse,
+  AdminCourse,
   PersonStatus,
 } from "./types";
 
@@ -41,21 +41,21 @@ export async function setPersonStatus(
 
 export async function listOrgPrivateCourses(
   organizationId: string,
-): Promise<OrgPrivateCourse[]> {
+): Promise<AdminCourse[]> {
   const query = new URLSearchParams({
     visibility: "private",
     status: "all",
     organizationId,
   });
   const body = await elovateApiJson(`/courses?${query.toString()}`);
-  return parseOrgPrivateCourses(body);
+  return parseAdminCourses(body);
 }
 
 export async function createOrgPrivateCourse(
   organizationId: string,
   title: string,
   description: string | undefined,
-): Promise<OrgPrivateCourse | undefined> {
+): Promise<AdminCourse | undefined> {
   const requestBody: {
     title: string;
     visibility: "private";
@@ -73,7 +73,7 @@ export async function createOrgPrivateCourse(
     method: "POST",
     body: JSON.stringify(requestBody),
   });
-  return parseOrgPrivateCourse(body);
+  return parseAdminCourse(body);
 }
 
 export async function setCourseStatus(

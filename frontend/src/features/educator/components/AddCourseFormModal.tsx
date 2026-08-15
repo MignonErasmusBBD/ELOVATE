@@ -7,7 +7,12 @@ import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { clearFieldError } from "@/helpers/formErrors";
-import { validateRequiredName } from "@/helpers/validation";
+import {
+  COURSE_DESCRIPTION_MAX_LENGTH,
+  COURSE_TITLE_MAX_LENGTH,
+  validateCourseDescription,
+  validateCourseTitle,
+} from "@/helpers/validation";
 import type { EducatorCourseVisibility } from "../types";
 
 export type AddCourseFormValues = {
@@ -18,6 +23,7 @@ export type AddCourseFormValues = {
 
 type AddCourseFieldErrors = {
   courseTitle?: string;
+  courseDescription?: string;
 };
 
 type AddCourseFormModalProps = {
@@ -54,11 +60,18 @@ export function AddCourseFormModal({
   async function handleSubmit(submitEvent: SubmitEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
 
-    const courseTitleError = validateRequiredName(courseTitle, "Course title");
-    setFieldErrors({ courseTitle: courseTitleError });
+    const courseTitleError = validateCourseTitle(courseTitle);
+    const courseDescriptionError = validateCourseDescription(courseDescription);
+    setFieldErrors({
+      courseTitle: courseTitleError,
+      courseDescription: courseDescriptionError,
+    });
     setSubmitErrorMessage(undefined);
 
-    if (courseTitleError !== undefined) {
+    if (
+      courseTitleError !== undefined ||
+      courseDescriptionError !== undefined
+    ) {
       return;
     }
 
@@ -128,6 +141,7 @@ export function AddCourseFormModal({
               type="text"
               placeholder="Course title"
               value={courseTitle}
+              maxLength={COURSE_TITLE_MAX_LENGTH}
               disabled={isSubmitting}
               invalid={fieldErrors.courseTitle !== undefined}
               onChange={(changeEvent) => {
@@ -139,7 +153,7 @@ export function AddCourseFormModal({
               aria-describedby={
                 fieldErrors.courseTitle !== undefined
                   ? "educator-course-title-error"
-                  : undefined
+                  : "educator-course-title-limit"
               }
             />
             {fieldErrors.courseTitle !== undefined ? (
@@ -147,7 +161,14 @@ export function AddCourseFormModal({
                 id="educator-course-title-error"
                 message={fieldErrors.courseTitle}
               />
-            ) : undefined}
+            ) : (
+              <p
+                id="educator-course-title-limit"
+                className="text-xs text-text-secondary"
+              >
+                {courseTitle.length}/{COURSE_TITLE_MAX_LENGTH} characters
+              </p>
+            )}
           </FormField>
 
           <FormField>
@@ -158,11 +179,35 @@ export function AddCourseFormModal({
               type="text"
               placeholder="What will people learn?"
               value={courseDescription}
+              maxLength={COURSE_DESCRIPTION_MAX_LENGTH}
               disabled={isSubmitting}
-              onChange={(changeEvent) =>
-                setCourseDescription(changeEvent.target.value)
+              invalid={fieldErrors.courseDescription !== undefined}
+              onChange={(changeEvent) => {
+                setCourseDescription(changeEvent.target.value);
+                setFieldErrors((currentFieldErrors) =>
+                  clearFieldError(currentFieldErrors, "courseDescription"),
+                );
+              }}
+              aria-describedby={
+                fieldErrors.courseDescription !== undefined
+                  ? "educator-course-description-error"
+                  : "educator-course-description-limit"
               }
             />
+            {fieldErrors.courseDescription !== undefined ? (
+              <FieldError
+                id="educator-course-description-error"
+                message={fieldErrors.courseDescription}
+              />
+            ) : (
+              <p
+                id="educator-course-description-limit"
+                className="text-xs text-text-secondary"
+              >
+                {courseDescription.length}/{COURSE_DESCRIPTION_MAX_LENGTH}{" "}
+                characters
+              </p>
+            )}
           </FormField>
 
           {isCommunityCourse ? (

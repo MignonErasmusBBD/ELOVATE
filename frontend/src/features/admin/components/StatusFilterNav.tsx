@@ -1,3 +1,4 @@
+import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import type { StatusFilterOption } from "../statusFilter";
@@ -26,7 +27,7 @@ export function StatusFilterNav<TFilter extends string>({
   searchPlaceholder,
 }: StatusFilterNavProps<TFilter>) {
   return (
-    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <nav aria-label={ariaLabel}>
         <ul className="flex flex-wrap gap-2">
           {filters.map((filter) => {
@@ -51,7 +52,7 @@ export function StatusFilterNav<TFilter extends string>({
           })}
         </ul>
       </nav>
-      <div className="sm:w-72">
+      <FormField className="sm:w-72">
         <Label htmlFor={searchInputId} className="sr-only">
           {searchLabel}
         </Label>
@@ -64,7 +65,7 @@ export function StatusFilterNav<TFilter extends string>({
             onSearchQueryChange(changeEvent.target.value)
           }
         />
-      </div>
-    </div>
+      </FormField>
+    </section>
   );
 }

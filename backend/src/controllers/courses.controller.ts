@@ -7,6 +7,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -18,11 +19,13 @@ import { CoursesService } from '../services/courses.service';
 class CreateCourseDto {
   @ApiProperty()
   @IsString()
+  @MaxLength(80)
   title: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  @MaxLength(280)
   description?: string;
 
   @ApiProperty({ enum: ['private', 'community'] })
@@ -39,11 +42,13 @@ class UpdateCourseDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   title?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  @MaxLength(280)
   description?: string;
 }
 
@@ -140,11 +145,11 @@ export class CoursesController {
   @ApiQuery({ name: 'organizationId', required: false, description: 'owning_organization_id' })
   @ApiQuery({ name: 'visibility', required: false, enum: ['private', 'community'] })
   @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: ['active', 'deactivated'] })
+  @ApiQuery({ name: 'status', required: false, enum: ['active', 'deactivated', 'all'] })
   @ApiOperation({
     summary: 'List courses',
     description:
-      'Filter courses by org, visibility, search, status (defaults to active). Private: course.private.read (org_admin, educator) in own org. Community: course.community.read. Learners also see private courses they have an active enrollment for.',
+      'Select courses JOIN course_visibilities JOIN course_statuses. Filter by owning_organization_id, visibility_code, search, and status_code (defaults to active; status=all includes deactivated when the caller has course.*.update or course.*.delete).\nPermission: course.community.read (all roles) and/or course.private.read (org_admin, educator, community_admin). Learners also see private courses they have an active enrollments row for.',
   })
   list(
     @CurrentUser() actor: AuthUser,

@@ -8,20 +8,26 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import { clearFieldError } from "@/helpers/formErrors";
-import { validateRequiredName } from "@/helpers/validation";
-import { createOrgPrivateCourse, setCourseStatus } from "../orgAdminApi";
+import {
+  COURSE_DESCRIPTION_MAX_LENGTH,
+  COURSE_TITLE_MAX_LENGTH,
+  validateCourseDescription,
+  validateCourseTitle,
+} from "@/helpers/validation";
+import { setCourseStatus } from "../orgAdminApi";
 import {
   emptyStatusFilterMessage,
   itemsMatchingStatusAndSearch,
   type StatusFilter,
   type StatusFilterOption,
 } from "../statusFilter";
-import type { CourseStatus, OrgPrivateCourse } from "../types";
+import type { AdminCourse, CourseStatus } from "../types";
 import { StatusFilterNav } from "./StatusFilterNav";
 import { StatusPill } from "./StatusPill";
 
-type PrivateCourseFieldErrors = {
+type CourseFieldErrors = {
   courseTitle?: string;
+  courseDescription?: string;
 };
 
 const courseStatusFilters: StatusFilterOption<StatusFilter<CourseStatus>>[] = [
@@ -31,32 +37,52 @@ const courseStatusFilters: StatusFilterOption<StatusFilter<CourseStatus>>[] = [
 ];
 
 type AdminCoursesSectionProps = Readonly<{
-  organizationName: string | undefined;
-  organizationId: string | undefined;
-  courses: OrgPrivateCourse[];
+  heading: string;
+  description: string;
+  emptyMessage: string;
+  titleFieldId: string;
+  titlePlaceholder: string;
+  descriptionFieldId: string;
+  searchInputId: string;
+  visibilityLabel: string;
+  canCreate: boolean;
+  createBlockedMessage: string | undefined;
+  courses: AdminCourse[];
   isLoading: boolean;
-  onCoursesChange: (nextCourses: OrgPrivateCourse[]) => void;
+  onCreate: (
+    title: string,
+    description: string | undefined,
+  ) => Promise<AdminCourse | undefined>;
+  onCoursesChange: (nextCourses: AdminCourse[]) => void;
   onDirectoryChanged: () => Promise<void>;
 }>;
 
 export function AdminCoursesSection({
-  organizationName,
-  organizationId,
+  heading,
+  description,
+  emptyMessage,
+  titleFieldId,
+  titlePlaceholder,
+  descriptionFieldId,
+  searchInputId,
+  visibilityLabel,
+  canCreate,
+  createBlockedMessage,
   courses,
   isLoading,
+  onCreate,
   onCoursesChange,
   onDirectoryChanged,
 }: AdminCoursesSectionProps) {
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<PrivateCourseFieldErrors>({});
+  const [fieldErrors, setFieldErrors] = useState<CourseFieldErrors>({});
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter<CourseStatus>>("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [formError, setFormError] = useState<string | undefined>();
   const [actionError, setActionError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
-  const organisationName = organizationName ?? "your organisation";
 
   const visibleCourses = itemsMatchingStatusAndSearch(
     courses,
@@ -76,23 +102,29 @@ export function AdminCoursesSection({
   ) {
     submitEvent.preventDefault();
 
-    const courseTitleError = validateRequiredName(courseTitle, "Course title");
-    setFieldErrors({ courseTitle: courseTitleError });
+    const courseTitleError = validateCourseTitle(courseTitle);
+    const courseDescriptionError = validateCourseDescription(courseDescription);
+    setFieldErrors({
+      courseTitle: courseTitleError,
+      courseDescription: courseDescriptionError,
+    });
     setFormError(undefined);
     setActionError(undefined);
 
-    if (courseTitleError !== undefined) {
+    if (
+      courseTitleError !== undefined ||
+      courseDescriptionError !== undefined
+    ) {
       return;
     }
-    if (organizationId === undefined) {
-      setFormError("You need an organisation to create private courses.");
+    if (canCreate === false) {
+      setFormError(createBlockedMessage ?? "You cannot create a course.");
       return;
     }
 
     setIsSaving(true);
     try {
-      const createdCourse = await createOrgPrivateCourse(
-        organizationId,
+      const createdCourse = await onCreate(
         courseTitle.trim(),
         courseDescription.trim() === "" ? undefined : courseDescription.trim(),
       );
@@ -113,7 +145,7 @@ export function AdminCoursesSection({
   }
 
   async function persistCourseStatus(
-    course: OrgPrivateCourse,
+    course: AdminCourse,
     status: CourseStatus,
   ) {
     setActionError(undefined);
@@ -142,13 +174,9 @@ export function AdminCoursesSection({
     <section aria-labelledby="admin-courses-heading" className="mt-8">
       <header className="mb-5">
         <h2 id="admin-courses-heading" className="text-xl font-bold text-ink">
-          Private courses
+          {heading}
         </h2>
-        <p className="mt-1 text-sm text-text-secondary">
-          These courses belong to {organisationName}, not to a single educator.
-          Removing the Educator role does not remove the course. Enrol people
-          from Enrolments to grant access.
-        </p>
+        <p className="mt-1 text-sm text-text-secondary">{description}</p>
       </header>
 
       <form
@@ -157,13 +185,14 @@ export function AdminCoursesSection({
         noValidate
       >
         <FormField>
-          <Label htmlFor="private-course-title">Course title</Label>
+          <Label htmlFor={titleFieldId}>Course title</Label>
           <Input
-            id="private-course-title"
+            id={titleFieldId}
             name="courseTitle"
             type="text"
-            placeholder="Private course title"
+            placeholder={titlePlaceholder}
             value={courseTitle}
+            maxLength={COURSE_TITLE_MAX_LENGTH}
             disabled={isSaving}
             invalid={fieldErrors.courseTitle !== undefined}
             onChange={(changeEvent) => {
@@ -174,39 +203,70 @@ export function AdminCoursesSection({
             }}
             aria-describedby={
               fieldErrors.courseTitle !== undefined
-                ? "private-course-title-error"
-                : undefined
+                ? `${titleFieldId}-error`
+                : `${titleFieldId}-limit`
             }
           />
           {fieldErrors.courseTitle !== undefined ? (
             <FieldError
-              id="private-course-title-error"
+              id={`${titleFieldId}-error`}
               message={fieldErrors.courseTitle}
             />
-          ) : undefined}
+          ) : (
+            <p
+              id={`${titleFieldId}-limit`}
+              className="text-xs text-text-secondary"
+            >
+              {courseTitle.length}/{COURSE_TITLE_MAX_LENGTH} characters
+            </p>
+          )}
         </FormField>
         <FormField>
-          <Label htmlFor="private-course-description">Description</Label>
+          <Label htmlFor={descriptionFieldId}>Description</Label>
           <Input
-            id="private-course-description"
+            id={descriptionFieldId}
             name="courseDescription"
             type="text"
             placeholder="What will people learn?"
             value={courseDescription}
+            maxLength={COURSE_DESCRIPTION_MAX_LENGTH}
             disabled={isSaving}
-            onChange={(changeEvent) =>
-              setCourseDescription(changeEvent.target.value)
+            invalid={fieldErrors.courseDescription !== undefined}
+            onChange={(changeEvent) => {
+              setCourseDescription(changeEvent.target.value);
+              setFieldErrors((currentFieldErrors) =>
+                clearFieldError(currentFieldErrors, "courseDescription"),
+              );
+            }}
+            aria-describedby={
+              fieldErrors.courseDescription !== undefined
+                ? `${descriptionFieldId}-error`
+                : `${descriptionFieldId}-limit`
             }
           />
+          {fieldErrors.courseDescription !== undefined ? (
+            <FieldError
+              id={`${descriptionFieldId}-error`}
+              message={fieldErrors.courseDescription}
+            />
+          ) : (
+            <p
+              id={`${descriptionFieldId}-limit`}
+              className="text-xs text-text-secondary"
+            >
+              {courseDescription.length}/{COURSE_DESCRIPTION_MAX_LENGTH}{" "}
+              characters
+            </p>
+          )}
         </FormField>
         {formError === undefined ? undefined : (
-          <FieldError id="private-course-form-error" message={formError} />
+          <FieldError id="course-form-error" message={formError} />
         )}
         <Button
           variant="compact"
           type="submit"
           className="self-start"
-          disabled={isSaving || organizationId === undefined}
+          disabled={isSaving || canCreate === false}
         >
           {isSaving ? "Adding…" : "Add course"}
         </Button>
@@ -226,7 +286,7 @@ export function AdminCoursesSection({
           onSelectFilter={setStatusFilter}
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
-          searchInputId="courses-search"
+          searchInputId={searchInputId}
           searchLabel="Search courses"
           searchPlaceholder="Search courses"
         />
@@ -237,9 +297,7 @@ export function AdminCoursesSection({
       ) : undefined}
 
       {isLoading === false && courses.length === 0 ? (
-        <p className="text-sm text-text-secondary">
-          No private courses in {organisationName} yet. Add one above.
-        </p>
+        <p className="text-sm text-text-secondary">{emptyMessage}</p>
       ) : undefined}
 
       {courses.length > 0 && visibleCourses.length === 0 ? (
@@ -248,26 +306,27 @@ export function AdminCoursesSection({
         </p>
       ) : undefined}
 
-      <ul className="flex flex-col gap-4">
+      <ul className="flex min-w-0 flex-col gap-4">
         {visibleCourses.map((course) => {
           const isActive = course.status === "active";
 
           return (
-            <li key={course.id}>
-              <article className="flex flex-col gap-3 rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)] sm:flex-row sm:items-center sm:justify-between">
-                <header>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-bold text-ink">
-                      {course.title}
-                    </h3>
-                    <StatusPill
-                      label={isActive ? "Active" : "Deactivated"}
-                      tone={isActive ? "success" : "danger"}
-                    />
-                    <StatusPill label="Private" tone="muted" />
-                  </div>
+            <li key={course.id} className="min-w-0">
+              <article className="flex min-w-0 flex-col gap-3 rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)] sm:flex-row sm:items-center sm:justify-between">
+                <header className="flex min-w-0 flex-1 flex-wrap items-center gap-2 overflow-hidden">
+                  <h3 className="min-w-0 max-w-full truncate text-base font-bold text-ink">
+                    {course.title}
+                  </h3>
+                  <StatusPill
+                    label={isActive ? "Active" : "Deactivated"}
+                    tone={isActive ? "success" : "danger"}
+                  />
+                  <StatusPill label={visibilityLabel} tone="muted" />
                   {course.description === undefined ? undefined : (
-                    <p className="mt-1 text-sm text-text-secondary">
+                    <p
+                      className="mt-1 w-full line-clamp-2 break-all text-sm text-text-secondary"
+                      title={course.description}
+                    >
                       {course.description}
                     </p>
                   )}
@@ -276,7 +335,7 @@ export function AdminCoursesSection({
                   <Button
                     variant="outline"
                     type="button"
-                    className="self-start sm:self-center"
+                    className="shrink-0 self-start sm:self-center"
                     onClick={() =>
                       void persistCourseStatus(course, "deactivated")
                     }
@@ -287,7 +346,7 @@ export function AdminCoursesSection({
                   <Button
                     variant="compact"
                     type="button"
-                    className="self-start sm:self-center"
+                    className="shrink-0 self-start sm:self-center"
                     onClick={() => void persistCourseStatus(course, "active")}
                   >
                     Activate
