@@ -11,6 +11,25 @@ import {
 import { PostgresService } from '../services/postgres.service';
 import { RecommendationsRepository } from './recommendations.repository';
 
+function postgresErrorCode(error: unknown): string | undefined {
+  if (error === null || typeof error !== 'object') {
+    return undefined;
+  }
+  const code = Reflect.get(error, 'code');
+  if (typeof code !== 'string') {
+    return undefined;
+  }
+  return code;
+}
+
+function isUndefinedColumn(error: unknown): boolean {
+  return postgresErrorCode(error) === '42703';
+}
+
+function isMissingRelation(error: unknown): boolean {
+  return postgresErrorCode(error) === '42P01';
+}
+
 type AttemptRow = {
   id: string;
   user_id: string;
@@ -636,39 +655,53 @@ export class QuizzesRepository {
         }
       }
 
-      await query(
-        `UPDATE student_course_profile SET
-           total_attempts          = $3,
-           avg_score_percent       = $4,
-           avg_time_seconds        = $5,
-           best_score_percent      = $6,
-           first_attempt_score_pct = $7,
-           streak_above_target     = $8,
-           most_improved_category  = $9,
-           growth_delta_percent    = $10,
-           regression_flag         = $11,
-           stalled_flag            = $12
-         WHERE user_id = $1 AND course_id = $2`,
-        [
-          userId,
-          courseId,
-          totalAttempts,
-          avgScorePercent,
-          avgTimeSeconds,
-          bestScorePercent,
-          firstAttemptScorePct,
-          streakAboveTarget,
-          mostImprovedCategory,
-          growthDeltaPercent,
-          regressionFlag,
-          stalledFlag,
-        ],
-      );
+      await query('SAVEPOINT dashboard_summary');
+      try {
+        await query(
+          `UPDATE student_course_profile SET
+             total_attempts          = $3,
+             avg_score_percent       = $4,
+             avg_time_seconds        = $5,
+             best_score_percent      = $6,
+             first_attempt_score_pct = $7,
+             streak_above_target     = $8,
+             most_improved_category  = $9,
+             growth_delta_percent    = $10,
+             regression_flag         = $11,
+             stalled_flag            = $12
+           WHERE user_id = $1 AND course_id = $2`,
+          [
+            userId,
+            courseId,
+            totalAttempts,
+            avgScorePercent,
+            avgTimeSeconds,
+            bestScorePercent,
+            firstAttemptScorePct,
+            streakAboveTarget,
+            mostImprovedCategory,
+            growthDeltaPercent,
+            regressionFlag,
+            stalledFlag,
+          ],
+        );
+      } catch (error) {
+        if (isUndefinedColumn(error) === false) {
+          throw error;
+        }
+        await query('ROLLBACK TO SAVEPOINT dashboard_summary');
+      }
     });
 
     // Evaluate recommendation flags after the transaction commits so the
     // updated mastery aggregates are visible to the flag queries.
-    await this.recommendations.evaluateAndPersist(userId, courseId, attemptId);
+    try {
+      await this.recommendations.evaluateAndPersist(userId, courseId, attemptId);
+    } catch (error) {
+      if (isMissingRelation(error) === false && isUndefinedColumn(error) === false) {
+        throw error;
+      }
+    }
   }
 
   async getStudentMastery(
