@@ -13,6 +13,10 @@
 </p>
 <div align="center">
 
+## About
+
+ELOVATE helps organisations deliver skills training that adapts to each learner, so people practise what they still struggle with instead of wasting time on content they already know. Learners get clear progress signals - attempt trends, performance by skill and difficulty, and growth highlights—so they know where to focus next. Educators and admins see cohort and individual insights in one place, making it easier to spot who needs support, which questions need revision, and whether mandatory training is on track.
+
 <br>
 
 ## Team Members
