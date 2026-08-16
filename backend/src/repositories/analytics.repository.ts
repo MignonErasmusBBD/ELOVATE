@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { dateFromDatabase, SqlParameter, whereClause } from '../helpers/values';
 import { PostgresService } from '../services/postgres.service';
+import { RecommendationsRepository } from './recommendations.repository';
 
 type OverallRow = {
   user_id: string;
@@ -54,7 +55,10 @@ type OrgAttemptsRow = {
 
 @Injectable()
 export class AnalyticsRepository {
-  constructor(private readonly postgres: PostgresService) {}
+  constructor(
+    private readonly postgres: PostgresService,
+    private readonly recommendations: RecommendationsRepository,
+  ) {}
 
   async overallProfile(userId: string) {
     const result = await this.postgres.query<OverallRow>(
@@ -276,7 +280,7 @@ export class AnalyticsRepository {
   }
 
   async studentCourseDashboard(userId: string, courseId: string) {
-    const [profileResult, trendResult, bloomResult, sectionResult, difficultyResult] =
+    const [profileResult, trendResult, bloomResult, sectionResult, difficultyResult, activeRecommendations] =
       await Promise.all([
         this.postgres.query<{
           total_attempts: number;
@@ -375,6 +379,8 @@ export class AnalyticsRepository {
            ORDER BY dl.level_rank`,
           [userId, courseId],
         ),
+
+        this.recommendations.listActiveForDashboard(userId, courseId),
       ]);
 
     const profile = profileResult.rows[0];
@@ -407,38 +413,6 @@ export class AnalyticsRepository {
       difficultyResult.rows.map((r) => ({ level_name: r.level_name, questions_answered: r.questions_answered, correct_count: r.correct_count })),
     );
 
-    // Generate 2–3 recommendations from the weakest categories across all breakdowns.
-    const allCategories = [
-      ...bloomBreakdown.map((c) => ({ ...c, dimension: 'cognitive level' })),
-      ...sectionBreakdown.map((c) => ({ ...c, dimension: 'section' })),
-      ...difficultyBreakdown.map((c) => ({ ...c, dimension: 'difficulty' })),
-    ]
-      .filter((c) => c.questionsAnswered >= 3)
-      .sort((a, b) => a.scorePercent - b.scorePercent);
-
-    const recommendations: string[] = [];
-    const seen = new Set<string>();
-    for (const cat of allCategories) {
-      if (recommendations.length >= 3) break;
-      const key = cat.categoryName;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const pct = Math.round(cat.scorePercent);
-      if (pct < 70) {
-        recommendations.push(
-          `Work on ${cat.dimension} "${cat.categoryName}" — currently ${pct}%, target is 70%.`,
-        );
-      }
-    }
-    if (recommendations.length === 0 && allCategories.length > 0) {
-      const weakest = allCategories[0];
-      if (weakest !== undefined) {
-        recommendations.push(
-          `Keep practising "${weakest.categoryName}" to maintain your ${Math.round(weakest.scorePercent)}% score.`,
-        );
-      }
-    }
-
     return {
       totalAttempts,
       avgScorePercent: profile?.avg_score_percent ?? undefined,
@@ -458,7 +432,7 @@ export class AnalyticsRepository {
       stalledFlag: profile?.stalled_flag ?? false,
       bestScorePercent: profile?.best_score_percent ?? undefined,
       firstAttemptScorePercent: profile?.first_attempt_score_pct ?? undefined,
-      recommendations,
+      recommendations: activeRecommendations,
     };
   }
 

@@ -61,7 +61,7 @@ export function LessonPage({ courseId }: LessonPageProps) {
   const [errorStatus, setErrorStatus] = useState<number | undefined>();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [lessonViewMode, setLessonViewMode] =
-    useState<LessonViewMode>("sub-tabs");
+    useState<LessonViewMode>("full-page");
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const viewSessionRef = useRef<{ sectionId: string; startedAt: number } | undefined>(undefined);
@@ -155,6 +155,22 @@ export function LessonPage({ courseId }: LessonPageProps) {
     if (el === null) return;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [lessonViewMode, selectedUnitId]);
+
+  // When arriving via an anchor link (e.g. from a recommendation CTA), scroll to
+  // the target section after async content has loaded. The browser's native anchor
+  // scroll fires before the sections exist in the DOM, so we retry once content is ready.
+  useEffect(() => {
+    if (isLoading) return;
+    const hash = window.location.hash;
+    if (hash === "") return;
+    const timer = window.setTimeout(() => {
+      const el = document.querySelector(hash);
+      if (el !== null) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [isLoading]);
 
   function handleToggleSpeech() {
     if (isSpeaking) {
@@ -324,6 +340,7 @@ export function LessonPage({ courseId }: LessonPageProps) {
                 key={unit.id}
                 id={getUnitSectionId(unit.id)}
                 aria-labelledby={`${getUnitSectionId(unit.id)}-heading`}
+                className="scroll-mt-16"
               >
                 <h2
                   id={`${getUnitSectionId(unit.id)}-heading`}

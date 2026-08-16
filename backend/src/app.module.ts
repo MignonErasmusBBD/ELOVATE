@@ -15,6 +15,7 @@ import { UsersController } from './controllers/users.controller';
 import { envFilePaths } from './helpers/env';
 import { AuthGuard } from './guards/auth.guard';
 import { AnalyticsRepository } from './repositories/analytics.repository';
+import { RecommendationsRepository } from './repositories/recommendations.repository';
 import { ContentViewSessionsRepository } from './repositories/content-view-sessions.repository';
 import { CoursesContentRepository } from './repositories/courses-content.repository';
 import { CoursesRepository } from './repositories/courses.repository';
@@ -55,6 +56,7 @@ import { UsersService } from './services/users.service';
     EnrollmentsRepository,
     QuizzesRepository,
     AnalyticsRepository,
+    RecommendationsRepository,
     LookupsRepository,
     InterventionsRepository,
     AuthContextService,

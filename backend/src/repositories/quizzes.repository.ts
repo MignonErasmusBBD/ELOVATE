@@ -9,6 +9,7 @@ import {
   whereClause,
 } from '../helpers/values';
 import { PostgresService } from '../services/postgres.service';
+import { RecommendationsRepository } from './recommendations.repository';
 
 type AttemptRow = {
   id: string;
@@ -150,7 +151,10 @@ function toPublicAttempt(
 
 @Injectable()
 export class QuizzesRepository {
-  constructor(private readonly postgres: PostgresService) {}
+  constructor(
+    private readonly postgres: PostgresService,
+    private readonly recommendations: RecommendationsRepository,
+  ) {}
 
   async list(filters: AttemptListFilters): Promise<PublicAttempt[]> {
     const values: SqlParameter[] = [];
@@ -661,6 +665,10 @@ export class QuizzesRepository {
         ],
       );
     });
+
+    // Evaluate recommendation flags after the transaction commits so the
+    // updated mastery aggregates are visible to the flag queries.
+    await this.recommendations.evaluateAndPersist(userId, courseId, attemptId);
   }
 
   async getStudentMastery(
