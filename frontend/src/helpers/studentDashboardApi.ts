@@ -201,7 +201,12 @@ export async function triggerMandatoryProgressFlags(
   return {
     flaggedCount: readOptionalNumber(body, "flaggedCount") ?? 0,
     resolvedCount: readOptionalNumber(body, "resolvedCount") ?? 0,
-    activeFlaggedUserIds,
+    activeFlaggedUserIds: (() => {
+      const raw = (body as Record<string, unknown>)["activeFlaggedUserIds"];
+      return Array.isArray(raw)
+        ? raw.filter((id): id is string => typeof id === "string")
+        : [];
+    })(),
   };
 }
 
