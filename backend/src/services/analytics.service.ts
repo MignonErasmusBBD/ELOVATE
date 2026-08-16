@@ -7,12 +7,14 @@ import { AuthUser } from '../helpers/auth-user';
 import { hasPermission, requirePermission } from '../helpers/require-permission';
 import { AnalyticsRepository } from '../repositories/analytics.repository';
 import { CoursesRepository } from '../repositories/courses.repository';
+import { RecommendationsRepository } from '../repositories/recommendations.repository';
 
 @Injectable()
 export class AnalyticsService {
   constructor(
     private readonly analytics: AnalyticsRepository,
     private readonly courses: CoursesRepository,
+    private readonly recommendations: RecommendationsRepository,
   ) {}
 
   async readOwnOverview(actor: AuthUser) {
@@ -42,6 +44,16 @@ export class AnalyticsService {
     }
     this.requireCourseOverviewAccess(actor, course);
     return this.analytics.studentCourseDashboard(userId, courseId, 'educator');
+  }
+
+  async runMandatoryProgressFlags(actor: AuthUser, courseId: string) {
+    requirePermission(actor, ['analytics.read.org']);
+    const course = await this.courses.findById(courseId);
+    if (course === undefined) {
+      throw new NotFoundException('Course not found');
+    }
+    this.requireCourseOverviewAccess(actor, course);
+    return this.recommendations.evaluateMandatoryProgressFlags(courseId);
   }
 
   async readOrganizationOverview(

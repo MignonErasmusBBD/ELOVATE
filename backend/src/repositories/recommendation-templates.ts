@@ -3,7 +3,8 @@ export type FlagType =
   | 'fast_low_score'
   | 'broad_knowledge_gap'
   | 'rushed_difficult_questions'
-  | 'content_not_retained';
+  | 'content_not_retained'
+  | 'mandatory_at_risk';
 
 export type Audience = 'student' | 'educator';
 
@@ -102,6 +103,17 @@ export const TEMPLATES: Record<`${FlagType}:${Audience}`, TemplateEntry> = {
       'Broad knowledge gap: {gap_percent}% of attempted sections are below 50% — consider a check-in or differentiated support.',
     evidence:
       'Over {gap_percent}% of sections with enough data are below the 50% threshold.',
+    cta: 'none',
+  },
+
+  // Educator-only: mandatory enrollment with insufficient quiz progress.
+  // No student template — the flag is silently skipped in student dashboard renders.
+  'mandatory_at_risk:educator': {
+    category: 'talk_to_educator',
+    sentence:
+      'Mandatory course requirement not met — {attempts} quiz attempt(s) completed, minimum is {min_attempts}. Due {due_date}.',
+    evidence:
+      '{attempts} completed quiz attempt(s) recorded against a required minimum of {min_attempts}. Enrollment due date: {due_date}.',
     cta: 'none',
   },
 };

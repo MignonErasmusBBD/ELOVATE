@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '../guards/auth.guard';
 import { AuthUser, CurrentUser } from '../helpers/auth-user';
@@ -64,6 +64,21 @@ export class AnalyticsController {
       courseId,
       userId,
     );
+  }
+
+  @Post('educator/courses/:courseId/flags/mandatory-progress')
+  @ApiOperation({
+    summary: 'Run mandatory progress flag evaluation',
+    description:
+      'Checks all active mandatory-enrolled students for this course and raises or resolves mandatory_at_risk flags. Safe to call repeatedly — idempotent upsert/resolve. Can also be driven by a scheduled job.\nPermission: analytics.read.org (org_admin, educator). Requires course.private.read or course.community.read for the course.',
+  })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  runMandatoryProgressFlags(
+    @CurrentUser() actor: AuthUser,
+    @Param('courseId') courseId: string,
+  ) {
+    return this.analytics.runMandatoryProgressFlags(actor, courseId);
   }
 
   @Get('org/overview')
