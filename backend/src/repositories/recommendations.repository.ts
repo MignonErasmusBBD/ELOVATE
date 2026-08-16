@@ -33,6 +33,13 @@ const RUSHED_QUESTION_MIN_COUNT = 2;
 // Content view time must be this multiple of median to trigger content_not_retained.
 const HIGH_VIEW_TIME_MULTIPLE = 1.5;
 
+function isMissingRelation(error: unknown): boolean {
+  if (error === null || typeof error !== 'object') {
+    return false;
+  }
+  return Reflect.get(error, 'code') === '42P01';
+}
+
 export type RenderedRecommendation = {
   id: string;
   flagType: FlagType;
@@ -209,21 +216,41 @@ export class RecommendationsRepository {
   }
 
   async activeMandatoryFlaggedUserIds(courseId: string): Promise<string[]> {
-    const result = await this.postgres.query<{ student_id: string }>(
-      `SELECT sr.student_id
-       FROM student_recommendations sr
-       JOIN recommendation_statuses rs
-         ON rs.recommendation_status_id = sr.recommendation_status_id
-       WHERE sr.course_id = $1
-         AND sr.flag_type = 'mandatory_at_risk'
-         AND sr.target_ref IS NULL
-         AND rs.status_code = 'active'`,
-      [courseId],
-    );
-    return result.rows.map((r) => r.student_id);
+    try {
+      const result = await this.postgres.query<{ student_id: string }>(
+        `SELECT sr.student_id
+         FROM student_recommendations sr
+         JOIN recommendation_statuses rs
+           ON rs.recommendation_status_id = sr.recommendation_status_id
+         WHERE sr.course_id = $1
+           AND sr.flag_type = 'mandatory_at_risk'
+           AND sr.target_ref IS NULL
+           AND rs.status_code = 'active'`,
+        [courseId],
+      );
+      return result.rows.map((r) => r.student_id);
+    } catch (error) {
+      if (isMissingRelation(error)) {
+        return [];
+      }
+      throw error;
+    }
   }
 
   async evaluateMandatoryProgressFlags(
+    courseId: string,
+  ): Promise<{ flaggedCount: number; resolvedCount: number; activeFlaggedUserIds: string[] }> {
+    try {
+      return await this.runMandatoryProgressFlags(courseId);
+    } catch (error) {
+      if (isMissingRelation(error)) {
+        return { flaggedCount: 0, resolvedCount: 0, activeFlaggedUserIds: [] };
+      }
+      throw error;
+    }
+  }
+
+  private async runMandatoryProgressFlags(
     courseId: string,
   ): Promise<{ flaggedCount: number; resolvedCount: number; activeFlaggedUserIds: string[] }> {
     const [enrolled, activeFlags] = await Promise.all([
