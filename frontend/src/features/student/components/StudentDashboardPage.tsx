@@ -9,6 +9,7 @@ import type { StudentCourseDashboard } from "@/helpers/studentDashboardApi";
 import { AttemptsTrendChart } from "./AttemptsTrendChart";
 import { BreakdownTabs } from "./BreakdownTabs";
 import { GrowthHighlights } from "./GrowthHighlights";
+import { RecommendationCards } from "./RecommendationCards";
 import { SummaryCards } from "./SummaryCards";
 
 type StudentDashboardPageProps = {
@@ -30,39 +31,6 @@ function formatPercent(value: number | undefined): string {
   return `${Math.round(value)}%`;
 }
 
-function DashboardRecommendations({
-  recommendations,
-}: {
-  recommendations: string[];
-}) {
-  if (recommendations.length === 0) return null;
-  return (
-    <section aria-labelledby="recommendations-heading">
-      <h2
-        id="recommendations-heading"
-        className="text-xl font-bold tracking-tight text-ink"
-      >
-        Recommendations
-      </h2>
-      <ul className="mt-4 flex flex-col gap-3">
-        {recommendations.map((rec, i) => (
-          <li
-            key={i}
-            className="flex gap-3 rounded-xl border border-border-ui bg-surface px-4 py-3 text-sm leading-relaxed text-ink"
-          >
-            <span
-              aria-hidden="true"
-              className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-coral text-xs font-bold text-white"
-            >
-              {i + 1}
-            </span>
-            {rec}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
 
 type State =
   | { phase: "loading" }
@@ -224,7 +192,10 @@ function DashboardContent({
       {/* Recommendations */}
       {data.recommendations.length > 0 && (
         <article className="rounded-2xl border border-border-ui bg-surface p-6 shadow-[0_8px_24px_rgba(30,27,51,0.06)] md:p-8">
-          <DashboardRecommendations recommendations={data.recommendations} />
+          <RecommendationCards
+            recommendations={data.recommendations}
+            courseId={courseId}
+          />
         </article>
       )}
     </section>

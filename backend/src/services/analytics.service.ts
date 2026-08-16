@@ -41,7 +41,7 @@ export class AnalyticsService {
       throw new NotFoundException('Course not found');
     }
     this.requireCourseOverviewAccess(actor, course);
-    return this.analytics.studentCourseDashboard(userId, courseId);
+    return this.analytics.studentCourseDashboard(userId, courseId, 'educator');
   }
 
   async readOrganizationOverview(

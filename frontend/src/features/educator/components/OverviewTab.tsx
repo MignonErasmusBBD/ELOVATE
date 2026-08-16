@@ -5,7 +5,6 @@ import { explainCopy } from "@/helpers/explainCopy";
 import type { EducatorCourseOverview } from "@/helpers/educatorOverviewApi";
 import { BloomDifficultyBarChart } from "./BloomDifficultyBarChart";
 import { BloomRadarChart } from "./BloomRadarChart";
-import { InterventionRuleFlagChart } from "./InterventionRuleFlagChart";
 import { QuestionSectionPolarChart } from "./QuestionSectionPolarChart";
 
 type OverviewTabProps = {
@@ -60,11 +59,56 @@ function hasBloomDifficultyData(
   return false;
 }
 
+type FlagRow = {
+  flagLabel: string;
+  category: string;
+  categoryColor: string;
+  condition: string;
+  action: string;
+};
+
+const FLAG_REFERENCE: FlagRow[] = [
+  {
+    flagLabel: "Repeated low topic",
+    category: "Knowledge gap",
+    categoryColor: "#2563eb",
+    condition: "Section score stays below 50% across 3 or more questions answered",
+    action: "Student reviews the content for that section",
+  },
+  {
+    flagLabel: "Content not retained",
+    category: "Knowledge gap",
+    categoryColor: "#2563eb",
+    condition: "High content view time for a section but quiz score still below 50%",
+    action: "Student re-reads the section material",
+  },
+  {
+    flagLabel: "Fast low score",
+    category: "Engagement signal",
+    categoryColor: "#ea580c",
+    condition: "Quiz finished well under the student's typical time AND score below 60%",
+    action: "Student slows down and reads each question carefully",
+  },
+  {
+    flagLabel: "Rushed difficult questions",
+    category: "Engagement signal",
+    categoryColor: "#ea580c",
+    condition: "2 or more Hard/Expert questions answered in under 20 s and wrong",
+    action: "Student takes more time on harder items",
+  },
+  {
+    flagLabel: "Broad knowledge gap",
+    category: "Consider a check-in",
+    categoryColor: "#16a34a",
+    condition: "More than 70% of sections with enough data are below 50%",
+    action: "Educator check-in or differentiated support",
+  },
+];
+
 export function OverviewTab({ overview }: OverviewTabProps) {
   const showBloomCoverage = hasBloomCoverageData(overview.bloomCoverage);
   const showSections = hasSectionData(overview.questionSections);
   const showBloomDifficulty = hasBloomDifficultyData(overview.bloomDifficulty);
-  const showInterventions = overview.interventionRuleFlags.length > 0;
 
   return (
     <section aria-labelledby="educator-overview-heading" className="mt-6">
@@ -137,24 +181,70 @@ export function OverviewTab({ overview }: OverviewTabProps) {
         </li>
         <li className="xl:col-span-2">
           <article className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
-            <header className="flex items-center justify-between gap-2">
-              <h3 className="min-w-0 text-base font-bold text-ink">
-                Intervention Rule Set Flag
+            <header>
+              <h3 className="text-base font-bold text-ink">
+                Diagnostic Flag Reference
               </h3>
-              <ExplainTip label="About intervention flags">
-                {explainCopy.interventionFlags}
-              </ExplainTip>
+              <p className="mt-1 text-sm text-text-secondary">
+                Flags are automatically raised after each quiz submission and shown in each student&apos;s detail panel. Use this table to understand what triggers each flag and what action is suggested.
+              </p>
             </header>
-            <p className="mt-1 text-sm text-text-secondary">
-              Number of students flagged by each intervention rule.
-            </p>
-            {showInterventions ? (
-              <InterventionRuleFlagChart
-                interventionRuleFlags={overview.interventionRuleFlags}
-              />
-            ) : (
-              <ChartEmptyState message="No open intervention flags for this course." />
-            )}
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
+                <colgroup>
+                  <col className="w-[18%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[36%]" />
+                  <col className="w-[26%]" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th className="border-b border-border-ui pb-3 pr-6 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      Flag
+                    </th>
+                    <th className="border-b border-border-ui pb-3 pr-6 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      Category
+                    </th>
+                    <th className="border-b border-border-ui pb-3 pr-6 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      Flagging condition
+                    </th>
+                    <th className="border-b border-border-ui pb-3 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      Recommended action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {FLAG_REFERENCE.map((row) => (
+                    <tr key={row.flagLabel} className="group">
+                      <td className="py-4 pr-6 align-top font-medium text-ink group-last:pb-0">
+                        {row.flagLabel}
+                      </td>
+                      <td className="py-4 pr-6 align-top group-last:pb-0">
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                          style={{
+                            background: `${row.categoryColor}18`,
+                            color: row.categoryColor,
+                          }}
+                        >
+                          <span
+                            className="h-1.5 w-1.5 shrink-0 rounded-full"
+                            style={{ background: row.categoryColor }}
+                          />
+                          {row.category}
+                        </span>
+                      </td>
+                      <td className="py-4 pr-6 align-top text-text-secondary group-last:pb-0">
+                        {row.condition}
+                      </td>
+                      <td className="py-4 align-top text-text-secondary group-last:pb-0">
+                        {row.action}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </article>
         </li>
       </ul>

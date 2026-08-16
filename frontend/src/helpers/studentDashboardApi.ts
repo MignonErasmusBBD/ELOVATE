@@ -5,7 +5,7 @@ import {
   readOptionalBoolean,
   readOptionalNumber,
   readOptionalString,
-  readStringList,
+  readRequiredString,
 } from "@/helpers/jsonFields";
 
 export type TrendAttempt = {
@@ -17,6 +17,24 @@ export type BreakdownCategory = {
   categoryName: string;
   questionsAnswered: number;
   scorePercent: number;
+};
+
+export type RecommendationCategory =
+  | "needs_reinforcement"
+  | "take_your_time"
+  | "talk_to_educator";
+
+export type RecommendationCta = "quiz" | "content" | "none";
+
+export type StudentRecommendation = {
+  id: string;
+  flagType: string;
+  category: RecommendationCategory;
+  sentence: string;
+  evidence: string;
+  cta: RecommendationCta;
+  sectionId: string | undefined;
+  sectionTitle: string | undefined;
 };
 
 export type StudentCourseDashboard = {
@@ -35,7 +53,7 @@ export type StudentCourseDashboard = {
   stalledFlag: boolean;
   bestScorePercent: number | undefined;
   firstAttemptScorePercent: number | undefined;
-  recommendations: string[];
+  recommendations: StudentRecommendation[];
 };
 
 function parseTrendAttempt(item: unknown): TrendAttempt | undefined {
@@ -75,6 +93,48 @@ function parseList<T>(
   return result;
 }
 
+const VALID_CATEGORIES: ReadonlySet<string> = new Set([
+  "needs_reinforcement",
+  "take_your_time",
+  "talk_to_educator",
+]);
+
+const VALID_CTAS: ReadonlySet<string> = new Set(["quiz", "content", "none"]);
+
+function parseRecommendation(
+  item: unknown,
+): StudentRecommendation | undefined {
+  if (isPlainObject(item) === false) return undefined;
+  const id = readRequiredString(item, "id");
+  const flagType = readOptionalString(item, "flagType");
+  const category = readOptionalString(item, "category");
+  const sentence = readOptionalString(item, "sentence");
+  const evidence = readOptionalString(item, "evidence");
+  const cta = readOptionalString(item, "cta");
+  if (
+    id === undefined ||
+    flagType === undefined ||
+    category === undefined ||
+    !VALID_CATEGORIES.has(category) ||
+    sentence === undefined ||
+    evidence === undefined ||
+    cta === undefined ||
+    !VALID_CTAS.has(cta)
+  ) {
+    return undefined;
+  }
+  return {
+    id,
+    flagType,
+    category: category as RecommendationCategory,
+    sentence,
+    evidence,
+    cta: cta as RecommendationCta,
+    sectionId: readOptionalString(item, "sectionId"),
+    sectionTitle: readOptionalString(item, "sectionTitle"),
+  };
+}
+
 export function parseStudentCourseDashboard(
   body: unknown,
 ): StudentCourseDashboard | undefined {
@@ -84,8 +144,6 @@ export function parseStudentCourseDashboard(
   const streakAboveTarget = readOptionalNumber(body, "streakAboveTarget") ?? 0;
   const regressionFlag = readOptionalBoolean(body, "regressionFlag") ?? false;
   const stalledFlag = readOptionalBoolean(body, "stalledFlag") ?? false;
-
-  const recommendations = readStringList(body, "recommendations");
 
   return {
     totalAttempts,
@@ -103,7 +161,7 @@ export function parseStudentCourseDashboard(
     stalledFlag,
     bestScorePercent: readOptionalNumber(body, "bestScorePercent"),
     firstAttemptScorePercent: readOptionalNumber(body, "firstAttemptScorePercent"),
-    recommendations,
+    recommendations: parseList(body, "recommendations", parseRecommendation),
   };
 }
 
