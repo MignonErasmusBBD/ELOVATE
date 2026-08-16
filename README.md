@@ -41,4 +41,6 @@ ELOVATE helps organisations deliver skills training that adapts to each learner,
 
 ## Demonstration click through
 
-[![Watch the video](assets/full-demo-thumbnail.jpg)](assets/full-demo.mp4)
+https://github.com/user-attachments/assets/217a5153-17c6-4b66-bca2-b9882c50ef1f
+
+
