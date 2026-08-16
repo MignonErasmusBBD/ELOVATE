@@ -1,8 +1,13 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  isCalendarDateBeforeToday,
+  johannesburgEndOfDay,
+} from '../helpers/johannesburg-date';
 import { AuthUser } from '../helpers/auth-user';
 import { hasPermission, requirePermission } from '../helpers/require-permission';
 import { CoursesRepository } from '../repositories/courses.repository';
@@ -142,7 +147,12 @@ export class EnrollmentsService {
     return enrollment;
   }
 
-  async assign(actor: AuthUser, userId: string, courseId: string) {
+  async assign(
+    actor: AuthUser,
+    userId: string,
+    courseId: string,
+    requirement: { isRequired: boolean; dueAt: string | undefined },
+  ) {
     requirePermission(actor, ['enrollment.assign']);
     const course = await this.courses.findById(courseId);
     if (course === undefined) {
@@ -159,7 +169,7 @@ export class EnrollmentsService {
       );
     }
     if (course.status !== 'active') {
-      throw new ForbiddenException('Cannot enrol on a deactivated course');
+      throw new ForbiddenException('Cannot enrol on a draft or deactivated course');
     }
     const targetUser = await this.users.findById(userId);
     if (targetUser === undefined) {
@@ -180,7 +190,7 @@ export class EnrollmentsService {
         'Can only enrol users in your own organisation or with no organisation',
       );
     }
-    return this.ensureActive(userId, courseId);
+    return this.ensureActive(userId, courseId, requirement);
   }
 
   async startCommunity(actor: AuthUser, courseId: string) {
@@ -195,7 +205,10 @@ export class EnrollmentsService {
     if (course.status !== 'active') {
       throw new NotFoundException('Course not found');
     }
-    return this.ensureActive(actor.id, courseId);
+    return this.ensureActive(actor.id, courseId, {
+      isRequired: false,
+      dueAt: undefined,
+    });
   }
 
   async withdraw(actor: AuthUser, enrollmentId: string) {
@@ -229,10 +242,53 @@ export class EnrollmentsService {
     return this.requireEnrollment(enrollmentId);
   }
 
+  async updateRequirement(
+    actor: AuthUser,
+    enrollmentId: string,
+    requirement: { isRequired: boolean; dueAt: string | undefined },
+  ) {
+    requirePermission(actor, ['enrollment.assign']);
+    const enrollment = await this.requireEnrollment(enrollmentId);
+    if (enrollment.organizationId !== actor.organizationId) {
+      throw new ForbiddenException(
+        'Can only update enrolments in your own organisation',
+      );
+    }
+    const parsedRequirement = this.requireValidRequirement(requirement);
+    await this.enrollments.setRequirement(enrollmentId, parsedRequirement);
+    return this.requireEnrollment(enrollmentId);
+  }
+
+  private requireValidRequirement(requirement: {
+    isRequired: boolean;
+    dueAt: string | undefined;
+  }): { isRequired: boolean; dueAt: Date | undefined } {
+    if (requirement.isRequired === false) {
+      return { isRequired: false, dueAt: undefined };
+    }
+    if (requirement.dueAt === undefined || requirement.dueAt === '') {
+      throw new BadRequestException(
+        'A required course needs a due date',
+      );
+    }
+    if (isCalendarDateBeforeToday(requirement.dueAt)) {
+      throw new BadRequestException(
+        'Due date cannot be in the past (Africa/Johannesburg)',
+      );
+    }
+    const dueAt = johannesburgEndOfDay(requirement.dueAt);
+    if (dueAt === undefined) {
+      throw new BadRequestException('Due date must be a calendar date');
+    }
+    return { isRequired: true, dueAt };
+  }
+
   private async ensureActive(
     userId: string,
     courseId: string,
+    requirement: { isRequired: boolean; dueAt: string | undefined },
   ): Promise<PublicEnrollment> {
+    const parsedRequirement = this.requireValidRequirement(requirement);
     const existing = await this.enrollments.findByUserAndCourse(
       userId,
       courseId,
@@ -241,9 +297,14 @@ export class EnrollmentsService {
       if (existing.status !== 'active') {
         await this.enrollments.setStatus(existing.id, 'active');
       }
+      await this.enrollments.setRequirement(existing.id, parsedRequirement);
       return this.requireEnrollment(existing.id);
     }
-    const enrollmentId = await this.enrollments.insert(userId, courseId);
+    const enrollmentId = await this.enrollments.insert(
+      userId,
+      courseId,
+      parsedRequirement,
+    );
     return this.requireEnrollment(enrollmentId);
   }
 

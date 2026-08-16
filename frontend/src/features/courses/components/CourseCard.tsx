@@ -1,6 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import {
+  courseCardUrgencyClassName,
+  dueDateLabel,
+  dueUrgency,
+  dueUrgencyClassName,
+} from "@/helpers/johannesburgDate";
 import type { CourseIconName } from "../types";
 import { CourseIcon } from "./CourseIcon";
 
@@ -10,6 +16,8 @@ type CourseCardProps = {
   description?: string;
   visibility: string;
   status: string;
+  isRequired?: boolean;
+  dueAt?: string;
   iconName?: CourseIconName;
   onEnrol?: () => Promise<void>;
 };
@@ -81,12 +89,47 @@ function pickIcon(id: string): CourseIconName {
 
 const TRUNCATE_AT = 150;
 
+function CourseRequirementTags({
+  isRequired,
+  dueAt,
+}: Readonly<{
+  isRequired: boolean;
+  dueAt: string | undefined;
+}>) {
+  const urgency = dueAt === undefined ? undefined : dueUrgency(dueAt);
+  if (isRequired === false && dueAt === undefined) {
+    return undefined;
+  }
+  return (
+    <ul className="m-0 flex min-w-0 list-none flex-wrap justify-end gap-1.5 p-0">
+      {isRequired ? (
+        <li>
+          <span className="inline-flex items-center rounded-full border-2 border-red-500 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+            Required
+          </span>
+        </li>
+      ) : undefined}
+      {dueAt === undefined || urgency === undefined ? undefined : (
+        <li>
+          <span
+            className={`inline-flex items-center rounded-full border-2 px-2 py-0.5 text-xs font-semibold ${dueUrgencyClassName(urgency)}`}
+          >
+            {dueDateLabel(dueAt)}
+          </span>
+        </li>
+      )}
+    </ul>
+  );
+}
+
 export function CourseCard({
   id,
   title,
   description,
   visibility,
   status,
+  isRequired = false,
+  dueAt,
   iconName,
   onEnrol,
 }: CourseCardProps) {
@@ -95,6 +138,11 @@ export function CourseCard({
   const isLong = description !== undefined && description.length > TRUNCATE_AT;
   const [expanded, setExpanded] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
+  const urgency = dueAt === undefined ? undefined : dueUrgency(dueAt);
+  const cardBorderClass =
+    urgency === undefined
+      ? "border-2 border-border-ui"
+      : `border-[3px] ${courseCardUrgencyClassName(urgency)}`;
 
   async function handleEnrolClick(e: React.MouseEvent) {
     e.preventDefault();
@@ -109,16 +157,21 @@ export function CourseCard({
   }
 
   return (
-    <article className="flex h-full flex-col rounded-2xl border border-border-ui bg-surface p-6 shadow-[0_8px_24px_rgba(30,27,51,0.06)] transition-shadow hover:shadow-[0_12px_32px_rgba(30,27,51,0.1)]">
-      <figure className="m-0 flex h-11 w-11 items-center justify-center rounded-lg bg-coral text-white">
-        <CourseIcon iconName={resolvedIcon} className="h-5 w-5" />
-      </figure>
+    <article
+      className={`flex h-full min-w-0 flex-col rounded-2xl bg-surface p-6 shadow-[0_8px_24px_rgba(30,27,51,0.06)] transition-shadow hover:shadow-[0_12px_32px_rgba(30,27,51,0.1)] ${cardBorderClass}`}
+    >
+      <header className="flex items-start justify-between gap-3">
+        <figure className="m-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-coral text-white">
+          <CourseIcon iconName={resolvedIcon} className="h-5 w-5" />
+        </figure>
+        <CourseRequirementTags isRequired={isRequired} dueAt={dueAt} />
+      </header>
       <h2 className="mt-4 break-words text-lg font-bold tracking-tight text-ink">
         {title}
       </h2>
 
       {/* Always present so footer stays at the bottom even with no description */}
-      <div className="mt-2 flex-1">
+      <section className="mt-2 flex-1">
         {description !== undefined && (
           <>
             <p
@@ -141,7 +194,7 @@ export function CourseCard({
             )}
           </>
         )}
-      </div>
+      </section>
 
       <footer className="mt-5 flex flex-wrap items-center gap-2">
         {visibility === "community" && (

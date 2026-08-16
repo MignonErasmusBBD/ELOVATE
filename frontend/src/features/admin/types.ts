@@ -32,15 +32,19 @@ export type AdminEnrolment = {
   courseId: string;
   courseTitle: string;
   status: EnrolmentStatus;
+  isRequired: boolean;
+  dueAt: string | undefined;
 };
 
-export type CourseStatus = "active" | "deactivated";
+export type CourseStatus = "active" | "deactivated" | "draft";
 
 export type AdminCourse = {
   id: string;
   title: string;
   description: string | undefined;
   status: CourseStatus;
+  sectionCount: number;
+  activeQuestionCount: number;
 };
 
 export type OrgAdminSectionId = "people" | "courses" | "enrolments";

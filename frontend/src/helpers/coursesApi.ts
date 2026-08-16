@@ -1,6 +1,7 @@
 import { ElovateApiError, fetchElovateApi } from "@/helpers/elovateApi";
+import { readOptionalNumber } from "@/helpers/jsonFields";
 
-export type ElovateCourseStatus = "active" | "deactivated";
+export type ElovateCourseStatus = "active" | "deactivated" | "draft";
 
 export type ElovateCourseSummary = {
   id: string;
@@ -9,6 +10,8 @@ export type ElovateCourseSummary = {
   description?: string;
   visibility?: string;
   organizationId?: string;
+  sectionCount?: number;
+  activeQuestionCount?: number;
 };
 
 export type CreateCourseInput = {
@@ -21,7 +24,7 @@ export type CreateCourseInput = {
 export type ListCoursesInput = {
   visibility?: "private" | "community";
   organizationId?: string;
-  status?: ElovateCourseStatus;
+  status?: ElovateCourseStatus | "all";
 };
 
 function readOptionalString(body: object, key: string): string | undefined {
@@ -49,10 +52,14 @@ export function parseCourseSummary(
   }
 
   const statusValue = readOptionalString(item, "status");
-  const status =
-    statusValue === "active" || statusValue === "deactivated"
-      ? statusValue
-      : undefined;
+  let status: ElovateCourseStatus | undefined;
+  if (
+    statusValue === "active" ||
+    statusValue === "deactivated" ||
+    statusValue === "draft"
+  ) {
+    status = statusValue;
+  }
 
   return {
     id,
@@ -61,6 +68,8 @@ export function parseCourseSummary(
     visibility: readOptionalString(item, "visibility"),
     organizationId: readOptionalString(item, "organizationId"),
     status,
+    sectionCount: readOptionalNumber(item, "sectionCount"),
+    activeQuestionCount: readOptionalNumber(item, "activeQuestionCount"),
   };
 }
 

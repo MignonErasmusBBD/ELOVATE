@@ -4,14 +4,24 @@ import { useState, type SubmitEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { FieldError } from "@/components/ui/FieldError";
 import { FormField } from "@/components/ui/FormField";
+import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import {
+  dueAtToInputValue,
+  dueDateLabel,
+  dueUrgency,
+  dueUrgencyClassName,
+  isDueDateInPast,
+  johannesburgTodayInputValue,
+} from "@/helpers/johannesburgDate";
 import { selectedIfAvailable } from "@/helpers/selectedIfAvailable";
 import { selectPlaceholder } from "@/helpers/selectPlaceholder";
 import {
   activateEnrolment,
   assignEnrolment,
+  updateEnrolmentRequirement,
   withdrawEnrolment,
 } from "../orgAdminApi";
 import {
@@ -72,6 +82,48 @@ function enrolmentStatusLabel(status: EnrolmentStatus): string {
     return "Completed";
   }
   return "Active";
+}
+
+function RequirementCheckbox({
+  id,
+  checked,
+  label,
+  onChange,
+}: Readonly<{
+  id: string;
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}>) {
+  return (
+    <label
+      htmlFor={id}
+      className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-medium text-ink"
+    >
+      <input
+        id={id}
+        type="checkbox"
+        checked={checked}
+        className="peer sr-only"
+        onChange={(changeEvent) => onChange(changeEvent.target.checked)}
+      />
+      <span
+        aria-hidden="true"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-ink bg-surface peer-checked:bg-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink"
+      >
+        <svg
+          viewBox="0 0 16 16"
+          className={checked ? "size-3.5 text-white" : "size-3.5 text-white opacity-0"}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.25"
+        >
+          <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
+        </svg>
+      </span>
+      {label}
+    </label>
+  );
 }
 
 function enrolmentStatusTone(
@@ -147,6 +199,8 @@ export function EnrolmentsSection({
   const activeCourses = courses.filter((course) => course.status === "active");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [isRequiredAssignment, setIsRequiredAssignment] = useState(false);
+  const [assignmentDueAt, setAssignmentDueAt] = useState("");
   const [groupView, setGroupView] = useState<EnrolmentGroupView>("course");
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter<EnrolmentStatus>>("active");
@@ -181,6 +235,14 @@ export function EnrolmentsSection({
       setFormError("Choose a person and a private course.");
       return;
     }
+    if (isRequiredAssignment && assignmentDueAt === "") {
+      setFormError("Required courses need a due date.");
+      return;
+    }
+    if (isRequiredAssignment && isDueDateInPast(assignmentDueAt)) {
+      setFormError("Due date cannot be in the past (Africa/Johannesburg).");
+      return;
+    }
 
     setFormError(undefined);
     setActionError(undefined);
@@ -189,6 +251,10 @@ export function EnrolmentsSection({
       const createdEnrolment = await assignEnrolment(
         enrolUserId,
         enrolCourseId,
+        {
+          isRequired: isRequiredAssignment,
+          dueAt: isRequiredAssignment ? assignmentDueAt : undefined,
+        },
       );
       if (createdEnrolment === undefined) {
         setFormError("Could not enrol that person.");
@@ -198,6 +264,8 @@ export function EnrolmentsSection({
         (enrolment) => enrolment.id !== createdEnrolment.id,
       );
       onEnrolmentsChange([createdEnrolment, ...remainingEnrolments]);
+      setIsRequiredAssignment(false);
+      setAssignmentDueAt("");
     } catch (error) {
       setFormError(
         errorMessageFromUnknown(error, "Could not enrol that person."),
@@ -237,6 +305,40 @@ export function EnrolmentsSection({
     }
   }
 
+  async function persistRequirement(
+    enrolment: AdminEnrolment,
+    requirement: { isRequired: boolean; dueAt: string | undefined },
+  ) {
+    setActionError(undefined);
+    try {
+      const updatedEnrolment = await updateEnrolmentRequirement(
+        enrolment.id,
+        requirement,
+      );
+      if (updatedEnrolment === undefined) {
+        setActionError("Could not update required or due date.");
+        await onDirectoryChanged();
+        return;
+      }
+      onEnrolmentsChange(
+        enrolments.map((candidate) => {
+          if (candidate.id !== updatedEnrolment.id) {
+            return candidate;
+          }
+          return updatedEnrolment;
+        }),
+      );
+    } catch (error) {
+      setActionError(
+        errorMessageFromUnknown(
+          error,
+          "Could not update required or due date.",
+        ),
+      );
+      await onDirectoryChanged();
+    }
+  }
+
   return (
     <section aria-labelledby="enrolments-heading" className="mt-8">
       <header className="mb-5">
@@ -251,7 +353,7 @@ export function EnrolmentsSection({
       </header>
 
       <form
-        className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+        className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 md:items-end xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]"
         onSubmit={handleEnrolSubmit}
       >
         <FormField>
@@ -306,9 +408,40 @@ export function EnrolmentsSection({
             ))}
           </Select>
         </FormField>
-        <Button variant="compact" type="submit" disabled={isSaving}>
-          {isSaving ? "Enrolling…" : "Enrol"}
-        </Button>
+        <fieldset className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0 sm:flex-row sm:items-end">
+          <legend className="sr-only">Required enrolment options</legend>
+          <FormField className="sm:self-end sm:pb-2">
+            <RequirementCheckbox
+              id="enrol-required"
+              checked={isRequiredAssignment}
+              label="Required"
+              onChange={(nextRequired) => {
+                setIsRequiredAssignment(nextRequired);
+                if (nextRequired === false) {
+                  setAssignmentDueAt("");
+                }
+              }}
+            />
+          </FormField>
+          {isRequiredAssignment ? (
+            <FormField className="min-w-0 flex-1">
+              <Label htmlFor="enrol-due-at">Due date</Label>
+              <Input
+                id="enrol-due-at"
+                name="enrolDueAt"
+                type="date"
+                value={assignmentDueAt}
+                min={johannesburgTodayInputValue()}
+                onChange={(changeEvent) =>
+                  setAssignmentDueAt(changeEvent.target.value)
+                }
+              />
+            </FormField>
+          ) : undefined}
+          <Button variant="compact" type="submit" disabled={isSaving}>
+            {isSaving ? "Enrolling…" : "Enrol"}
+          </Button>
+        </fieldset>
       </form>
 
       {formError === undefined ? undefined : (
@@ -362,6 +495,7 @@ export function EnrolmentsSection({
         <CourseEnrolmentGroups
           groups={courseGroups}
           onChangeStatus={persistEnrolmentStatus}
+          onSaveRequirement={persistRequirement}
         />
       ) : undefined}
 
@@ -369,6 +503,7 @@ export function EnrolmentsSection({
         <PersonEnrolmentGroups
           groups={personGroups}
           onChangeStatus={persistEnrolmentStatus}
+          onSaveRequirement={persistRequirement}
         />
       ) : undefined}
     </section>
@@ -418,15 +553,25 @@ function EnrolmentGroupNav({
   );
 }
 
+type RequirementChange = {
+  isRequired: boolean;
+  dueAt: string | undefined;
+};
+
 function CourseEnrolmentGroups({
   groups,
   onChangeStatus,
+  onSaveRequirement,
 }: Readonly<{
   groups: CourseEnrolmentGroup[];
   onChangeStatus: (
     enrolment: AdminEnrolment,
     status: "active" | "withdrawn",
   ) => void;
+  onSaveRequirement: (
+    enrolment: AdminEnrolment,
+    requirement: RequirementChange,
+  ) => Promise<void>;
 }>) {
   return (
     <ul className="flex flex-col gap-4">
@@ -454,6 +599,7 @@ function CourseEnrolmentGroups({
                     title={enrolment.userFullName}
                     enrolment={enrolment}
                     onChangeStatus={onChangeStatus}
+                    onSaveRequirement={onSaveRequirement}
                   />
                 ))}
             </ul>
@@ -467,12 +613,17 @@ function CourseEnrolmentGroups({
 function PersonEnrolmentGroups({
   groups,
   onChangeStatus,
+  onSaveRequirement,
 }: Readonly<{
   groups: PersonEnrolmentGroup[];
   onChangeStatus: (
     enrolment: AdminEnrolment,
     status: "active" | "withdrawn",
   ) => void;
+  onSaveRequirement: (
+    enrolment: AdminEnrolment,
+    requirement: RequirementChange,
+  ) => Promise<void>;
 }>) {
   return (
     <ul className="flex flex-col gap-4">
@@ -500,6 +651,7 @@ function PersonEnrolmentGroups({
                     title={enrolment.courseTitle}
                     enrolment={enrolment}
                     onChangeStatus={onChangeStatus}
+                    onSaveRequirement={onSaveRequirement}
                   />
                 ))}
             </ul>
@@ -514,6 +666,7 @@ function EnrolmentRow({
   title,
   enrolment,
   onChangeStatus,
+  onSaveRequirement,
 }: Readonly<{
   title: string;
   enrolment: AdminEnrolment;
@@ -521,20 +674,158 @@ function EnrolmentRow({
     enrolment: AdminEnrolment,
     status: "active" | "withdrawn",
   ) => void;
+  onSaveRequirement: (
+    enrolment: AdminEnrolment,
+    requirement: RequirementChange,
+  ) => Promise<void>;
 }>) {
+  const savedDueAt =
+    enrolment.dueAt === undefined ? "" : dueAtToInputValue(enrolment.dueAt);
+  const [isEditingRequirement, setIsEditingRequirement] = useState(false);
+  const [isRequired, setIsRequired] = useState(enrolment.isRequired);
+  const [dueAt, setDueAt] = useState(savedDueAt);
+  const [isSavingRequirement, setIsSavingRequirement] = useState(false);
+  const [requirementError, setRequirementError] = useState<
+    string | undefined
+  >();
+  const urgency =
+    enrolment.dueAt === undefined ? undefined : dueUrgency(enrolment.dueAt);
+  const isDirty =
+    isRequired !== enrolment.isRequired || dueAt !== savedDueAt;
+
+  function openRequirementEditor() {
+    setIsRequired(enrolment.isRequired);
+    setDueAt(savedDueAt);
+    setRequirementError(undefined);
+    setIsEditingRequirement(true);
+  }
+
+  function closeRequirementEditor() {
+    setIsRequired(enrolment.isRequired);
+    setDueAt(savedDueAt);
+    setRequirementError(undefined);
+    setIsEditingRequirement(false);
+  }
+
+  async function handleSaveRequirement() {
+    if (isRequired && dueAt === "") {
+      setRequirementError("Required courses need a due date.");
+      return;
+    }
+    if (isRequired && isDueDateInPast(dueAt)) {
+      setRequirementError(
+        "Due date cannot be in the past (Africa/Johannesburg).",
+      );
+      return;
+    }
+    setRequirementError(undefined);
+    setIsSavingRequirement(true);
+    try {
+      await onSaveRequirement(enrolment, {
+        isRequired,
+        dueAt: isRequired ? dueAt : undefined,
+      });
+      setIsEditingRequirement(false);
+    } finally {
+      setIsSavingRequirement(false);
+    }
+  }
+
   return (
-    <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-semibold text-ink">{title}</p>
-        <StatusPill
-          label={enrolmentStatusLabel(enrolment.status)}
-          tone={enrolmentStatusTone(enrolment.status)}
-        />
-      </div>
-      <EnrolmentStatusButton
-        enrolment={enrolment}
-        onChangeStatus={onChangeStatus}
-      />
+    <li className="flex min-w-0 flex-col gap-3 rounded-xl border-2 border-border-ui bg-page p-3">
+      <header className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <p className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="min-w-0 break-words text-sm font-semibold text-ink">
+            {title}
+          </span>
+          <StatusPill
+            label={enrolmentStatusLabel(enrolment.status)}
+            tone={enrolmentStatusTone(enrolment.status)}
+          />
+        </p>
+        <menu className="m-0 flex min-w-0 list-none flex-wrap items-center justify-end gap-2 p-0">
+          {enrolment.isRequired ? (
+            <span className="inline-flex items-center rounded-full border-2 border-red-500 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+              Required
+            </span>
+          ) : (
+            <span className="text-xs font-medium text-text-secondary">
+              Not required
+            </span>
+          )}
+          {enrolment.dueAt === undefined || urgency === undefined ? undefined : (
+            <span
+              className={`inline-flex items-center rounded-full border-2 px-2 py-0.5 text-xs font-semibold ${dueUrgencyClassName(urgency)}`}
+            >
+              {dueDateLabel(enrolment.dueAt)}
+            </span>
+          )}
+          <Button
+            variant="outline"
+            type="button"
+            className="px-3 py-1.5 text-xs"
+            aria-expanded={isEditingRequirement}
+            onClick={() => {
+              if (isEditingRequirement) {
+                closeRequirementEditor();
+                return;
+              }
+              openRequirementEditor();
+            }}
+          >
+            {isEditingRequirement ? "Close" : "Edit"}
+          </Button>
+          <EnrolmentStatusButton
+            enrolment={enrolment}
+            onChangeStatus={onChangeStatus}
+          />
+        </menu>
+      </header>
+      {isEditingRequirement ? (
+        <fieldset className="flex min-w-0 flex-col gap-3 border-t-2 border-border-ui pt-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <legend className="sr-only">Edit required and due date</legend>
+          <RequirementCheckbox
+            id={`enrolment-required-${enrolment.id}`}
+            checked={isRequired}
+            label="Required"
+            onChange={(nextRequired) => {
+              setIsRequired(nextRequired);
+              if (nextRequired === false) {
+                setDueAt("");
+              }
+            }}
+          />
+          {isRequired ? (
+            <FormField className="min-w-0 sm:w-44">
+              <Label htmlFor={`enrolment-due-${enrolment.id}`}>Due date</Label>
+              <Input
+                id={`enrolment-due-${enrolment.id}`}
+                type="date"
+                value={dueAt}
+                min={johannesburgTodayInputValue()}
+                onChange={(changeEvent) => setDueAt(changeEvent.target.value)}
+              />
+            </FormField>
+          ) : undefined}
+          <Button
+            variant="compact"
+            type="button"
+            className="self-start px-3 py-1.5 text-xs sm:self-auto"
+            disabled={isDirty === false || isSavingRequirement}
+            onClick={() => {
+              void handleSaveRequirement();
+            }}
+          >
+            {isSavingRequirement ? "Saving…" : "Save"}
+          </Button>
+          {requirementError === undefined ? undefined : (
+            <FieldError
+              id={`enrolment-requirement-error-${enrolment.id}`}
+              message={requirementError}
+            />
+          )}
+        </fieldset>
+      ) : undefined}
     </li>
   );
 }

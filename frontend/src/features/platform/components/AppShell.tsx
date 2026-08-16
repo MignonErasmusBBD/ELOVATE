@@ -54,17 +54,17 @@ function AccountHeader() {
 
   return (
     <p className="min-w-0 text-right">
-      <span className="block truncate text-sm font-medium text-ink">
+      <span className="hidden truncate text-sm font-medium text-ink lg:block">
         {displayName}
       </span>
-      <span className="block truncate text-xs text-text-secondary">
+      <span className="block truncate text-sm font-medium text-ink lg:text-xs lg:font-normal lg:text-text-secondary">
         {profile.email}
       </span>
       <span className="mt-1 flex flex-wrap items-center justify-end gap-1.5">
         {profile.roles.map((roleName) => (
           <span
             key={roleName}
-            className="rounded-full border border-border-ui bg-page px-2 py-0.5 text-xs font-medium text-text-secondary"
+            className="hidden rounded-full border border-border-ui bg-page px-2 py-0.5 text-xs font-medium text-text-secondary lg:inline-flex"
           >
             {roleName}
           </span>
