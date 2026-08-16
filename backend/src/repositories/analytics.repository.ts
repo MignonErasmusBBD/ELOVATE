@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { dateFromDatabase, SqlParameter, whereClause } from '../helpers/values';
 import { PostgresService } from '../services/postgres.service';
 import { RecommendationsRepository } from './recommendations.repository';
+import type { Audience } from './recommendation-templates';
 
 type OverallRow = {
   user_id: string;
@@ -279,7 +280,7 @@ export class AnalyticsRepository {
     };
   }
 
-  async studentCourseDashboard(userId: string, courseId: string) {
+  async studentCourseDashboard(userId: string, courseId: string, audience: Audience = 'student') {
     const [profileResult, trendResult, bloomResult, sectionResult, difficultyResult, activeRecommendations] =
       await Promise.all([
         this.postgres.query<{
@@ -380,7 +381,7 @@ export class AnalyticsRepository {
           [userId, courseId],
         ),
 
-        this.recommendations.listActiveForDashboard(userId, courseId),
+        this.recommendations.listActiveForDashboard(userId, courseId, audience),
       ]);
 
     const profile = profileResult.rows[0];

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PostgresService } from '../services/postgres.service';
 import {
+  Audience,
   FlagType,
   RecommendationCategory,
   CtaType,
@@ -154,6 +155,7 @@ export class RecommendationsRepository {
   async listActiveForDashboard(
     userId: string,
     courseId: string,
+    audience: Audience = 'student',
   ): Promise<RenderedRecommendation[]> {
     const rows = await this.postgres.query<{
       id: string;
@@ -176,7 +178,7 @@ export class RecommendationsRepository {
     const result: RenderedRecommendation[] = [];
     for (const row of rows.rows) {
       const flagType = row.flag_type as FlagType;
-      const key = `${flagType}:student` as const;
+      const key = `${flagType}:${audience}` as `${FlagType}:${Audience}`;
       const template = TEMPLATES[key];
       if (template === undefined) continue;
 
