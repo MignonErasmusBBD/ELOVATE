@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/Button";
 import { FieldError } from "@/components/ui/FieldError";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
+import { ExplainTip } from "@/components/ui/ExplainTip";
 import { Label } from "@/components/ui/Label";
+import { explainCopy } from "@/helpers/explainCopy";
 import { clearFieldError } from "@/helpers/formErrors";
 import {
   COURSE_DESCRIPTION_MAX_LENGTH,
@@ -113,9 +115,12 @@ export function AddCourseFormModal({
         <header className="flex items-start justify-between gap-4">
           <h2
             id="add-course-form-title"
-            className="text-2xl font-bold tracking-tight text-ink"
+            className="flex items-center gap-2 text-2xl font-bold tracking-tight text-ink"
           >
             Add course
+            <ExplainTip label="About adding a course">
+              {explainCopy.addCourse}
+            </ExplainTip>
           </h2>
           <button
             type="button"
@@ -215,8 +220,9 @@ export function AddCourseFormModal({
               role="status"
               className="rounded-lg border border-coral/30 bg-coral/10 px-3 py-2.5 text-sm text-ink"
             >
-              You are adding a <strong>community</strong> course. It starts
-              inactive until you activate it for the shared catalogue.
+              You are adding a <strong>community</strong> course. It starts as
+              a draft. Learners will not see it in the catalogue until you
+              activate it.
             </p>
           ) : undefined}
 
@@ -230,7 +236,7 @@ export function AddCourseFormModal({
             variant="compact"
             type="submit"
             className="self-start"
-            disabled={isSubmitting}
+            isBusy={isSubmitting}
           >
             {isSubmitting ? "Adding…" : "Add course"}
           </Button>

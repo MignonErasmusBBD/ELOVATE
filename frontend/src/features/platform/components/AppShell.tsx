@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { displayRoleName } from "@/helpers/displayLabels";
 import {
   getPlatformNavSectionsForRoles,
   isPlatformNavItemActive,
@@ -66,7 +67,7 @@ function AccountHeader() {
             key={roleName}
             className="hidden rounded-full border border-border-ui bg-page px-2 py-0.5 text-xs font-medium text-text-secondary lg:inline-flex"
           >
-            {roleName}
+            {displayRoleName(roleName)}
           </span>
         ))}
         {profile.organizationName === undefined ? undefined : (

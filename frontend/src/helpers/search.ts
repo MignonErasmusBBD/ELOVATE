@@ -10,3 +10,15 @@ export function matchesSearchQuery(
 
   return haystack.toLowerCase().includes(normalisedQuery);
 }
+
+export function itemsMatchingSearch<TItem>(
+  items: TItem[],
+  searchQuery: string,
+  searchableValues: (item: TItem) => string[],
+): TItem[] {
+  return items.filter((item) =>
+    searchableValues(item).some((value) =>
+      matchesSearchQuery(value, searchQuery),
+    ),
+  );
+}

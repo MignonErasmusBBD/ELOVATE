@@ -357,24 +357,7 @@ export function parseAdminEnrolments(body: unknown): AdminEnrolment[] {
   return enrolments;
 }
 
-export function displayRoleName(roleName: string): string {
-  if (roleName === "org_admin") {
-    return "Org Admin";
-  }
-  if (roleName === "platform_admin") {
-    return "Platform Admin";
-  }
-  if (roleName === "community_admin") {
-    return "Community Admin";
-  }
-  if (roleName === "educator") {
-    return "Educator";
-  }
-  if (roleName === "learner") {
-    return "Learner";
-  }
-  return roleName;
-}
+export { displayRoleName } from "@/helpers/displayLabels";
 
 export function organisationAdminNames(
   people: AdminPerson[],

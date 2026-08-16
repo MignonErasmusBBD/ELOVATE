@@ -1,5 +1,10 @@
+"use client";
+
+import { useState } from "react";
+import { SearchField } from "@/components/ui/SearchField";
 import { StatusPill } from "@/components/ui/StatusPill";
 import type { ElovateCourseStatus } from "@/helpers/coursesApi";
+import { itemsMatchingSearch } from "@/helpers/search";
 
 type EducatorCourseOption = {
   id: string;
@@ -31,24 +36,42 @@ export function EducatorCourseSelect({
   selectedCourseId,
   onSelectCourse,
 }: EducatorCourseSelectProps) {
+  const [searchQuery, setSearchQuery] = useState("");
   const selectedCourse = courses.find(
     (course) => course.id === selectedCourseId,
   );
+  const matchingCourses = itemsMatchingSearch(courses, searchQuery, (course) => [
+    course.title,
+  ]);
+  const visibleCourses =
+    selectedCourse === undefined ||
+    matchingCourses.some((course) => course.id === selectedCourseId)
+      ? matchingCourses
+      : [selectedCourse, ...matchingCourses];
   const selectedStatusPill =
     selectedCourse === undefined
       ? undefined
       : statusPillForCourse(selectedCourse.status);
 
-  const activeCourses = courses.filter(
+  const activeCourses = visibleCourses.filter(
     (course) => course.status === "active",
   );
-  const draftCourses = courses.filter((course) => course.status === "draft");
-  const inactiveCourses = courses.filter(
+  const draftCourses = visibleCourses.filter((course) => course.status === "draft");
+  const inactiveCourses = visibleCourses.filter(
     (course) => course.status === "deactivated",
   );
 
   return (
-    <label className="block min-w-0 max-w-xl">
+    <section className="flex min-w-0 max-w-xl flex-col gap-3">
+      <SearchField
+        id="educator-course-search"
+        label="Search courses"
+        placeholder="Search courses"
+        value={searchQuery}
+        onChange={setSearchQuery}
+        className="w-full"
+      />
+    <label className="block min-w-0">
       <span className="text-sm font-semibold text-ink">Course</span>
       <span className="mt-2 flex min-w-0 items-center gap-3">
         <select
@@ -92,5 +115,6 @@ export function EducatorCourseSelect({
         )}
       </span>
     </label>
+    </section>
   );
 }

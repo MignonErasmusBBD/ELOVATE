@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Spinner } from "@/components/ui/Spinner";
 import type { LearningContentType } from "@/helpers/learningContentApi";
 import type { LearningContentSection } from "../types";
 
@@ -315,8 +316,9 @@ export function LearningContentFormModal({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] disabled:opacity-60"
               >
+                {isSubmitting ? <Spinner className="size-4" /> : undefined}
                 {isSubmitting
                   ? "Saving…"
                   : isEditing

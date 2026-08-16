@@ -128,6 +128,7 @@ function buildDashboardForCourse(
       {
         id: "q-1",
         prompt: "What is the primary purpose of the Observer pattern?",
+        correctReason: undefined,
         formatCode: "mcq",
         questionFormatId: 1,
         bloomLevelId: 1,
@@ -168,6 +169,7 @@ function buildDashboardForCourse(
       {
         id: "q-2",
         prompt: "How should observers attach to a subject at runtime?",
+        correctReason: undefined,
         formatCode: "mcq",
         questionFormatId: 1,
         bloomLevelId: 3,

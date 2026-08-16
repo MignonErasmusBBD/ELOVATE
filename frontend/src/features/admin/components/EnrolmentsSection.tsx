@@ -7,7 +7,11 @@ import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
+import { ActionNotice } from "@/components/ui/ActionNotice";
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { useActionFeedback } from "@/features/platform";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import { explainCopy } from "@/helpers/explainCopy";
 import {
   dueAtToInputValue,
   dueDateLabel,
@@ -197,6 +201,7 @@ export function EnrolmentsSection({
     .filter((person) => person.status === "active")
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
   const activeCourses = courses.filter((course) => course.status === "active");
+  const { showSuccess } = useActionFeedback();
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [isRequiredAssignment, setIsRequiredAssignment] = useState(false);
@@ -266,6 +271,9 @@ export function EnrolmentsSection({
       onEnrolmentsChange([createdEnrolment, ...remainingEnrolments]);
       setIsRequiredAssignment(false);
       setAssignmentDueAt("");
+      showSuccess(
+        `${createdEnrolment.userFullName} was enrolled in ${createdEnrolment.courseTitle}. They can open the lesson and practice quiz now.`,
+      );
     } catch (error) {
       setFormError(
         errorMessageFromUnknown(error, "Could not enrol that person."),
@@ -294,8 +302,14 @@ export function EnrolmentsSection({
     try {
       if (status === "active") {
         await activateEnrolment(enrolment.id);
+        showSuccess(
+          `${enrolment.userFullName} was re-enrolled in ${enrolment.courseTitle}.`,
+        );
       } else {
         await withdrawEnrolment(enrolment.id);
+        showSuccess(
+          `${enrolment.userFullName} was withdrawn from ${enrolment.courseTitle}. They lose lesson and quiz access until you activate the enrolment again.`,
+        );
       }
     } catch (error) {
       setActionError(
@@ -327,6 +341,9 @@ export function EnrolmentsSection({
           }
           return updatedEnrolment;
         }),
+      );
+      showSuccess(
+        `Enrolment details updated for ${updatedEnrolment.userFullName}.`,
       );
     } catch (error) {
       setActionError(
@@ -411,21 +428,34 @@ export function EnrolmentsSection({
         <fieldset className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0 sm:flex-row sm:items-end">
           <legend className="sr-only">Required enrolment options</legend>
           <FormField className="sm:self-end sm:pb-2">
-            <RequirementCheckbox
-              id="enrol-required"
-              checked={isRequiredAssignment}
-              label="Required"
-              onChange={(nextRequired) => {
-                setIsRequiredAssignment(nextRequired);
-                if (nextRequired === false) {
-                  setAssignmentDueAt("");
-                }
-              }}
-            />
+            <span className="inline-flex items-center gap-1.5">
+              <RequirementCheckbox
+                id="enrol-required"
+                checked={isRequiredAssignment}
+                label="Required"
+                onChange={(nextRequired) => {
+                  setIsRequiredAssignment(nextRequired);
+                  if (nextRequired === false) {
+                    setAssignmentDueAt("");
+                  }
+                }}
+              />
+              <ExplainTip label="About required enrolments">
+                {explainCopy.enrolmentRequired}
+              </ExplainTip>
+            </span>
           </FormField>
           {isRequiredAssignment ? (
             <FormField className="min-w-0 flex-1">
-              <Label htmlFor="enrol-due-at">Due date</Label>
+              <Label
+                htmlFor="enrol-due-at"
+                className="inline-flex items-center gap-1.5"
+              >
+                Due date
+                <ExplainTip label="About due dates">
+                  {explainCopy.enrolmentDue}
+                </ExplainTip>
+              </Label>
               <Input
                 id="enrol-due-at"
                 name="enrolDueAt"
@@ -438,7 +468,7 @@ export function EnrolmentsSection({
               />
             </FormField>
           ) : undefined}
-          <Button variant="compact" type="submit" disabled={isSaving}>
+          <Button variant="compact" type="submit" isBusy={isSaving}>
             {isSaving ? "Enrolling…" : "Enrol"}
           </Button>
         </fieldset>
@@ -449,9 +479,11 @@ export function EnrolmentsSection({
       )}
 
       {actionError === undefined ? undefined : (
-        <p className="mb-4 text-sm text-coral" role="alert">
-          {actionError}
-        </p>
+        <ActionNotice
+          tone="error"
+          message={actionError}
+          className="mb-4"
+        />
       )}
 
       {enrolments.length > 0 ? (
@@ -811,7 +843,8 @@ function EnrolmentRow({
             variant="compact"
             type="button"
             className="self-start px-3 py-1.5 text-xs sm:self-auto"
-            disabled={isDirty === false || isSavingRequirement}
+            isBusy={isSavingRequirement}
+            disabled={isDirty === false}
             onClick={() => {
               void handleSaveRequirement();
             }}

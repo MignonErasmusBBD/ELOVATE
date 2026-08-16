@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCourse, type ElovateCourseSummary } from "@/helpers/coursesApi";
+import { WORKSPACE_BAR_CLASS } from "@/helpers/pageLayout";
 import { CourseWorkspaceNav } from "./CourseWorkspaceNav";
 import { useQuizProgress } from "./QuizProgressContext";
 
@@ -44,7 +45,7 @@ export function CourseWorkspaceHeader({ courseId }: CourseWorkspaceHeaderProps) 
   if (state.status !== "ok") {
     return (
       <header className="border-b border-border-ui bg-surface">
-        <section className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 md:px-10">
+        <section className={`${WORKSPACE_BAR_CLASS} flex-row items-center justify-between`}>
           <p className="text-sm font-semibold uppercase tracking-wide text-text-secondary">
             Course workspace
           </p>

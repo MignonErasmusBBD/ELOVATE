@@ -1,5 +1,9 @@
 export { AppShell } from "./components/AppShell";
 export {
+  ActionFeedbackProvider,
+  useActionFeedback,
+} from "./components/ActionFeedbackProvider";
+export {
   CurrentUserProvider,
   useCurrentUser,
 } from "./components/CurrentUserProvider";

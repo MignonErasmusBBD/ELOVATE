@@ -4,7 +4,7 @@ import { PlatformAdminPage } from "@/features/admin";
 export const metadata: Metadata = {
   title: "Platform Admin",
   description:
-    "Create organisations, assign platform_admin and community_admin, and assign org_admin per organisation.",
+    "Create organisations, assign Platform Admin and Community Admin, and assign Org Admin per organisation.",
 };
 
 export default function PlatformAdminRoutePage() {

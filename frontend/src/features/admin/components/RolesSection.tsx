@@ -1,10 +1,16 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { ActionNotice } from "@/components/ui/ActionNotice";
+import { ExplainTip } from "@/components/ui/ExplainTip";
 import { FormField } from "@/components/ui/FormField";
 import { Label } from "@/components/ui/Label";
 import { SearchableMultiSelect } from "@/components/ui/SearchableMultiSelect";
+import { Spinner } from "@/components/ui/Spinner";
+import { useActionFeedback } from "@/features/platform";
 import { notifyAccountChanged } from "@/helpers/accountEvents";
+import { displayRoleName } from "@/helpers/displayLabels";
+import { explainCopy } from "@/helpers/explainCopy";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import {
   peopleWithRole,
@@ -42,6 +48,7 @@ export function RolesSection({
   onDirectoryChanged,
   onPeopleChange,
 }: RolesSectionProps) {
+  const { showSuccess } = useActionFeedback();
   const [actionError, setActionError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
   const saveLock = useRef(false);
@@ -63,7 +70,7 @@ export function RolesSection({
       currentUserId !== undefined &&
       removedUserIds.includes(currentUserId)
     ) {
-      setActionError("You cannot remove your own platform_admin role.");
+      setActionError("You cannot remove your own Platform Admin role.");
       return;
     }
 
@@ -92,6 +99,9 @@ export function RolesSection({
       ) {
         notifyAccountChanged();
       }
+      showSuccess(
+        `${displayRoleName(roleName)} assignments updated. People keep Learner and gain the extra permissions for that role.`,
+      );
     } catch (error) {
       setActionError(
         errorMessageFromUnknown(error, "Could not update role assignments."),
@@ -106,14 +116,21 @@ export function RolesSection({
   return (
     <section aria-labelledby="roles-heading" className="mt-8">
       <header className="mb-5">
-        <h2 id="roles-heading" className="text-xl font-bold text-ink">
+        <h2
+          id="roles-heading"
+          className="flex items-center gap-1.5 text-xl font-bold text-ink"
+        >
           Roles
+          <ExplainTip label="About roles">
+            {explainCopy.rolesPlatform} {explainCopy.rolesCommunity}{" "}
+            {explainCopy.rolesOrgAdmin}
+          </ExplainTip>
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
-          platform_admin and community_admin cover the whole platform.
-          org_admin is assigned per organisation. Only people who are not
+          Platform Admin and Community Admin cover the whole platform.
+          Org Admin is assigned per organisation. Only people who are not
           already in an organisation can be added. Adding someone places them
-          in that organisation and grants org_admin.
+          in that organisation and grants Org Admin.
         </p>
       </header>
 
@@ -122,16 +139,14 @@ export function RolesSection({
       ) : undefined}
 
       {actionError === undefined ? undefined : (
-        <p className="mb-4 text-sm text-coral" role="alert">
-          {actionError}
-        </p>
+        <ActionNotice tone="error" message={actionError} className="mb-4" />
       )}
 
       {platformAdminRole !== undefined ? (
         <article className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
           <header>
             <h3 className="text-base font-bold text-ink">
-              {platformAdminRole.roleName}
+              {displayRoleName(platformAdminRole.roleName)}
             </h3>
             {platformAdminRole.description === undefined ? undefined : (
               <p className="mt-1 text-sm text-text-secondary">
@@ -164,7 +179,7 @@ export function RolesSection({
         <article className="mt-4 rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
           <header>
             <h3 className="text-base font-bold text-ink">
-              {communityAdminRole.roleName}
+              {displayRoleName(communityAdminRole.roleName)}
             </h3>
             {communityAdminRole.description === undefined ? undefined : (
               <p className="mt-1 text-sm text-text-secondary">
@@ -207,7 +222,10 @@ export function RolesSection({
       )}
 
       {isSaving ? (
-        <p className="mt-4 text-sm text-text-secondary">Saving changes…</p>
+        <p className="mt-4 inline-flex items-center gap-2 text-sm text-text-secondary">
+          <Spinner className="size-4" />
+          Saving changes…
+        </p>
       ) : undefined}
     </section>
   );

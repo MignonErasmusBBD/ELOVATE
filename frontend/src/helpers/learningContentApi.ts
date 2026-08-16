@@ -153,22 +153,36 @@ async function readFailedResponse(response: Response, fallback: string): Promise
   );
 }
 
+const sectionsInFlight = new Map<string, Promise<LearningContentSection[]>>();
+
 export async function listLearningContentSections(
   courseId: string,
 ): Promise<LearningContentSection[]> {
-  const response = await fetchElovateApi(`/courses/${courseId}/sections`);
-  const responseBody: unknown = await response.json();
-  if (response.ok === false) {
-    throw new ElovateApiError(
-      response.status,
-      readErrorMessage(responseBody, "Could not load learning content."),
-    );
+  const inFlight = sectionsInFlight.get(courseId);
+  if (inFlight !== undefined) {
+    return inFlight;
   }
-  const sections = parseLearningContentSectionList(responseBody);
-  if (sections === undefined) {
-    throw new Error("Learning content list response was invalid.");
-  }
-  return sections;
+
+  const request = (async () => {
+    const response = await fetchElovateApi(`/courses/${courseId}/sections`);
+    const responseBody: unknown = await response.json();
+    if (response.ok === false) {
+      throw new ElovateApiError(
+        response.status,
+        readErrorMessage(responseBody, "Could not load learning content."),
+      );
+    }
+    const sections = parseLearningContentSectionList(responseBody);
+    if (sections === undefined) {
+      throw new Error("Learning content list response was invalid.");
+    }
+    return sections;
+  })().finally(() => {
+    sectionsInFlight.delete(courseId);
+  });
+
+  sectionsInFlight.set(courseId, request);
+  return request;
 }
 
 export async function createLearningContentSection(

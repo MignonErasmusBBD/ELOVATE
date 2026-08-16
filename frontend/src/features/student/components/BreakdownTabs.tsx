@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { explainCopy } from "@/helpers/explainCopy";
 import type { BreakdownCategory } from "@/helpers/studentDashboardApi";
-import { InfoTooltip } from "./InfoTooltip";
 
 type Tab = "bloom" | "section" | "difficulty";
 
@@ -105,10 +106,9 @@ export function BreakdownTabs({
         >
           Performance breakdown
         </h2>
-        <InfoTooltip
-          label="What performance breakdown shows"
-          text="Percentage of questions answered correctly, grouped by cognitive level, course section, or difficulty. Scores are across all your attempts, not just the last 10."
-        />
+        <ExplainTip label="About the performance breakdown">
+          {explainCopy.studentPerformanceBreakdown}
+        </ExplainTip>
       </header>
 
       <nav

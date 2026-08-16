@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/features/platform";
+import { PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
 import {
   PLATFORM_ADMIN_PAGE_ROLES,
   userHasAnyRole,
@@ -47,7 +48,7 @@ export function PlatformAdminPage() {
 
   if (isProfileLoading || profile === undefined) {
     return (
-      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+      <section className={PAGE_SHELL_CLASS}>
         <p className="text-sm text-text-secondary">Loading account…</p>
       </section>
     );
@@ -58,10 +59,10 @@ export function PlatformAdminPage() {
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+    <section className={PAGE_SHELL_CLASS}>
       <AdminPageHeader
         title="Platform Admin"
-        description="Create organisations, assign platform_admin and community_admin, and assign org_admin per organisation."
+        description="Create organisations, assign Platform Admin and Community Admin, and assign Org Admin per organisation."
       />
       <AdminSectionNav
         items={platformAdminSections}

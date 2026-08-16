@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { SearchField } from "@/components/ui/SearchField";
+import { Spinner } from "@/components/ui/Spinner";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { useActionFeedback } from "@/features/platform";
+import { displayFormatCode } from "@/helpers/displayLabels";
+import { explainCopy } from "@/helpers/explainCopy";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import { itemsMatchingSearch } from "@/helpers/search";
 import { listLearningContentSections } from "@/helpers/learningContentApi";
 import {
   listBloomLevels,
@@ -64,6 +71,7 @@ function toEducatorQuestion(
   return {
     id: question.id,
     prompt: question.prompt,
+    correctReason: question.correctReason,
     formatCode: question.formatCode,
     questionFormatId: question.questionFormatId,
     bloomLevelId: question.bloomLevelId,
@@ -86,6 +94,8 @@ export function QuestionsTab({
   courseTitle,
   onReadinessChange,
 }: QuestionsTabProps) {
+  const { showSuccess } = useActionFeedback();
+  const [searchQuery, setSearchQuery] = useState("");
   const [questions, setQuestions] = useState<EducatorQuestion[]>([]);
   const [sections, setSections] = useState<CourseSectionOption[]>([]);
   const [lookups, setLookups] = useState<QuestionFormLookups>({
@@ -115,15 +125,13 @@ export function QuestionsTab({
       setLoadErrorMessage(undefined);
       try {
         const [
-          activeQuestions,
-          deactivatedQuestions,
+          apiQuestions,
           apiSections,
           bloomLevels,
           difficultyLevels,
           questionFormats,
         ] = await Promise.all([
-          listQuestions({ courseId, status: "active" }),
-          listQuestions({ courseId, status: "deactivated" }),
+          listQuestions({ courseId, status: "all" }),
           listLearningContentSections(courseId),
           listBloomLevels(),
           listDifficultyLevels(),
@@ -133,7 +141,6 @@ export function QuestionsTab({
           return;
         }
 
-        const apiQuestions = [...activeQuestions, ...deactivatedQuestions];
         const nextSections = apiSections.map((section) => ({
           id: section.id,
           title: section.title,
@@ -151,6 +158,9 @@ export function QuestionsTab({
             difficultyLevels,
           ),
         );
+        const activeQuestionCount = apiQuestions.filter(
+          (question) => question.status === "active",
+        ).length;
 
         setSections(nextSections);
         setLookups(nextLookups);
@@ -158,7 +168,7 @@ export function QuestionsTab({
         if (onReadinessChange !== undefined) {
           onReadinessChange({
             sectionCount: nextSections.length,
-            activeQuestionCount: activeQuestions.length,
+            activeQuestionCount,
           });
         }
         setExpandedQuestionId((currentId) => {
@@ -213,12 +223,16 @@ export function QuestionsTab({
           courseSectionId: formValues.courseSectionId,
           questionFormatId: formValues.questionFormatId,
           prompt: formValues.prompt,
+          correctReason: formValues.correctReason,
           bloomLevelId: formValues.bloomLevelId,
           difficultyLevelId: formValues.difficultyLevelId,
           baseDifficulty: formValues.baseDifficulty,
           options,
         });
         setExpandedQuestionId(created.id);
+        showSuccess(
+          "Question created and active. It can now be drawn into practice quizzes for this course.",
+        );
       } else if (
         questionModalMode.kind === "edit" &&
         editingQuestion !== undefined
@@ -226,12 +240,17 @@ export function QuestionsTab({
         await updateQuestion(editingQuestion.id, {
           courseSectionId: formValues.courseSectionId,
           prompt: formValues.prompt,
+          correctReason:
+            formValues.correctReason === undefined
+              ? ""
+              : formValues.correctReason,
           questionFormatId: formValues.questionFormatId,
           bloomLevelId: formValues.bloomLevelId,
           difficultyLevelId: formValues.difficultyLevelId,
           baseDifficulty: formValues.baseDifficulty,
           options,
         });
+        showSuccess("Question updated.");
       }
       setQuestionModalMode({ kind: "closed" });
       setReloadToken((currentToken) => currentToken + 1);
@@ -249,8 +268,14 @@ export function QuestionsTab({
     try {
       if (question.status === "active") {
         await deactivateQuestion(question.id);
+        showSuccess(
+          "Question deactivated. Existing quiz history is kept, but new quizzes will not draw this item.",
+        );
       } else {
         await activateQuestion(question.id);
+        showSuccess(
+          "Question activated. New practice quizzes can draw this item again.",
+        );
       }
       setReloadToken((currentToken) => currentToken + 1);
     } catch (error) {
@@ -266,27 +291,57 @@ export function QuestionsTab({
     setQuestionModalMode({ kind: "create" });
   }
 
+  const visibleQuestions = itemsMatchingSearch(
+    questions,
+    searchQuery,
+    (question) => [
+      question.prompt,
+      displayFormatCode(question.formatCode),
+      question.bloomLevelName,
+      question.difficultyName,
+      question.sectionTitle,
+    ],
+  );
+
   return (
     <section aria-labelledby="questions-heading" className="mt-6 min-w-0">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <h2
           id="questions-heading"
-          className="min-w-0 break-words text-xl font-bold tracking-tight text-ink"
+          className="flex min-w-0 items-center gap-1.5 break-words text-xl font-bold tracking-tight text-ink"
         >
           Questions for {courseTitle}
+          <ExplainTip label="About the question bank">
+            {explainCopy.questionsBank}
+          </ExplainTip>
         </h2>
         <button
           type="button"
           onClick={openCreateModal}
           disabled={isLoading}
-          className="rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] disabled:opacity-50"
+          className="self-start rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] disabled:opacity-50"
         >
           + Add Question
         </button>
       </header>
 
+      {questions.length > 0 ? (
+        <section className="mt-4">
+          <SearchField
+            id="questions-search"
+            label="Search questions"
+            placeholder="Search questions"
+            value={searchQuery}
+            onChange={setSearchQuery}
+          />
+        </section>
+      ) : undefined}
+
       {isLoading ? (
-        <p className="mt-4 text-sm text-text-secondary">Loading questions…</p>
+        <p className="mt-4 inline-flex items-center gap-2 text-sm text-text-secondary">
+          <Spinner className="size-4" />
+          Loading questions…
+        </p>
       ) : undefined}
 
       {loadErrorMessage === undefined ? undefined : (
@@ -303,9 +358,15 @@ export function QuestionsTab({
         </p>
       ) : undefined}
 
-      {questions.length === 0 ? undefined : (
+      {questions.length > 0 && visibleQuestions.length === 0 ? (
+        <p className="mt-4 text-sm text-text-secondary">
+          No questions match your search.
+        </p>
+      ) : undefined}
+
+      {visibleQuestions.length === 0 ? undefined : (
         <ul className="mt-4 flex list-none flex-col gap-3 p-0">
-          {questions.map((question) => {
+          {visibleQuestions.map((question) => {
             const isExpanded = expandedQuestionId === question.id;
             const isActive = question.status === "active";
 
@@ -328,7 +389,7 @@ export function QuestionsTab({
                       </span>
                       <ul className="mt-2 flex list-none flex-wrap gap-2 p-0">
                         <li className="rounded-full bg-ink/10 px-2.5 py-1 text-xs font-semibold text-ink">
-                          {question.formatCode}
+                          {displayFormatCode(question.formatCode)}
                         </li>
                         <li className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800">
                           {question.bloomLevelName}
@@ -376,6 +437,14 @@ export function QuestionsTab({
                           </li>
                         ))}
                       </ul>
+                      {question.correctReason === undefined ? undefined : (
+                        <p className="mt-4 rounded-lg bg-page px-3 py-2 text-sm text-ink">
+                          <span className="font-semibold">
+                            Why this is correct:{" "}
+                          </span>
+                          {question.correctReason}
+                        </p>
+                      )}
                       <menu className="mt-4 flex list-none flex-wrap gap-2 p-0">
                         <li>
                           <button

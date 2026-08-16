@@ -1,6 +1,4 @@
-import { FormField } from "@/components/ui/FormField";
-import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
+import { SearchField } from "@/components/ui/SearchField";
 import type { StatusFilterOption } from "../statusFilter";
 
 type StatusFilterNavProps<TFilter extends string> = Readonly<{
@@ -52,20 +50,13 @@ export function StatusFilterNav<TFilter extends string>({
           })}
         </ul>
       </nav>
-      <FormField className="sm:w-72">
-        <Label htmlFor={searchInputId} className="sr-only">
-          {searchLabel}
-        </Label>
-        <Input
-          id={searchInputId}
-          type="search"
-          placeholder={searchPlaceholder}
-          value={searchQuery}
-          onChange={(changeEvent) =>
-            onSearchQueryChange(changeEvent.target.value)
-          }
-        />
-      </FormField>
+      <SearchField
+        id={searchInputId}
+        label={searchLabel}
+        placeholder={searchPlaceholder}
+        value={searchQuery}
+        onChange={onSearchQueryChange}
+      />
     </section>
   );
 }

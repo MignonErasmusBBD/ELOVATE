@@ -165,7 +165,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'List courses',
     description:
-      'Select courses JOIN course_visibilities JOIN course_statuses. Filter by owning_organization_id, visibility_code, search, and status_code (defaults to active; status=all includes deactivated when the caller has course.*.update or course.*.delete).\nPermission: course.community.read (all roles) and/or course.private.read (org_admin, educator, community_admin). Learners also see private courses they have an active enrollments row for.',
+      'Select courses JOIN course_visibilities JOIN course_statuses. Includes the caller enrollment only (isEnrolled, isRequired, dueAt).\nFilter by owning_organization_id, visibility_code, search, and status_code (defaults to active). status=all: authors with course.*.update or course.*.delete see drafts and deactivated; learners see active matching access plus deactivated courses they are enrolled in (drafts stay hidden).\nPermission: course.community.read (all roles) and/or course.private.read (org_admin, educator, community_admin). Learners also see private courses they have an active enrollments row for.',
   })
   list(
     @CurrentUser() actor: AuthUser,
@@ -186,7 +186,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Get course',
     description:
-      'Select courses + course_sections (with course_section_content) + topics.\nCommunity: course.community.read. Private: course.private.read in the same org, or an active enrollments row.\nCommunity courses may omit owning_organization_id (V12).',
+      'Select courses (summary only). Learning content is GET /courses/:id/sections; topics are GET /courses/:id/topics.\nCommunity: course.community.read. Private: course.private.read in the same org, or an active enrollments row.\nCommunity courses may omit owning_organization_id (V12).',
   })
   getOne(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
     return this.courses.getOne(actor, id);

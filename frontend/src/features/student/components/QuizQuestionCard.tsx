@@ -1,5 +1,6 @@
 import { QuestionMarkIcon } from "@/components/icons/QuestionMarkIcon";
 import type { AttemptItem } from "@/helpers/quizzesApi";
+import { CorrectReasonNotice } from "./CorrectReasonNotice";
 
 type QuizQuestionCardProps = {
   item: AttemptItem;
@@ -25,7 +26,9 @@ export function QuizQuestionCard({
   const isCorrect = item.isCorrect === true;
   const correctOption = item.options.find((o) => o.isCorrect === true);
   const canSubmit =
-    selectedOptionId !== undefined && !hasAnswered && !isSubmitting;
+    selectedOptionId !== undefined &&
+    hasAnswered === false &&
+    isSubmitting === false;
 
   return (
     <article className="rounded-2xl border border-border-ui bg-surface p-6 shadow-[0_8px_24px_rgba(30,27,51,0.06)] md:p-8">
@@ -152,12 +155,13 @@ export function QuizQuestionCard({
             </span>
             {isCorrect ? "Correct!" : "Incorrect"}
           </p>
-          {!isCorrect && correctOption !== undefined && (
+          {isCorrect === false && correctOption !== undefined ? (
             <p className="mt-2 text-sm">
               The correct answer was:{" "}
               <span className="font-semibold">{correctOption.optionText}</span>
             </p>
-          )}
+          ) : undefined}
+          <CorrectReasonNotice reason={item.correctReason} />
         </section>
       ) : hasAnswered ? (
         <p className="mt-6 text-sm font-medium text-text-secondary">
@@ -166,7 +170,7 @@ export function QuizQuestionCard({
       ) : (
         <button
           type="button"
-          disabled={!canSubmit}
+          disabled={canSubmit === false}
           onClick={onSubmitAnswer}
           className="mt-6 w-full rounded-lg bg-ink px-4 py-3 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >

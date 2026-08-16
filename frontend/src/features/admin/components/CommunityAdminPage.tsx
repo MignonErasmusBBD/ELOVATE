@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/features/platform";
+import { PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
 import {
   COMMUNITY_ADMIN_PAGE_ROLES,
   userHasAnyRole,
@@ -39,7 +40,7 @@ export function CommunityAdminPage() {
 
   if (isProfileLoading || profile === undefined) {
     return (
-      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+      <section className={PAGE_SHELL_CLASS}>
         <p className="text-sm text-text-secondary">
           {profileErrorMessage ?? "Loading account…"}
         </p>
@@ -52,7 +53,7 @@ export function CommunityAdminPage() {
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+    <section className={PAGE_SHELL_CLASS}>
       <AdminPageHeader
         title="Community Admin"
         description="Add and curate public courses available to every learner. Deactivating a course hides it from the shared catalogue."

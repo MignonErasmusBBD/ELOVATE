@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { CourseReadinessChecklist } from "@/components/ui/CourseReadinessChecklist";
-import { useCurrentUser } from "@/features/platform";
+import { Spinner } from "@/components/ui/Spinner";
+import { useActionFeedback, useCurrentUser } from "@/features/platform";
+import { PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
 import {
   createCourse,
   listCourses,
@@ -50,6 +52,7 @@ type EducatorCourseOption = {
 export function EducatorDashboardPage() {
   const router = useRouter();
   const { profile, isLoading: isProfileLoading } = useCurrentUser();
+  const { showSuccess } = useActionFeedback();
   const pendingSelectedCourseIdRef = useRef<string | undefined>(undefined);
 
   const canAccessEducatorPage =
@@ -367,6 +370,9 @@ export function EducatorDashboardPage() {
     setCoursesReloadToken((currentToken) => currentToken + 1);
     setOverviewReloadToken((currentToken) => currentToken + 1);
     setIsAddCourseModalOpen(false);
+    showSuccess(
+      `${createdCourse.title} was created as a draft. Learners cannot see it until you add a section, at least 20 active questions, and activate it.`,
+    );
   }
 
   const selectedCourse = useMemo(() => {
@@ -401,22 +407,25 @@ export function EducatorDashboardPage() {
 
   if (isProfileLoading || profile === undefined) {
     return (
-      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
-        <p className="text-text-secondary">Loading educator dashboard…</p>
+      <section className={PAGE_SHELL_CLASS}>
+        <p className="inline-flex items-center gap-2 text-text-secondary">
+          <Spinner className="size-4" />
+          Loading educator dashboard…
+        </p>
       </section>
     );
   }
 
   if (canAccessEducatorPage === false) {
     return (
-      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+      <section className={PAGE_SHELL_CLASS}>
         <p className="text-text-secondary">Redirecting…</p>
       </section>
     );
   }
 
   return (
-    <section className="mx-auto min-w-0 max-w-7xl px-4 py-10 sm:px-6 md:px-10 md:py-12">
+    <section className={PAGE_SHELL_CLASS}>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
@@ -461,7 +470,10 @@ export function EducatorDashboardPage() {
           />
         ) : undefined}
         {isCoursesLoading ? (
-          <p className="text-sm text-text-secondary">Loading courses…</p>
+          <p className="inline-flex items-center gap-2 text-sm text-text-secondary">
+            <Spinner className="size-4" />
+            Loading courses…
+          </p>
         ) : undefined}
         {coursesErrorMessage === undefined ? undefined : (
           <p className="text-sm text-text-secondary" role="status">
@@ -472,7 +484,11 @@ export function EducatorDashboardPage() {
         coursesErrorMessage === undefined &&
         courseOptions.length === 0 ? (
           <p className="text-sm text-text-secondary" role="status">
-            No {courseVisibilityFilter} courses available.
+            No{" "}
+            {courseVisibilityFilter === "private"
+              ? "organisation"
+              : "community"}{" "}
+            courses available.
           </p>
         ) : undefined}
         {courseOptions.length > 0 ? (

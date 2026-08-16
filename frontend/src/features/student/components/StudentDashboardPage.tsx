@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { getCourse } from "@/helpers/coursesApi";
+import { PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
 import { getStudentCourseDashboard } from "@/helpers/studentDashboardApi";
 import type { StudentCourseDashboard } from "@/helpers/studentDashboardApi";
-import { getCourse } from "@/helpers/coursesApi";
 import { AttemptsTrendChart } from "./AttemptsTrendChart";
 import { BreakdownTabs } from "./BreakdownTabs";
 import { GrowthHighlights } from "./GrowthHighlights";
@@ -96,7 +97,7 @@ export function StudentDashboardPage({
   }, [courseId]);
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+    <section className={PAGE_SHELL_CLASS}>
       <header>
         <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
           Practice dashboard

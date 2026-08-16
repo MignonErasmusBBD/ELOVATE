@@ -1,3 +1,6 @@
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { explainCopy } from "@/helpers/explainCopy";
+
 type QuizStartCardProps = {
   courseTitle: string;
   onStartQuiz: () => void;
@@ -10,8 +13,11 @@ export function QuizStartCard({
   return (
     <article className="rounded-2xl border border-border-ui bg-surface p-8 text-center shadow-[0_8px_24px_rgba(30,27,51,0.06)] md:p-10">
       <header>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">
+        <h1 className="flex items-center justify-center gap-2 text-3xl font-bold tracking-tight text-ink">
           Practice Quiz
+          <ExplainTip label="About the practice quiz">
+            {explainCopy.practiceQuiz}
+          </ExplainTip>
         </h1>
         <p className="mt-3 text-base text-text-secondary">
           This adaptive quiz is tailored to{" "}

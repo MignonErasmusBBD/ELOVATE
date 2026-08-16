@@ -14,7 +14,10 @@ import {
   PublicAttempt,
   QuizzesRepository,
 } from '../repositories/quizzes.repository';
-import { PublicQuestion, QuestionsRepository } from '../repositories/questions.repository';
+import {
+  QuestionAdaptiveSummary,
+  QuestionsRepository,
+} from '../repositories/questions.repository';
 
 @Injectable()
 export class QuizzesService {
@@ -35,7 +38,8 @@ export class QuizzesService {
     if (enrolled === false) {
       throw new ForbiddenException('An active enrollment is required to generate a quiz');
     }
-    const allQuestions = await this.questions.listActiveForCourse(courseId);
+    const allQuestions =
+      await this.questions.listActiveSummariesForCourse(courseId);
     if (allQuestions.length === 0) {
       throw new ConflictException('No active questions in this course');
     }
@@ -71,7 +75,7 @@ export class QuizzesService {
   }
 
   private computeAdaptiveScore(
-    q: PublicQuestion,
+    q: QuestionAdaptiveSummary,
     mastery: {
       sections: Map<string, { answered: number; correct: number }>;
       bloom: Map<number, { answered: number; correct: number }>;

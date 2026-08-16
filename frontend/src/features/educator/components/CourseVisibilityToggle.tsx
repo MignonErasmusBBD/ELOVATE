@@ -1,3 +1,5 @@
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { explainCopy } from "@/helpers/explainCopy";
 import type { EducatorCourseVisibility } from "../types";
 
 type CourseVisibilityToggleProps = {
@@ -50,10 +52,10 @@ export function CourseVisibilityToggle({
   onSelectVisibility,
 }: CourseVisibilityToggleProps) {
   return (
-    <fieldset className="max-w-md border-0 p-0">
+    <fieldset className="flex max-w-lg items-center gap-2 border-0 p-0">
       <legend className="sr-only">Course visibility filter</legend>
       <span
-        className="inline-flex w-full rounded-lg border border-ink bg-page p-1"
+        className="inline-flex min-w-0 flex-1 rounded-lg border border-ink bg-page p-1"
         role="presentation"
       >
         {visibilityOptions.map((option) => {
@@ -67,8 +69,8 @@ export function CourseVisibilityToggle({
               onClick={() => onSelectVisibility(option.id)}
               className={
                 isSelected
-                  ? "flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white"
-                  : "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-ink"
+                  ? "flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
+                  : "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-ink sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
               }
             >
               {option.id === "community" ? <GlobeIcon /> : <LockIcon />}
@@ -77,6 +79,9 @@ export function CourseVisibilityToggle({
           );
         })}
       </span>
+      <ExplainTip label="About community and organisation courses">
+        {explainCopy.visibilityCommunity} {explainCopy.visibilityOrganisation}
+      </ExplainTip>
     </fieldset>
   );
 }

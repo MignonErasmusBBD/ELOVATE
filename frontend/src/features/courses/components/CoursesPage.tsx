@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCurrentUser } from "@/features/platform";
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { Spinner } from "@/components/ui/Spinner";
+import { useActionFeedback, useCurrentUser } from "@/features/platform";
 import { listCourses, type ElovateCourseSummary } from "@/helpers/coursesApi";
+import { explainCopy } from "@/helpers/explainCopy";
+import { PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
+import { itemsMatchingSearch } from "@/helpers/search";
 import {
   listMyEnrollments,
   startCommunityEnrollment,
@@ -12,6 +17,19 @@ import {
 import type { CourseFilter } from "../types";
 import { CourseCard } from "./CourseCard";
 import { CourseFilterBar } from "./CourseFilterBar";
+
+function emptyCoursesMessage(
+  selectedFilter: CourseFilter,
+  searchQuery: string,
+): string {
+  if (searchQuery.trim() !== "") {
+    return "No courses match your search.";
+  }
+  if (selectedFilter === "enrolled") {
+    return "You haven't enrolled in any courses yet.";
+  }
+  return "No courses found.";
+}
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
@@ -70,10 +88,12 @@ function CourseGrid({
 
 export function CoursesPage() {
   const { profile, isLoading: isProfileLoading } = useCurrentUser();
+  const { showSuccess, showError } = useActionFeedback();
   const hasOrg = profile?.organizationId !== undefined;
   const router = useRouter();
 
   const [selectedFilter, setSelectedFilter] = useState<CourseFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [activeCourses, setActiveCourses] = useState<ElovateCourseSummary[]>([]);
   const [archivedCourses, setArchivedCourses] = useState<ElovateCourseSummary[]>([]);
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
@@ -95,23 +115,44 @@ export function CoursesPage() {
       setErrorMessage(undefined);
 
       try {
-        const [active, archived, enrollments] = await Promise.all([
-          listCourses(),
-          listCourses({ status: "deactivated" }),
-          listMyEnrollments("active"),
-        ]);
+        const courses = await listCourses({ status: "all" });
+        const listIncludesEnrollment = courses.every(
+          (course) => course.isEnrolled !== undefined,
+        );
+        const enrollments = listIncludesEnrollment
+          ? []
+          : await listMyEnrollments("active");
 
         if (cancelled) return;
-        setActiveCourses(active);
-        setArchivedCourses(archived);
-        setEnrolledCourseIds(new Set(enrollments.map((e) => e.courseId)));
+        setActiveCourses(
+          courses.filter((course) => course.status !== "deactivated" && course.status !== "draft"),
+        );
+        setArchivedCourses(
+          courses.filter((course) => course.status === "deactivated"),
+        );
+
+        const nextEnrolledIds = new Set<string>();
         const nextRequirements = new Map<string, EnrollmentRequirement>();
-        for (const enrollment of enrollments) {
-          nextRequirements.set(enrollment.courseId, {
-            isRequired: enrollment.isRequired,
-            dueAt: enrollment.dueAt,
-          });
+        if (listIncludesEnrollment) {
+          for (const course of courses) {
+            if (course.isEnrolled === true) {
+              nextEnrolledIds.add(course.id);
+              nextRequirements.set(course.id, {
+                isRequired: course.isRequired === true,
+                dueAt: course.dueAt,
+              });
+            }
+          }
+        } else {
+          for (const enrollment of enrollments) {
+            nextEnrolledIds.add(enrollment.courseId);
+            nextRequirements.set(enrollment.courseId, {
+              isRequired: enrollment.isRequired,
+              dueAt: enrollment.dueAt,
+            });
+          }
         }
+        setEnrolledCourseIds(nextEnrolledIds);
         setEnrollmentRequirements(nextRequirements);
       } catch {
         if (cancelled === false) {
@@ -131,9 +172,16 @@ export function CoursesPage() {
   }, [isProfileLoading, profile]);
 
   async function handleEnrol(courseId: string) {
-    await startCommunityEnrollment(courseId);
-    setEnrolledCourseIds((prev) => new Set([...prev, courseId]));
-    router.push(`/student/courses/${courseId}`);
+    try {
+      await startCommunityEnrollment(courseId);
+      setEnrolledCourseIds((prev) => new Set([...prev, courseId]));
+      showSuccess(
+        "You are enrolled. You can open the lesson, take the practice quiz, and come back later — your progress stays on this account.",
+      );
+      router.push(`/student/courses/${courseId}`);
+    } catch {
+      showError("Could not enrol in that course.");
+    }
   }
 
   const allCourses = [
@@ -141,13 +189,27 @@ export function CoursesPage() {
     ...archivedCourses.filter((c) => enrolledCourseIds.has(c.id)),
   ];
 
-  // Courses matching the active filter
-  const filteredCourses = allCourses.filter((course) => {
-    if (selectedFilter === "community") return course.visibility === "community";
-    if (selectedFilter === "organisation") return course.visibility === "private";
-    if (selectedFilter === "enrolled") return enrolledCourseIds.has(course.id);
-    return true;
-  });
+  const filteredCourses = itemsMatchingSearch(
+    allCourses.filter((course) => {
+      if (selectedFilter === "community") {
+        return course.visibility === "community";
+      }
+      if (selectedFilter === "organisation") {
+        return course.visibility === "private";
+      }
+      if (selectedFilter === "enrolled") {
+        return enrolledCourseIds.has(course.id);
+      }
+      return true;
+    }),
+    searchQuery,
+    (course) => {
+      if (course.description === undefined) {
+        return [course.title];
+      }
+      return [course.title, course.description];
+    },
+  );
 
   // Split view for "all" and "community" filters
   const useSplit =
@@ -186,10 +248,13 @@ export function CoursesPage() {
     isProfileLoading || profile === undefined || isCoursesLoading;
 
   return (
-    <section className="mx-auto min-w-0 max-w-7xl px-4 py-10 sm:px-6 md:px-10 md:py-12">
+    <section className={PAGE_SHELL_CLASS}>
       <header>
-        <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
+        <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-ink md:text-4xl">
           All Courses
+          <ExplainTip label="About the course catalogue">
+            {explainCopy.coursesCatalogue}
+          </ExplainTip>
         </h1>
         <p className="mt-2 max-w-2xl text-base text-text-secondary">
           Browse our catalog of courses. Click on a course to explore its
@@ -202,11 +267,16 @@ export function CoursesPage() {
           selected={selectedFilter}
           hasOrg={hasOrg}
           onSelect={setSelectedFilter}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
         />
       </div>
 
       {isLoading && (
-        <p className="mt-10 text-sm text-text-secondary">Loading courses…</p>
+        <p className="mt-10 inline-flex items-center gap-2 text-sm text-text-secondary">
+          <Spinner className="size-4" />
+          Loading courses…
+        </p>
       )}
 
       {isLoading === false && errorMessage !== undefined && (
@@ -267,7 +337,9 @@ export function CoursesPage() {
               )}
 
               {splitIsEmpty && (
-                <p className="text-sm text-text-secondary">No courses found.</p>
+                <p className="text-sm text-text-secondary">
+                  {emptyCoursesMessage(selectedFilter, searchQuery)}
+                </p>
               )}
             </div>
           )}
@@ -277,9 +349,7 @@ export function CoursesPage() {
             <div className="mt-10">
               {singleListCourses.length === 0 ? (
                 <p className="text-sm text-text-secondary">
-                  {selectedFilter === "enrolled"
-                    ? "You haven't enrolled in any courses yet."
-                    : "No courses found."}
+                  {emptyCoursesMessage(selectedFilter, searchQuery)}
                 </p>
               ) : (
                 <CourseGrid

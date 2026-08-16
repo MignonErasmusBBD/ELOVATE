@@ -88,7 +88,7 @@ export function usePlatformAdminDirectory(
     } catch (error) {
       if (error instanceof ElovateApiError && error.statusCode === 403) {
         setErrorMessage(
-          "You need the platform_admin role to manage organisations and roles.",
+          "You need the Platform Admin role to manage organisations and roles.",
         );
       } else {
         setErrorMessage(

@@ -3,6 +3,7 @@ import {
   isUuid,
   SqlParameter,
   SqlQuery,
+  textFromDatabase,
   whereClause,
 } from '../helpers/values';
 import { PostgresService } from '../services/postgres.service';
@@ -14,6 +15,7 @@ type QuestionRow = {
   question_format_id: number;
   format_code: string;
   prompt: string;
+  correct_reason: string | null;
   bloom_level_id: number;
   difficulty_level_id: number;
   base_difficulty: number;
@@ -49,6 +51,7 @@ export type PublicQuestion = {
   questionFormatId: number;
   formatCode: string;
   prompt: string;
+  correctReason: string | undefined;
   bloomLevelId: number;
   difficultyLevelId: number;
   baseDifficulty: number;
@@ -74,6 +77,14 @@ export type QuestionAuthoringAccess = {
   privateOrganizationId: string | undefined;
 };
 
+export type QuestionAdaptiveSummary = {
+  id: string;
+  prompt: string;
+  bloomLevelId: number;
+  difficultyLevelId: number;
+  courseSectionId: string;
+};
+
 export type QuestionOptionInput = {
   optionText: string;
   isCorrect: boolean;
@@ -87,6 +98,7 @@ const questionSelectSql = `SELECT
   q.question_format_id,
   qf.format_code,
   q.prompt,
+  q.correct_reason,
   q.bloom_level_id,
   q.difficulty_level_id,
   q.base_difficulty,
@@ -132,6 +144,7 @@ function toPublicQuestion(
     questionFormatId: row.question_format_id,
     formatCode: row.format_code,
     prompt: row.prompt,
+    correctReason: textFromDatabase(row.correct_reason),
     bloomLevelId: row.bloom_level_id,
     difficultyLevelId: row.difficulty_level_id,
     baseDifficulty: row.base_difficulty,
@@ -180,7 +193,9 @@ export class QuestionsRepository {
       values.push(filters.questionFormatId);
       conditions.push(`q.question_format_id = $${values.length}`);
     }
-    if (filters.status !== undefined) {
+    if (filters.status === 'all') {
+      // Authors can load active and deactivated questions in one request.
+    } else if (filters.status !== undefined) {
       values.push(filters.status);
       conditions.push(`qs.status_code = $${values.length}`);
     } else {
@@ -215,6 +230,7 @@ export class QuestionsRepository {
     courseSectionId: string;
     questionFormatId: number;
     prompt: string;
+    correctReason: string | undefined;
     bloomLevelId: number;
     difficultyLevelId: number;
     baseDifficulty: number;
@@ -225,15 +241,16 @@ export class QuestionsRepository {
     return this.postgres.withTransaction(async (query) => {
       const inserted = await query<{ id: string }>(
         `INSERT INTO questions (
-           course_section_id, question_format_id, prompt,
+           course_section_id, question_format_id, prompt, correct_reason,
            bloom_level_id, difficulty_level_id, base_difficulty, created_by
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING id`,
         [
           input.courseSectionId,
           input.questionFormatId,
           input.prompt,
+          input.correctReason === undefined ? null : input.correctReason,
           input.bloomLevelId,
           input.difficultyLevelId,
           input.baseDifficulty,
@@ -255,6 +272,7 @@ export class QuestionsRepository {
     input: {
       courseSectionId: string | undefined;
       prompt: string | undefined;
+      correctReason: string | undefined;
       questionFormatId: number | undefined;
       bloomLevelId: number | undefined;
       difficultyLevelId: number | undefined;
@@ -270,6 +288,10 @@ export class QuestionsRepository {
     if (input.prompt !== undefined) {
       values.push(input.prompt);
       assignments.push(`prompt = $${values.length}`);
+    }
+    if (input.correctReason !== undefined) {
+      values.push(input.correctReason === '' ? null : input.correctReason);
+      assignments.push(`correct_reason = $${values.length}`);
     }
     if (input.questionFormatId !== undefined) {
       values.push(input.questionFormatId);
@@ -341,6 +363,35 @@ export class QuestionsRepository {
       [courseId],
     );
     return this.withOptionsAndTopics(result.rows);
+  }
+
+  async listActiveSummariesForCourse(
+    courseId: string,
+  ): Promise<QuestionAdaptiveSummary[]> {
+    const result = await this.postgres.query<{
+      id: string;
+      prompt: string;
+      bloom_level_id: number;
+      difficulty_level_id: number;
+      course_section_id: string;
+    }>(
+      `SELECT q.id, q.prompt, q.bloom_level_id, q.difficulty_level_id,
+              q.course_section_id
+       FROM questions q
+       JOIN course_sections cs ON cs.id = q.course_section_id
+       JOIN question_statuses qs
+         ON qs.question_status_id = q.question_status_id
+       WHERE cs.course_id = $1 AND qs.status_code = 'active'
+       ORDER BY q.created_at`,
+      [courseId],
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      prompt: row.prompt,
+      bloomLevelId: row.bloom_level_id,
+      difficultyLevelId: row.difficulty_level_id,
+      courseSectionId: row.course_section_id,
+    }));
   }
 
   private async withOptionsAndTopics(

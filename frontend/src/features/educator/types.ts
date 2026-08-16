@@ -65,6 +65,7 @@ export type EducatorQuestionOption = {
 export type EducatorQuestion = {
   id: string;
   prompt: string;
+  correctReason: string | undefined;
   formatCode: string;
   questionFormatId: number;
   bloomLevelId: number;

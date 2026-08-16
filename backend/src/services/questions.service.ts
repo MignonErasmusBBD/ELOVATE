@@ -63,6 +63,7 @@ export class QuestionsService {
       courseSectionId: string;
       questionFormatId: number;
       prompt: string;
+      correctReason: string | undefined;
       bloomLevelId: number;
       difficultyLevelId: number;
       baseDifficulty: number;
@@ -84,6 +85,10 @@ export class QuestionsService {
       courseSectionId: input.courseSectionId,
       questionFormatId: input.questionFormatId,
       prompt: input.prompt,
+      correctReason:
+        input.correctReason === undefined || input.correctReason.trim() === ''
+          ? undefined
+          : input.correctReason.trim(),
       bloomLevelId: input.bloomLevelId,
       difficultyLevelId: input.difficultyLevelId,
       baseDifficulty: input.baseDifficulty,
@@ -100,6 +105,7 @@ export class QuestionsService {
     input: {
       courseSectionId: string | undefined;
       prompt: string | undefined;
+      correctReason: string | undefined;
       questionFormatId: number | undefined;
       bloomLevelId: number | undefined;
       difficultyLevelId: number | undefined;
@@ -124,6 +130,10 @@ export class QuestionsService {
     await this.questions.updateFields(questionId, {
       courseSectionId: input.courseSectionId,
       prompt: input.prompt,
+      correctReason:
+        input.correctReason === undefined
+          ? undefined
+          : input.correctReason.trim(),
       questionFormatId: input.questionFormatId,
       bloomLevelId: input.bloomLevelId,
       difficultyLevelId: input.difficultyLevelId,

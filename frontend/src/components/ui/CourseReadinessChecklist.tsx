@@ -1,7 +1,9 @@
+import { ExplainTip } from "@/components/ui/ExplainTip";
 import {
   MIN_ACTIVE_QUESTIONS_TO_ACTIVATE,
   MIN_COURSE_SECTIONS_TO_ACTIVATE,
 } from "@/helpers/courseReadiness";
+import { explainCopy } from "@/helpers/explainCopy";
 
 type CourseReadinessChecklistProps = Readonly<{
   sectionCount: number;
@@ -43,9 +45,14 @@ export function CourseReadinessChecklist({
       aria-label="Course activation requirements"
       className="rounded-xl border border-border-ui bg-page px-4 py-3"
     >
-      <h3 className="text-sm font-semibold text-ink">
-        Activation requirements
-      </h3>
+      <header className="flex items-center gap-1.5">
+        <h3 className="text-sm font-semibold text-ink">
+          Activation requirements
+        </h3>
+        <ExplainTip label="About activating a course">
+          {explainCopy.courseDraft}
+        </ExplainTip>
+      </header>
       <p className="mt-1 text-xs text-text-secondary">
         A course can move to active once it has at least one section and 20
         active questions in the question bank.

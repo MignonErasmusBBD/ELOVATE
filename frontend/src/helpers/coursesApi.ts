@@ -1,5 +1,5 @@
 import { ElovateApiError, fetchElovateApi } from "@/helpers/elovateApi";
-import { readOptionalNumber } from "@/helpers/jsonFields";
+import { readOptionalBoolean, readOptionalNumber } from "@/helpers/jsonFields";
 
 export type ElovateCourseStatus = "active" | "deactivated" | "draft";
 
@@ -12,7 +12,15 @@ export type ElovateCourseSummary = {
   organizationId?: string;
   sectionCount?: number;
   activeQuestionCount?: number;
+  isEnrolled?: boolean;
+  isRequired?: boolean;
+  dueAt?: string;
 };
+
+const courseInFlight = new Map<
+  string,
+  Promise<ElovateCourseSummary | undefined>
+>();
 
 export type CreateCourseInput = {
   title: string;
@@ -70,6 +78,9 @@ export function parseCourseSummary(
     status,
     sectionCount: readOptionalNumber(item, "sectionCount"),
     activeQuestionCount: readOptionalNumber(item, "activeQuestionCount"),
+    isEnrolled: readOptionalBoolean(item, "isEnrolled"),
+    isRequired: readOptionalBoolean(item, "isRequired"),
+    dueAt: readOptionalString(item, "dueAt"),
   };
 }
 
@@ -159,16 +170,28 @@ function readApiErrorMessage(body: unknown): string {
 export async function getCourse(
   courseId: string,
 ): Promise<ElovateCourseSummary | undefined> {
-  const response = await fetchElovateApi(`/courses/${courseId}`);
-  if (response.status === 404) {
-    return undefined;
+  const inFlight = courseInFlight.get(courseId);
+  if (inFlight !== undefined) {
+    return inFlight;
   }
-  if (response.ok === false) {
-    const body: unknown = await response.json().catch(() => undefined);
-    throw new ElovateApiError(response.status, readApiErrorMessage(body));
-  }
-  const body: unknown = await response.json();
-  return parseCourseSummary(body);
+
+  const request = (async () => {
+    const response = await fetchElovateApi(`/courses/${courseId}`);
+    if (response.status === 404) {
+      return undefined;
+    }
+    if (response.ok === false) {
+      const body: unknown = await response.json().catch(() => undefined);
+      throw new ElovateApiError(response.status, readApiErrorMessage(body));
+    }
+    const body: unknown = await response.json();
+    return parseCourseSummary(body);
+  })().finally(() => {
+    courseInFlight.delete(courseId);
+  });
+
+  courseInFlight.set(courseId, request);
+  return request;
 }
 
 export async function createCourse(

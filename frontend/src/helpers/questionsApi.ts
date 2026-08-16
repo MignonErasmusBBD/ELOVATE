@@ -6,6 +6,7 @@ import {
   isPlainObject,
   readErrorMessage,
   readObjectList,
+  readOptionalString,
   readRequiredString,
 } from "@/helpers/jsonFields";
 
@@ -25,6 +26,7 @@ export type ElovateQuestion = {
   questionFormatId: number;
   formatCode: string;
   prompt: string;
+  correctReason: string | undefined;
   bloomLevelId: number;
   difficultyLevelId: number;
   baseDifficulty: number;
@@ -43,6 +45,7 @@ export type CreateQuestionInput = {
   courseSectionId: string;
   questionFormatId: number;
   prompt: string;
+  correctReason?: string;
   bloomLevelId: number;
   difficultyLevelId: number;
   baseDifficulty: number;
@@ -52,6 +55,7 @@ export type CreateQuestionInput = {
 export type UpdateQuestionInput = {
   courseSectionId?: string;
   prompt?: string;
+  correctReason?: string;
   questionFormatId?: number;
   bloomLevelId?: number;
   difficultyLevelId?: number;
@@ -61,7 +65,7 @@ export type UpdateQuestionInput = {
 
 export type ListQuestionsInput = {
   courseId: string;
-  status?: QuestionStatus;
+  status?: QuestionStatus | "all";
 };
 
 function readRequiredNumber(body: object, key: string): number | undefined {
@@ -175,6 +179,7 @@ export function parseElovateQuestion(item: unknown): ElovateQuestion | undefined
     questionFormatId,
     formatCode,
     prompt,
+    correctReason: readOptionalString(item, "correctReason"),
     bloomLevelId,
     difficultyLevelId,
     baseDifficulty,

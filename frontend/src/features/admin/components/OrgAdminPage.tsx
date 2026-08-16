@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/features/platform";
+import { PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
 import {
   ORG_ADMIN_PAGE_ROLES,
   userHasAnyRole,
@@ -54,7 +55,7 @@ export function OrgAdminPage() {
 
   if (isProfileLoading || profile === undefined) {
     return (
-      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+      <section className={PAGE_SHELL_CLASS}>
         <p className="text-sm text-text-secondary">
           {profileErrorMessage ?? "Loading account…"}
         </p>
@@ -68,7 +69,7 @@ export function OrgAdminPage() {
 
   if (profile.organizationId === undefined) {
     return (
-      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+      <section className={PAGE_SHELL_CLASS}>
         <AdminPageHeader
           title="Organisational Admin"
           description="Add people, manage private courses, and enrol members."
@@ -85,7 +86,7 @@ export function OrgAdminPage() {
   const organisationName = profile.organizationName ?? "your organisation";
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+    <section className={PAGE_SHELL_CLASS}>
       <AdminPageHeader
         title="Organisational Admin"
         description="Add people, assign Organisational Admin and Educator, and manage private courses."

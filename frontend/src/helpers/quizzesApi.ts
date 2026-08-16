@@ -1,5 +1,10 @@
 import { elovateApiJson } from "./elovateApi";
-import { isPlainObject, readObjectList, readRequiredString } from "./jsonFields";
+import {
+  isPlainObject,
+  readObjectList,
+  readOptionalString,
+  readRequiredString,
+} from "./jsonFields";
 
 export type AttemptOption = {
   id: string;
@@ -12,6 +17,7 @@ export type AttemptItem = {
   id: string;
   questionId: string;
   prompt: string;
+  correctReason: string | undefined;
   selectedOptionId: string | undefined;
   isCorrect: boolean | undefined;
   bloomLevel: string | undefined;
@@ -83,6 +89,7 @@ function parseItem(raw: unknown): AttemptItem | undefined {
     id,
     questionId,
     prompt,
+    correctReason: readOptionalString(raw, "correctReason"),
     selectedOptionId,
     isCorrect,
     bloomLevel,

@@ -58,7 +58,7 @@ function startCoursesLoad() {
     .catch((error) => {
       const message =
         error instanceof ElovateApiError && error.statusCode === 403
-          ? "You need the community_admin role to manage public courses."
+          ? "You need the Community Admin role to manage public courses."
           : errorMessageFromUnknown(error, "Could not load public courses.");
       rememberDirectory({ errorMessage: message });
     })

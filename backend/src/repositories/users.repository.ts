@@ -25,6 +25,8 @@ type AuthUserRow = {
   email: string;
   full_name: string | null;
   status: string;
+  role_names: string[] | null;
+  permission_codes: string[] | null;
 };
 
 export type PublicUser = {
@@ -165,7 +167,20 @@ export class UsersRepository {
   async loadAuthById(userId: string): Promise<AuthUser | undefined> {
     const result = await this.postgres.query<AuthUserRow>(
       `SELECT u.id, u.organization_id, o.name AS organization_name,
-              u.email, u.full_name, us.status_code AS status
+              u.email, u.full_name, us.status_code AS status,
+              coalesce((
+                SELECT array_agg(r.role_name ORDER BY r.role_id)
+                FROM user_roles ur
+                JOIN roles r ON r.role_id = ur.role_id
+                WHERE ur.user_id = u.id
+              ), ARRAY[]::text[]) AS role_names,
+              coalesce((
+                SELECT array_agg(DISTINCT p.permission_code ORDER BY p.permission_code)
+                FROM user_roles ur
+                JOIN role_permissions rp ON rp.role_id = ur.role_id
+                JOIN permissions p ON p.permission_id = rp.permission_id
+                WHERE ur.user_id = u.id
+              ), ARRAY[]::text[]) AS permission_codes
        FROM users u
        JOIN user_statuses us ON us.user_status_id = u.user_status_id
        LEFT JOIN organizations o ON o.id = u.organization_id
@@ -180,23 +195,6 @@ export class UsersRepository {
     if (row === undefined) {
       return undefined;
     }
-    const roles = await this.postgres.query<{ role_name: string }>(
-      `SELECT r.role_name
-       FROM user_roles ur
-       JOIN roles r ON r.role_id = ur.role_id
-       WHERE ur.user_id = $1
-       ORDER BY r.role_id`,
-      [row.id],
-    );
-    const permissions = await this.postgres.query<{ permission_code: string }>(
-      `SELECT DISTINCT p.permission_code
-       FROM user_roles ur
-       JOIN role_permissions rp ON rp.role_id = ur.role_id
-       JOIN permissions p ON p.permission_id = rp.permission_id
-       WHERE ur.user_id = $1
-       ORDER BY p.permission_code`,
-      [row.id],
-    );
     return {
       id: row.id,
       organizationId: textFromDatabase(row.organization_id),
@@ -204,10 +202,9 @@ export class UsersRepository {
       email: row.email,
       fullName: textFromDatabase(row.full_name),
       status: row.status,
-      roleNames: roles.rows.map((roleRow) => roleRow.role_name),
-      permissionCodes: permissions.rows.map(
-        (permissionRow) => permissionRow.permission_code,
-      ),
+      roleNames: row.role_names === null ? [] : row.role_names,
+      permissionCodes:
+        row.permission_codes === null ? [] : row.permission_codes,
     };
   }
 }
