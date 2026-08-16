@@ -42,7 +42,7 @@ export type EducatorStudentSummary = {
   userId: string;
   fullName: string;
   emailAddress: string;
-  status: "active" | "completed" | "withdrawn";
+  status: "active" | "completed" | "withdrawn" | "overdue";
   enrolledAtLabel: string;
   needsAttention: boolean;
   overallPercent?: number;

@@ -5,13 +5,13 @@ const lessonViewModes: { id: LessonViewMode; label: string }[] = [
   { id: "full-page", label: "Full page" },
 ];
 
-type LessonSidebarProps = {
+type LessonSidebarProps = Readonly<{
   units: LessonUnit[];
   selectedUnitId: string;
   lessonViewMode: LessonViewMode;
   onSelectViewMode: (lessonViewMode: LessonViewMode) => void;
   onSelectUnit: (unitId: string) => void;
-};
+}>;
 
 export function LessonSidebar({
   units,
@@ -53,7 +53,7 @@ export function LessonSidebar({
 
       <nav aria-label="Lesson units" className="mt-6">
         <ul className="flex flex-col gap-1">
-          {units.map((unit) => {
+          {units.map((unit, unitIndex) => {
             const isSelected = unit.id === selectedUnitId;
 
             return (
@@ -62,6 +62,7 @@ export function LessonSidebar({
                   type="button"
                   onClick={() => onSelectUnit(unit.id)}
                   aria-current={isSelected ? "true" : undefined}
+                  aria-label={`Unit ${unitIndex + 1} of ${units.length}: ${unit.title}`}
                   className={
                     isSelected
                     ? "w-full break-words rounded-lg bg-ink px-3 py-2 text-left text-sm font-semibold text-white"

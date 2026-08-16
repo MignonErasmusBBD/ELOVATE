@@ -12,13 +12,22 @@ import {
   listLearningContentSections,
   type LearningContentSection,
 } from "@/helpers/learningContentApi";
+import {
+  DEFAULT_LESSON_READING_PREFS,
+  readLessonReadingPrefs,
+  writeLessonReadingPrefs,
+  type LessonContrast,
+  type LessonReadingPrefs,
+  type LessonTextSize,
+} from "@/helpers/lessonReadingPrefs";
 import type { LessonUnit, LessonViewMode } from "../types";
+import { LessonReadingToolbar } from "./LessonReadingToolbar";
 import { LessonSidebar } from "./LessonSidebar";
 import { LessonUnitBody } from "./LessonUnitBody";
 
-type LessonPageProps = {
+type LessonPageProps = Readonly<{
   courseId: string;
-};
+}>;
 
 function sectionToUnit(section: LearningContentSection): LessonUnit {
   const sorted = [...section.contentBlocks].sort(
@@ -46,12 +55,27 @@ function buildSpeechText(
   viewMode: LessonViewMode,
 ): string {
   if (viewMode === "full-page") {
-    return units
-      .map((u) => `${u.title}. ${u.paragraphs.join(" ")}`)
-      .join(". ");
+    return units.map(unitSpeechText).join(". ");
   }
-  if (selectedUnit === undefined) return "";
-  return `${selectedUnit.title}. ${selectedUnit.paragraphs.join(" ")}`;
+  if (selectedUnit === undefined) {
+    return "";
+  }
+  return unitSpeechText(selectedUnit);
+}
+
+function unitSpeechText(unit: LessonUnit): string {
+  const parts = [unit.title, ...unit.paragraphs];
+  if (unit.codeSample !== undefined && unit.codeSample !== "") {
+    parts.push(`Code example. ${unit.codeSample}`);
+  }
+  return parts.join(". ");
+}
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 export function LessonPage({ courseId }: LessonPageProps) {
@@ -61,10 +85,15 @@ export function LessonPage({ courseId }: LessonPageProps) {
   const [errorStatus, setErrorStatus] = useState<number | undefined>();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [lessonViewMode, setLessonViewMode] =
-    useState<LessonViewMode>("full-page");
+    useState<LessonViewMode>("sub-tabs");
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [readingPrefs, setReadingPrefs] = useState<LessonReadingPrefs>(
+    DEFAULT_LESSON_READING_PREFS,
+  );
   const viewSessionRef = useRef<{ sectionId: string; startedAt: number } | undefined>(undefined);
+  const contentHeadingRef = useRef<HTMLHeadingElement>(null);
+  const shouldFocusContentRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +129,10 @@ export function LessonPage({ courseId }: LessonPageProps) {
       cancelled = true;
     };
   }, [courseId]);
+
+  useEffect(() => {
+    setReadingPrefs(readLessonReadingPrefs());
+  }, []);
 
   // Flush elapsed time for the previous section, then start tracking the new one.
   useEffect(() => {
@@ -150,27 +183,48 @@ export function LessonPage({ courseId }: LessonPageProps) {
   const nextUnit = units[selectedUnitIndex + 1];
 
   useEffect(() => {
-    if (lessonViewMode !== "full-page") return;
+    if (lessonViewMode !== "full-page") {
+      return;
+    }
     const el = document.getElementById(getUnitSectionId(selectedUnitId));
-    if (el === null) return;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (el === null) {
+      return;
+    }
+    el.scrollIntoView({
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      block: "start",
+    });
   }, [lessonViewMode, selectedUnitId]);
 
-  // When arriving via an anchor link (e.g. from a recommendation CTA), scroll to
-  // the target section after async content has loaded. The browser's native anchor
-  // scroll fires before the sections exist in the DOM, so we retry once content is ready.
   useEffect(() => {
-    if (isLoading) return;
-    const hash = window.location.hash;
-    if (hash === "") return;
-    const timer = window.setTimeout(() => {
-      const el = document.querySelector(hash);
-      if (el !== null) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (shouldFocusContentRef.current === false) {
+      return;
+    }
+    shouldFocusContentRef.current = false;
+    if (lessonViewMode === "full-page") {
+      const heading = document.getElementById(
+        `${getUnitSectionId(selectedUnitId)}-heading`,
+      );
+      if (heading instanceof HTMLElement) {
+        heading.focus();
+        return;
       }
-    }, 150);
-    return () => window.clearTimeout(timer);
-  }, [isLoading]);
+    }
+    const contentHeading = contentHeadingRef.current;
+    if (contentHeading !== null) {
+      contentHeading.focus();
+    }
+  }, [lessonViewMode, selectedUnitId]);
+
+  function goToUnit(unitId: string) {
+    shouldFocusContentRef.current = true;
+    setSelectedUnitId(unitId);
+  }
+
+  function updateReadingPrefs(nextPrefs: LessonReadingPrefs) {
+    setReadingPrefs(nextPrefs);
+    writeLessonReadingPrefs(nextPrefs);
+  }
 
   function handleToggleSpeech() {
     if (isSpeaking) {
@@ -179,7 +233,9 @@ export function LessonPage({ courseId }: LessonPageProps) {
       return;
     }
     const text = buildSpeechText(units, selectedUnit, lessonViewMode);
-    if (text === "") return;
+    if (text === "") {
+      return;
+    }
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
@@ -244,116 +300,181 @@ export function LessonPage({ courseId }: LessonPageProps) {
         selectedUnitId={selectedUnitId}
         lessonViewMode={lessonViewMode}
         onSelectViewMode={setLessonViewMode}
-        onSelectUnit={setSelectedUnitId}
+        onSelectUnit={goToUnit}
       />
 
-      <article className="min-w-0 overflow-hidden rounded-2xl border border-border-ui bg-surface p-4 shadow-[0_8px_24px_rgba(30,27,51,0.06)] sm:p-6 md:p-8">
-        <header className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-          <section className="min-w-0">
-            <h1 className="break-words text-3xl font-bold tracking-tight text-ink md:text-4xl">
-              {lessonViewMode === "sub-tabs"
-                ? selectedUnit.title
-                : "Lesson content"}
-            </h1>
-            {lessonViewMode === "sub-tabs" ? (
-              <p className="mt-2 text-sm text-text-secondary">
-                Unit {selectedUnitIndex + 1} of {units.length}
-              </p>
-            ) : (
-              <p className="mt-2 text-sm text-text-secondary">
-                Full lesson view
-              </p>
-            )}
-          </section>
-          <menu className="m-0 flex list-none flex-col items-stretch gap-2 p-0 sm:items-end">
-            {courseStatus !== "deactivated" && (
-              <li>
-                <Link
-                  href={`/student/courses/${courseId}/quiz`}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] sm:w-auto"
-                >
-                  <SkipForwardIcon className="h-4 w-4" />
-                  Skip to Quiz
-                </Link>
-              </li>
-            )}
-            <li>
-              <button
-                type="button"
-                onClick={handleToggleSpeech}
-                className={
-                  isSpeaking
-                    ? "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 sm:w-auto"
-                    : "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 sm:w-auto"
-                }
-              >
-                <VolumeIcon className="h-4 w-4" />
-                {isSpeaking ? "Stop" : "Listen"}
-              </button>
-            </li>
-          </menu>
-        </header>
-
-        {lessonViewMode === "sub-tabs" ? (
-          <>
-            <section aria-labelledby="selected-unit-heading" className="mt-8">
-              <h2 id="selected-unit-heading" className="sr-only">
-                {selectedUnit.title}
-              </h2>
-              <LessonUnitBody unit={selectedUnit} />
-            </section>
-            <nav
-              aria-label="Unit pagination"
-              className="mt-10 flex flex-wrap justify-between gap-3"
+      <section
+        className="lesson-reading relative flex min-w-0 flex-col gap-4"
+        data-reading-size={readingPrefs.textSize}
+        data-reading-contrast={readingPrefs.contrast}
+      >
+        <nav aria-label="Skip links" className="absolute">
+          <a href="#lesson-content" className="skip-link">
+            Skip to lesson content
+          </a>
+          {nextUnit === undefined ? undefined : (
+            <button
+              type="button"
+              className="skip-link skip-link-next"
+              onClick={() => goToUnit(nextUnit.id)}
             >
-              <button
-                type="button"
-                disabled={previousUnit === undefined}
-                onClick={() => {
-                  if (previousUnit === undefined) return;
-                  setSelectedUnitId(previousUnit.id);
-                }}
-                className="rounded-lg border border-border-ui bg-surface px-4 py-2.5 text-sm font-semibold text-text-secondary hover:bg-page disabled:cursor-not-allowed disabled:opacity-50"
+              Skip to next unit: {nextUnit.title}
+            </button>
+          )}
+        </nav>
+
+        <LessonReadingToolbar
+          textSize={readingPrefs.textSize}
+          contrast={readingPrefs.contrast}
+          onTextSizeChange={(textSize: LessonTextSize) =>
+            updateReadingPrefs({ ...readingPrefs, textSize })
+          }
+          onContrastChange={(contrast: LessonContrast) =>
+            updateReadingPrefs({ ...readingPrefs, contrast })
+          }
+        />
+
+        <p className="sr-only" aria-live="polite">
+          Now reading {selectedUnit.title}, unit {selectedUnitIndex + 1} of{" "}
+          {units.length}.
+        </p>
+
+        <article
+          id="lesson-content"
+          tabIndex={-1}
+          className="lesson-reading-surface min-w-0 overflow-hidden rounded-2xl border p-4 shadow-[0_8px_24px_rgba(30,27,51,0.06)] sm:p-6 md:p-8"
+        >
+          <header className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <section className="min-w-0">
+              <h1
+                ref={contentHeadingRef}
+                tabIndex={-1}
+                className="lesson-reading-title break-words font-bold tracking-tight"
               >
-                Back
-              </button>
-              <button
-                type="button"
-                disabled={nextUnit === undefined}
-                onClick={() => {
-                  if (nextUnit === undefined) return;
-                  setSelectedUnitId(nextUnit.id);
-                }}
-                className="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Next
-              </button>
-            </nav>
-          </>
-        ) : (
-          <section
-            aria-label="All lesson units"
-            className="mt-8 flex flex-col gap-10"
-          >
-            {units.map((unit) => (
-              <section
-                key={unit.id}
-                id={getUnitSectionId(unit.id)}
-                aria-labelledby={`${getUnitSectionId(unit.id)}-heading`}
-                className="scroll-mt-16"
-              >
-                <h2
-                  id={`${getUnitSectionId(unit.id)}-heading`}
-                  className="break-words text-xl font-bold tracking-tight text-ink"
+                {lessonViewMode === "sub-tabs"
+                  ? selectedUnit.title
+                  : "Lesson content"}
+              </h1>
+              {lessonViewMode === "sub-tabs" ? (
+                <p className="lesson-reading-muted mt-2 text-sm">
+                  Unit {selectedUnitIndex + 1} of {units.length}
+                </p>
+              ) : (
+                <p className="lesson-reading-muted mt-2 text-sm">
+                  Full lesson view
+                </p>
+              )}
+            </section>
+            <menu className="m-0 flex list-none flex-col items-stretch gap-2 p-0 sm:items-end">
+              {courseStatus === "deactivated" ? undefined : (
+                <li>
+                  <Link
+                    href={`/student/courses/${courseId}/quiz`}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] sm:w-auto"
+                  >
+                    <SkipForwardIcon className="h-4 w-4" />
+                    Skip to Quiz
+                  </Link>
+                </li>
+              )}
+              <li>
+                <button
+                  type="button"
+                  onClick={handleToggleSpeech}
+                  aria-pressed={isSpeaking}
+                  aria-label={
+                    isSpeaking
+                      ? "Stop reading the lesson aloud"
+                      : "Listen to the lesson"
+                  }
+                  className={
+                    isSpeaking
+                      ? "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 sm:w-auto"
+                      : "lesson-reading-action inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold hover:brightness-110 sm:w-auto"
+                  }
                 >
-                  {unit.title}
+                  <VolumeIcon className="h-4 w-4" />
+                  {isSpeaking ? "Stop" : "Listen"}
+                </button>
+              </li>
+            </menu>
+          </header>
+
+          {lessonViewMode === "sub-tabs" ? (
+            <>
+              <section aria-labelledby="selected-unit-heading" className="mt-8">
+                <h2 id="selected-unit-heading" className="sr-only">
+                  {selectedUnit.title}
                 </h2>
-                <LessonUnitBody unit={unit} />
+                <LessonUnitBody unit={selectedUnit} />
               </section>
-            ))}
-          </section>
-        )}
-      </article>
+              <nav
+                aria-label="Unit pagination"
+                className="mt-10 flex flex-wrap justify-between gap-3"
+              >
+                <button
+                  type="button"
+                  disabled={previousUnit === undefined}
+                  aria-label={
+                    previousUnit === undefined
+                      ? "No previous unit"
+                      : `Back to ${previousUnit.title}`
+                  }
+                  onClick={() => {
+                    if (previousUnit === undefined) {
+                      return;
+                    }
+                    goToUnit(previousUnit.id);
+                  }}
+                  className="lesson-reading-action-secondary rounded-lg px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  disabled={nextUnit === undefined}
+                  aria-label={
+                    nextUnit === undefined
+                      ? "No next unit"
+                      : `Next unit: ${nextUnit.title}`
+                  }
+                  onClick={() => {
+                    if (nextUnit === undefined) {
+                      return;
+                    }
+                    goToUnit(nextUnit.id);
+                  }}
+                  className="lesson-reading-action rounded-lg px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </nav>
+            </>
+          ) : (
+            <section
+              aria-label="All lesson units"
+              className="mt-8 flex flex-col gap-10"
+            >
+              {units.map((unit) => (
+                <section
+                  key={unit.id}
+                  id={getUnitSectionId(unit.id)}
+                  aria-labelledby={`${getUnitSectionId(unit.id)}-heading`}
+                >
+                  <h2
+                    id={`${getUnitSectionId(unit.id)}-heading`}
+                    tabIndex={-1}
+                    className="break-words text-xl font-bold tracking-tight"
+                  >
+                    {unit.title}
+                  </h2>
+                  <LessonUnitBody unit={unit} />
+                </section>
+              ))}
+            </section>
+          )}
+        </article>
+      </section>
     </section>
   );
 }

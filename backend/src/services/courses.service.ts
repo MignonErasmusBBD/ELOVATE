@@ -68,6 +68,7 @@ export class CoursesService {
         'Missing permission: course.community.read or course.private.read',
       );
     }
+    await this.enrollments.applyDueDateOutcomes({ userId: actor.id });
     if (filters.status === 'draft' && this.canSeeNonActive(actor) === false) {
       return { items: [] };
     }
@@ -433,7 +434,14 @@ export class CoursesService {
     actor: AuthUser,
     courseId: string,
   ): Promise<PublicCourse> {
-    const course = await this.requireCourse(courseId);
+    await this.enrollments.applyDueDateOutcomes({
+      userId: actor.id,
+      courseId,
+    });
+    const course = await this.courses.findById(courseId, actor.id);
+    if (course === undefined) {
+      throw new NotFoundException('Course not found');
+    }
     const canRead = await this.canRead(actor, course);
     if (canRead === false) {
       throw new ForbiddenException('Missing permission to read this course');

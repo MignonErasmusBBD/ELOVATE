@@ -237,6 +237,10 @@ export class QuizzesService {
       throw new ConflictException('Attempt is not in progress');
     }
     await this.quizzes.complete(attemptId, actor.id, attempt.courseId);
+    await this.enrollments.applyDueDateOutcomes({
+      userId: actor.id,
+      courseId: attempt.courseId,
+    });
     return this.requireAttempt(attemptId);
   }
 

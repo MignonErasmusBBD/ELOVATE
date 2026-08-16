@@ -51,7 +51,7 @@ export class EnrollmentsController {
   constructor(private readonly enrollments: EnrollmentsService) {}
 
   @Get('me')
-  @ApiQuery({ name: 'status', required: false, enum: ['active', 'completed', 'withdrawn'] })
+  @ApiQuery({ name: 'status', required: false, enum: ['active', 'completed', 'withdrawn', 'overdue'] })
   @ApiOperation({
     summary: 'My enrollments',
     description:
@@ -65,11 +65,11 @@ export class EnrollmentsController {
   @ApiQuery({ name: 'organizationId', required: false })
   @ApiQuery({ name: 'courseId', required: false })
   @ApiQuery({ name: 'userId', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: ['active', 'completed', 'withdrawn'] })
+  @ApiQuery({ name: 'status', required: false, enum: ['active', 'completed', 'withdrawn', 'overdue'] })
   @ApiOperation({
     summary: 'List enrollments',
     description:
-      'Select enrollments joined to users/courses, plus completed quiz_attempts practiceAttemptCount and average practiceQuizPercent (from quiz_attempt_items). With courseId: educators/org admins list students on that course (course.private.read / course.community.update / enrollment.assign). Without courseId: org-scoped list.\nPermission: enrollment.assign (org-wide) OR course authoring read when courseId is set.',
+      'Select enrollments joined to users/courses, plus completed quiz_attempts practiceAttemptCount and average practiceQuizPercent (from quiz_attempt_items). After a required due date, status becomes completed if the learner has at least 3 finished practice quizzes, otherwise overdue. With courseId: educators/org admins list students on that course (course.private.read / course.community.update / enrollment.assign). Without courseId: org-scoped list.\nPermission: enrollment.assign (org-wide) OR course authoring read when courseId is set.',
   })
   list(
     @CurrentUser() actor: AuthUser,

@@ -31,7 +31,8 @@ function readEnrolmentStatus(body: object): EnrolmentStatus | undefined {
   if (
     status === "active" ||
     status === "completed" ||
-    status === "withdrawn"
+    status === "withdrawn" ||
+    status === "overdue"
   ) {
     return status;
   }

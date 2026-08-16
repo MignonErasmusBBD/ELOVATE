@@ -69,14 +69,10 @@ export function BrandPanel() {
 
         <footer className="brand-panel-footer max-w-[22rem]">
           <h2 className="text-xl font-semibold leading-snug tracking-tight md:text-[1.65rem] md:leading-snug">
-            Designed for clear, accessible learning.
+            Designed for adaptive learning that grows with you.
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-white/68 md:text-[0.95rem] md:leading-relaxed">
-            Customizable contrast, adjustable typography, and assistive screen
-            reader optimization built in from the ground up.
-          </p>
           <p className="mt-7 border-t border-white/12 pt-4 text-[0.7rem] font-medium tracking-[0.04em] text-white/42 md:mt-8 md:text-xs">
-            Accessible Learning Platform • Version 2.0
+            Adaptive Learning Platform
           </p>
         </footer>
       </section>

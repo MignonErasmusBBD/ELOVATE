@@ -50,6 +50,7 @@ const enrolmentStatusFilters: StatusFilterOption<
   { id: "active", label: "Active" },
   { id: "withdrawn", label: "Withdrawn" },
   { id: "completed", label: "Completed" },
+  { id: "overdue", label: "Overdue" },
 ];
 
 type EnrolmentGroupView = "course" | "person";
@@ -84,6 +85,9 @@ function enrolmentStatusLabel(status: EnrolmentStatus): string {
   }
   if (status === "completed") {
     return "Completed";
+  }
+  if (status === "overdue") {
+    return "Overdue";
   }
   return "Active";
 }
@@ -136,7 +140,7 @@ function enrolmentStatusTone(
   if (status === "active") {
     return "success";
   }
-  if (status === "withdrawn") {
+  if (status === "withdrawn" || status === "overdue") {
     return "danger";
   }
   return "muted";
@@ -359,8 +363,14 @@ export function EnrolmentsSection({
   return (
     <section aria-labelledby="enrolments-heading" className="mt-8">
       <header className="mb-5">
-        <h2 id="enrolments-heading" className="text-xl font-bold text-ink">
+        <h2
+          id="enrolments-heading"
+          className="flex items-center gap-2 text-xl font-bold text-ink"
+        >
           Enrolments
+          <ExplainTip label="About due dates and completion">
+            {explainCopy.enrolmentDueOutcome}
+          </ExplainTip>
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
           Assign people in {organisationName} to private courses. A person can
@@ -453,7 +463,7 @@ export function EnrolmentsSection({
               >
                 Due date
                 <ExplainTip label="About due dates">
-                  {explainCopy.enrolmentDue}
+                  {explainCopy.enrolmentDue} {explainCopy.enrolmentDueOutcome}
                 </ExplainTip>
               </Label>
               <Input
@@ -873,7 +883,11 @@ function EnrolmentStatusButton({
     status: "active" | "withdrawn",
   ) => void;
 }>) {
-  if (enrolment.status === "active") {
+  if (
+    enrolment.status === "active" ||
+    enrolment.status === "completed" ||
+    enrolment.status === "overdue"
+  ) {
     return (
       <Button
         variant="outline"

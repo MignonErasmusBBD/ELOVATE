@@ -1,6 +1,6 @@
 export const explainCopy = {
   coursesCatalogue:
-    "Community courses are open to anyone who enrols. Organisation courses are private to your company. Required courses were assigned to you and may have a due date. Archived courses stay readable if you were already enrolled.",
+    "Community courses are open to anyone who enrols. Organisation courses are private to your company. Required courses were assigned to you and may have a due date. After that due date, the course is marked Completed if you finished at least 3 practice quizzes, or Overdue if you did not. Archived courses stay readable if you were already enrolled.",
   courseDraft:
     "Draft courses are hidden from learners. Add at least one learning section and 20 active questions, then activate the course.",
   addCourse:
@@ -49,6 +49,8 @@ export const explainCopy = {
     "Required means the learner must complete the course. A due date is mandatory. Their course card shows Required and a countdown.",
   enrolmentDue:
     "Due dates use Africa/Johannesburg and count as the end of that calendar day. They cannot be in the past.",
+  enrolmentDueOutcome:
+    "When a required due date is reached, the enrolment is marked Completed if the learner has finished at least 3 practice quizzes. If they have fewer than 3, it is marked Overdue. They can still open the lesson and keep practising.",
   rolesPlatform:
     "Platform Admin can create organisations and grant the other admin roles. You cannot remove the role from yourself.",
   rolesCommunity:

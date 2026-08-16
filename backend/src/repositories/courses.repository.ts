@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { OPEN_ENROLLMENT_STATUS_SQL } from '../helpers/enrollment-outcomes';
 import {
   booleanFromDatabase,
   dateFromDatabase,
@@ -22,6 +23,7 @@ type CourseRow = {
   is_enrolled: boolean | null;
   enrollment_is_required: boolean | null;
   enrollment_due_at: Date | null;
+  enrollment_status: string | null;
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -40,6 +42,7 @@ export type PublicCourse = {
   isEnrolled: boolean | undefined;
   isRequired: boolean | undefined;
   dueAt: Date | undefined;
+  enrollmentStatus: string | undefined;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -84,21 +87,23 @@ function courseSelectSql(enrolledParamIndex: number | undefined): string {
     enrolledParamIndex === undefined
       ? `NULL::boolean AS is_enrolled,
   NULL::boolean AS enrollment_is_required,
-  NULL::timestamptz AS enrollment_due_at`
-      : `(my_enr.is_required IS NOT NULL) AS is_enrolled,
+  NULL::timestamptz AS enrollment_due_at,
+  NULL::text AS enrollment_status`
+      : `(my_enr.status_code IS NOT NULL) AS is_enrolled,
   my_enr.is_required AS enrollment_is_required,
-  my_enr.due_at AS enrollment_due_at`;
+  my_enr.due_at AS enrollment_due_at,
+  my_enr.status_code AS enrollment_status`;
   const enrollmentJoin =
     enrolledParamIndex === undefined
       ? ''
       : `LEFT JOIN LATERAL (
-  SELECT e.is_required, e.due_at
+  SELECT e.is_required, e.due_at, es.status_code
   FROM enrollments e
   JOIN enrollment_statuses es
     ON es.enrollment_status_id = e.enrollment_status_id
   WHERE e.course_id = c.id
     AND e.user_id = $${enrolledParamIndex}
-    AND es.status_code = 'active'
+    AND ${OPEN_ENROLLMENT_STATUS_SQL}
   ORDER BY e.enrolled_at DESC
   LIMIT 1
 ) my_enr ON true`;
@@ -136,6 +141,7 @@ function toPublicCourse(row: CourseRow): PublicCourse {
     isEnrolled: booleanFromDatabase(row.is_enrolled),
     isRequired: booleanFromDatabase(row.enrollment_is_required),
     dueAt: dateFromDatabase(row.enrollment_due_at),
+    enrollmentStatus: textFromDatabase(row.enrollment_status),
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -166,7 +172,7 @@ function accessSql(
       JOIN enrollment_statuses es ON es.enrollment_status_id = e.enrollment_status_id
       WHERE e.course_id = c.id
         AND e.user_id = $${enrolledParamIndex}
-        AND es.status_code = 'active'
+        AND ${OPEN_ENROLLMENT_STATUS_SQL}
     )`);
   }
   if (parts.length === 0) {
@@ -200,13 +206,22 @@ function appendSharedListFilters(
 export class CoursesRepository {
   constructor(private readonly postgres: PostgresService) {}
 
-  async findById(courseId: string): Promise<PublicCourse | undefined> {
+  async findById(
+    courseId: string,
+    enrolledUserId?: string,
+  ): Promise<PublicCourse | undefined> {
     if (isUuid(courseId) === false) {
       return undefined;
     }
+    const values: SqlParameter[] = [courseId];
+    const enrolledParamIndex =
+      enrolledUserId === undefined ? undefined : 2;
+    if (enrolledUserId !== undefined) {
+      values.push(enrolledUserId);
+    }
     const result = await this.postgres.query<CourseRow>(
-      `${courseSelectSql(undefined)} WHERE c.id = $1`,
-      [courseId],
+      `${courseSelectSql(enrolledParamIndex)} WHERE c.id = $1`,
+      values,
     );
     const row = result.rows[0];
     if (row === undefined) {
@@ -254,7 +269,7 @@ export class CoursesRepository {
                 ON es.enrollment_status_id = e.enrollment_status_id
               WHERE e.course_id = c.id
                 AND e.user_id = $${accessResult.enrolledParamIndex}
-                AND es.status_code = 'active'
+                AND ${OPEN_ENROLLMENT_STATUS_SQL}
             )
           )
         )`);

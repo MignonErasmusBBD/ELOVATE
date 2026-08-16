@@ -105,6 +105,9 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="min-h-dvh bg-page">
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       {isMobileNavOpen ? (
         <button
           type="button"
@@ -259,7 +262,9 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <main id="main-content" className="flex-1" tabIndex={-1}>
+          {children}
+        </main>
       </div>
     </div>
   );
