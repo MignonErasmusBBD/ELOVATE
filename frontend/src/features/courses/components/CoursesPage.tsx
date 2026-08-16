@@ -19,13 +19,20 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
+type EnrollmentRequirement = {
+  isRequired: boolean;
+  dueAt: string | undefined;
+};
+
 function CourseGrid({
   courses,
   enrolledCourseIds,
+  enrollmentRequirements,
   onEnrol,
 }: {
   courses: ElovateCourseSummary[];
   enrolledCourseIds: Set<string>;
+  enrollmentRequirements: Map<string, EnrollmentRequirement>;
   onEnrol: (courseId: string) => Promise<void>;
 }) {
   return (
@@ -34,16 +41,19 @@ function CourseGrid({
         const isEnrolled = enrolledCourseIds.has(course.id);
         const showEnrolButton =
           !isEnrolled && course.visibility === "community";
+        const requirement = enrollmentRequirements.get(course.id);
 
         return (
-          <li key={course.id}>
-            <Link href={`/student/courses/${course.id}`} className="block h-full">
+          <li key={course.id} className="min-w-0">
+            <Link href={`/student/courses/${course.id}`} className="block h-full min-w-0">
               <CourseCard
                 id={course.id}
                 title={course.title}
                 description={course.description}
                 visibility={course.visibility ?? "community"}
                 status={course.status ?? "active"}
+                isRequired={requirement?.isRequired === true}
+                dueAt={requirement?.dueAt}
                 onEnrol={
                   showEnrolButton
                     ? () => onEnrol(course.id)
@@ -67,6 +77,9 @@ export function CoursesPage() {
   const [activeCourses, setActiveCourses] = useState<ElovateCourseSummary[]>([]);
   const [archivedCourses, setArchivedCourses] = useState<ElovateCourseSummary[]>([]);
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
+  const [enrollmentRequirements, setEnrollmentRequirements] = useState<
+    Map<string, EnrollmentRequirement>
+  >(new Map());
   const [isCoursesLoading, setIsCoursesLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
@@ -92,6 +105,14 @@ export function CoursesPage() {
         setActiveCourses(active);
         setArchivedCourses(archived);
         setEnrolledCourseIds(new Set(enrollments.map((e) => e.courseId)));
+        const nextRequirements = new Map<string, EnrollmentRequirement>();
+        for (const enrollment of enrollments) {
+          nextRequirements.set(enrollment.courseId, {
+            isRequired: enrollment.isRequired,
+            dueAt: enrollment.dueAt,
+          });
+        }
+        setEnrollmentRequirements(nextRequirements);
       } catch {
         if (cancelled === false) {
           setErrorMessage("Could not load courses.");
@@ -165,7 +186,7 @@ export function CoursesPage() {
     isProfileLoading || profile === undefined || isCoursesLoading;
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+    <section className="mx-auto min-w-0 max-w-7xl px-4 py-10 sm:px-6 md:px-10 md:py-12">
       <header>
         <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
           All Courses
@@ -204,6 +225,7 @@ export function CoursesPage() {
                     <CourseGrid
                       courses={enrolledSection}
                       enrolledCourseIds={enrolledCourseIds}
+                      enrollmentRequirements={enrollmentRequirements}
                       onEnrol={handleEnrol}
                     />
                   </div>
@@ -220,6 +242,7 @@ export function CoursesPage() {
                     <CourseGrid
                       courses={orgSection}
                       enrolledCourseIds={enrolledCourseIds}
+                      enrollmentRequirements={enrollmentRequirements}
                       onEnrol={handleEnrol}
                     />
                   </div>
@@ -236,6 +259,7 @@ export function CoursesPage() {
                     <CourseGrid
                       courses={exploreSection}
                       enrolledCourseIds={enrolledCourseIds}
+                      enrollmentRequirements={enrollmentRequirements}
                       onEnrol={handleEnrol}
                     />
                   </div>
@@ -261,6 +285,7 @@ export function CoursesPage() {
                 <CourseGrid
                   courses={singleListCourses}
                   enrolledCourseIds={enrolledCourseIds}
+                  enrollmentRequirements={enrollmentRequirements}
                   onEnrol={handleEnrol}
                 />
               )}

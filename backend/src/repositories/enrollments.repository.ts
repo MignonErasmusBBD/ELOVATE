@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  dateFromDatabase,
   isUuid,
   SqlParameter,
   textFromDatabase,
@@ -13,6 +14,8 @@ type EnrollmentRow = {
   course_id: string;
   organization_id: string | null;
   enrolled_at: Date;
+  is_required: boolean;
+  due_at: Date | null;
   status: string;
   full_name: string | null;
   email: string;
@@ -27,6 +30,8 @@ export type PublicEnrollment = {
   courseId: string;
   organizationId: string | undefined;
   enrolledAt: Date;
+  isRequired: boolean;
+  dueAt: Date | undefined;
   status: string;
   userFullName: string;
   emailAddress: string;
@@ -48,6 +53,8 @@ const enrollmentSelectSql = `SELECT
   e.course_id,
   u.organization_id,
   e.enrolled_at,
+  e.is_required,
+  e.due_at,
   es.status_code AS status,
   u.full_name,
   u.email,
@@ -93,6 +100,8 @@ function toPublicEnrollment(row: EnrollmentRow): PublicEnrollment {
     courseId: row.course_id,
     organizationId: textFromDatabase(row.organization_id),
     enrolledAt: row.enrolled_at,
+    isRequired: row.is_required,
+    dueAt: dateFromDatabase(row.due_at),
     status: row.status,
     userFullName: fullName === undefined ? row.email : fullName,
     emailAddress: row.email,
@@ -169,14 +178,23 @@ export class EnrollmentsRepository {
     return result.rows.map(toPublicEnrollment);
   }
 
-  async insert(userId: string, courseId: string): Promise<string> {
+  async insert(
+    userId: string,
+    courseId: string,
+    requirement: { isRequired: boolean; dueAt: Date | undefined },
+  ): Promise<string> {
     const inserted = await this.postgres.query<{ id: string }>(
-      `INSERT INTO enrollments (user_id, course_id, enrollment_status_id)
-       SELECT $1, $2, es.enrollment_status_id
+      `INSERT INTO enrollments (user_id, course_id, enrollment_status_id, is_required, due_at)
+       SELECT $1, $2, es.enrollment_status_id, $3, $4
        FROM enrollment_statuses es
        WHERE es.status_code = 'active'
        RETURNING id`,
-      [userId, courseId],
+      [
+        userId,
+        courseId,
+        requirement.isRequired,
+        requirement.dueAt === undefined ? null : requirement.dueAt.toISOString(),
+      ],
     );
     const row = inserted.rows[0];
     if (row === undefined) {
@@ -195,6 +213,23 @@ export class EnrollmentsRepository {
        FROM enrollment_statuses es
        WHERE enrollments.id = $1 AND es.status_code = $2`,
       [enrollmentId, statusCode],
+    );
+  }
+
+  async setRequirement(
+    enrollmentId: string,
+    requirement: { isRequired: boolean; dueAt: Date | undefined },
+  ) {
+    await this.postgres.query(
+      `UPDATE enrollments
+       SET is_required = $2,
+           due_at = $3
+       WHERE id = $1`,
+      [
+        enrollmentId,
+        requirement.isRequired,
+        requirement.dueAt === undefined ? null : requirement.dueAt.toISOString(),
+      ],
     );
   }
 

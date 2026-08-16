@@ -2,6 +2,7 @@
 
 import { useState, type SubmitEvent } from "react";
 import { Button } from "@/components/ui/Button";
+import { CourseReadinessChecklist } from "@/components/ui/CourseReadinessChecklist";
 import { FieldError } from "@/components/ui/FieldError";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
@@ -14,6 +15,7 @@ import {
   validateCourseDescription,
   validateCourseTitle,
 } from "@/helpers/validation";
+import { canActivateCourse } from "@/helpers/courseReadiness";
 import { setCourseStatus } from "../orgAdminApi";
 import {
   emptyStatusFilterMessage,
@@ -32,9 +34,23 @@ type CourseFieldErrors = {
 
 const courseStatusFilters: StatusFilterOption<StatusFilter<CourseStatus>>[] = [
   { id: "all", label: "All" },
+  { id: "draft", label: "Draft" },
   { id: "active", label: "Active" },
   { id: "deactivated", label: "Deactivated" },
 ];
+
+function courseStatusPresentation(status: CourseStatus): {
+  label: string;
+  tone: "success" | "warning" | "danger";
+} {
+  if (status === "active") {
+    return { label: "Active", tone: "success" };
+  }
+  if (status === "draft") {
+    return { label: "Draft", tone: "warning" };
+  }
+  return { label: "Deactivated", tone: "danger" };
+}
 
 type AdminCoursesSectionProps = Readonly<{
   heading: string;
@@ -78,7 +94,7 @@ export function AdminCoursesSection({
   const [courseDescription, setCourseDescription] = useState("");
   const [fieldErrors, setFieldErrors] = useState<CourseFieldErrors>({});
   const [statusFilter, setStatusFilter] =
-    useState<StatusFilter<CourseStatus>>("active");
+    useState<StatusFilter<CourseStatus>>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [formError, setFormError] = useState<string | undefined>();
   const [actionError, setActionError] = useState<string | undefined>();
@@ -148,6 +164,15 @@ export function AdminCoursesSection({
     course: AdminCourse,
     status: CourseStatus,
   ) {
+    if (
+      status === "active" &&
+      canActivateCourse(course) === false
+    ) {
+      setActionError(
+        "This course needs at least one section and 20 active questions before it can be activated.",
+      );
+      return;
+    }
     setActionError(undefined);
     onCoursesChange(
       courses.map((candidate) => {
@@ -309,48 +334,71 @@ export function AdminCoursesSection({
       <ul className="flex min-w-0 flex-col gap-4">
         {visibleCourses.map((course) => {
           const isActive = course.status === "active";
+          const statusPresentation = courseStatusPresentation(course.status);
+          const isReadyToActivate = canActivateCourse(course);
 
           return (
             <li key={course.id} className="min-w-0">
-              <article className="flex min-w-0 flex-col gap-3 rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)] sm:flex-row sm:items-center sm:justify-between">
-                <header className="flex min-w-0 flex-1 flex-wrap items-center gap-2 overflow-hidden">
-                  <h3 className="min-w-0 max-w-full truncate text-base font-bold text-ink">
-                    {course.title}
-                  </h3>
-                  <StatusPill
-                    label={isActive ? "Active" : "Deactivated"}
-                    tone={isActive ? "success" : "danger"}
-                  />
-                  <StatusPill label={visibilityLabel} tone="muted" />
-                  {course.description === undefined ? undefined : (
-                    <p
-                      className="mt-1 w-full line-clamp-2 break-all text-sm text-text-secondary"
-                      title={course.description}
+              <article className="flex min-w-0 flex-col gap-3 rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
+                <header className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <section className="flex min-w-0 flex-1 flex-wrap items-center gap-2 overflow-hidden">
+                    <h3 className="min-w-0 max-w-full truncate text-base font-bold text-ink">
+                      {course.title}
+                    </h3>
+                    <StatusPill
+                      label={statusPresentation.label}
+                      tone={statusPresentation.tone}
+                    />
+                    <StatusPill label={visibilityLabel} tone="muted" />
+                    {course.description === undefined ? undefined : (
+                      <p
+                        className="mt-1 w-full line-clamp-2 break-words text-sm text-text-secondary"
+                        title={course.description}
+                      >
+                        {course.description}
+                      </p>
+                    )}
+                  </section>
+                  {isActive ? (
+                    <Button
+                      variant="outline"
+                      type="button"
+                      className="shrink-0 self-start"
+                      onClick={() =>
+                        void persistCourseStatus(course, "deactivated")
+                      }
                     >
-                      {course.description}
-                    </p>
+                      Deactivate
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="compact"
+                      type="button"
+                      className="shrink-0 self-start"
+                      disabled={isReadyToActivate === false}
+                      title={
+                        isReadyToActivate
+                          ? undefined
+                          : "Add at least one section and 20 active questions first."
+                      }
+                      onClick={() => void persistCourseStatus(course, "active")}
+                    >
+                      Activate
+                    </Button>
                   )}
                 </header>
-                {isActive ? (
-                  <Button
-                    variant="outline"
-                    type="button"
-                    className="shrink-0 self-start sm:self-center"
-                    onClick={() =>
-                      void persistCourseStatus(course, "deactivated")
-                    }
-                  >
-                    Deactivate
-                  </Button>
-                ) : (
-                  <Button
-                    variant="compact"
-                    type="button"
-                    className="shrink-0 self-start sm:self-center"
-                    onClick={() => void persistCourseStatus(course, "active")}
-                  >
-                    Activate
-                  </Button>
+                {course.status === "draft" ? (
+                  <p className="text-sm text-text-secondary">
+                    Please go to the educator&apos;s dashboard and add content
+                    and a minimum of 20 questions for this course for it to be
+                    able to move to active.
+                  </p>
+                ) : undefined}
+                {isActive ? undefined : (
+                  <CourseReadinessChecklist
+                    sectionCount={course.sectionCount}
+                    activeQuestionCount={course.activeQuestionCount}
+                  />
                 )}
               </article>
             </li>

@@ -67,10 +67,10 @@ export function CourseFilterBar({
   ];
 
   return (
-    <fieldset className="border-0 p-0">
+    <fieldset className="w-full min-w-0 border-0 p-0">
       <legend className="sr-only">Course filter</legend>
       <span
-        className="inline-flex rounded-lg border border-ink bg-page p-1"
+        className="flex w-full min-w-0 flex-wrap rounded-lg border border-ink bg-page p-1 sm:inline-flex sm:w-auto sm:flex-nowrap"
         role="presentation"
       >
         {filterOptions.map((option) => {
@@ -83,13 +83,25 @@ export function CourseFilterBar({
               onClick={() => onSelect(option.id)}
               className={
                 isSelected
-                  ? "flex items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white"
-                  : "flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-ink"
+                  ? "flex min-w-0 flex-1 basis-1/2 items-center justify-center gap-1.5 rounded-lg bg-ink px-2 py-2 text-xs font-semibold text-white sm:flex-none sm:basis-auto sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
+                  : "flex min-w-0 flex-1 basis-1/2 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium text-text-secondary hover:text-ink sm:flex-none sm:basis-auto sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
               }
             >
-              {option.id === "community" && <GlobeIcon />}
-              {option.id === "organisation" && <BuildingIcon />}
-              {option.id === "enrolled" && <BookmarkIcon />}
+              {option.id === "community" ? (
+                <span className="hidden sm:inline-flex">
+                  <GlobeIcon />
+                </span>
+              ) : undefined}
+              {option.id === "organisation" ? (
+                <span className="hidden sm:inline-flex">
+                  <BuildingIcon />
+                </span>
+              ) : undefined}
+              {option.id === "enrolled" ? (
+                <span className="hidden sm:inline-flex">
+                  <BookmarkIcon />
+                </span>
+              ) : undefined}
               {option.label}
             </button>
           );

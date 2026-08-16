@@ -1,6 +1,8 @@
 import {
   isPlainObject,
   readObjectList,
+  readOptionalBoolean,
+  readOptionalNumber,
   readOptionalString,
   readRequiredString,
   readStringList,
@@ -271,12 +273,24 @@ export function parseAdminCourse(
   if (id === undefined || title === undefined) {
     return undefined;
   }
-  const status = readRequiredString(body, "status");
+  const statusValue = readRequiredString(body, "status");
+  let status: AdminCourse["status"] = "active";
+  if (statusValue === "deactivated") {
+    status = "deactivated";
+  }
+  if (statusValue === "draft") {
+    status = "draft";
+  }
+  const sectionCount = readOptionalNumber(body, "sectionCount");
+  const activeQuestionCount = readOptionalNumber(body, "activeQuestionCount");
   return {
     id,
     title,
     description: readOptionalString(body, "description"),
-    status: status === "deactivated" ? "deactivated" : "active",
+    status,
+    sectionCount: sectionCount === undefined ? 0 : sectionCount,
+    activeQuestionCount:
+      activeQuestionCount === undefined ? 0 : activeQuestionCount,
   };
 }
 
@@ -316,6 +330,7 @@ export function parseAdminEnrolment(
   ) {
     return undefined;
   }
+  const isRequired = readOptionalBoolean(body, "isRequired");
   return {
     id,
     userId,
@@ -323,6 +338,8 @@ export function parseAdminEnrolment(
     courseId,
     courseTitle,
     status,
+    isRequired: isRequired === true,
+    dueAt: readOptionalString(body, "dueAt"),
   };
 }
 
