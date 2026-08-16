@@ -153,22 +153,64 @@ async function readFailedResponse(response: Response, fallback: string): Promise
   );
 }
 
+const SECTIONS_CACHE_MS = 20_000;
+
+type CachedSections = {
+  sections: LearningContentSection[];
+  expiresAt: number;
+};
+
+const sectionsCache = new Map<string, CachedSections>();
+const sectionsInFlight = new Map<string, Promise<LearningContentSection[]>>();
+
+function rememberSections(
+  courseId: string,
+  sections: LearningContentSection[],
+) {
+  sectionsCache.set(courseId, {
+    sections,
+    expiresAt: Date.now() + SECTIONS_CACHE_MS,
+  });
+}
+
+function forgetSections(courseId: string) {
+  sectionsCache.delete(courseId);
+}
+
 export async function listLearningContentSections(
   courseId: string,
 ): Promise<LearningContentSection[]> {
-  const response = await fetchElovateApi(`/courses/${courseId}/sections`);
-  const responseBody: unknown = await response.json();
-  if (response.ok === false) {
-    throw new ElovateApiError(
-      response.status,
-      readErrorMessage(responseBody, "Could not load learning content."),
-    );
+  const cached = sectionsCache.get(courseId);
+  if (cached !== undefined && Date.now() < cached.expiresAt) {
+    return cached.sections;
   }
-  const sections = parseLearningContentSectionList(responseBody);
-  if (sections === undefined) {
-    throw new Error("Learning content list response was invalid.");
+
+  const inFlight = sectionsInFlight.get(courseId);
+  if (inFlight !== undefined) {
+    return inFlight;
   }
-  return sections;
+
+  const request = (async () => {
+    const response = await fetchElovateApi(`/courses/${courseId}/sections`);
+    const responseBody: unknown = await response.json();
+    if (response.ok === false) {
+      throw new ElovateApiError(
+        response.status,
+        readErrorMessage(responseBody, "Could not load learning content."),
+      );
+    }
+    const sections = parseLearningContentSectionList(responseBody);
+    if (sections === undefined) {
+      throw new Error("Learning content list response was invalid.");
+    }
+    rememberSections(courseId, sections);
+    return sections;
+  })().finally(() => {
+    sectionsInFlight.delete(courseId);
+  });
+
+  sectionsInFlight.set(courseId, request);
+  return request;
 }
 
 export async function createLearningContentSection(
@@ -188,6 +230,7 @@ export async function createLearningContentSection(
   if (section === undefined) {
     throw new Error("Create learning section response was invalid.");
   }
+  forgetSections(courseId);
   return section;
 }
 
@@ -212,6 +255,7 @@ export async function replaceLearningContentSection(
   if (section === undefined) {
     throw new Error("Update learning section response was invalid.");
   }
+  forgetSections(courseId);
   return section;
 }
 
@@ -226,4 +270,5 @@ export async function deleteLearningContentSection(
   if (response.ok === false) {
     await readFailedResponse(response, "Could not delete learning section.");
   }
+  forgetSections(courseId);
 }

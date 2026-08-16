@@ -69,6 +69,7 @@ function toEducatorQuestion(
   return {
     id: question.id,
     prompt: question.prompt,
+    correctReason: question.correctReason,
     formatCode: question.formatCode,
     questionFormatId: question.questionFormatId,
     bloomLevelId: question.bloomLevelId,
@@ -122,15 +123,13 @@ export function QuestionsTab({
       setLoadErrorMessage(undefined);
       try {
         const [
-          activeQuestions,
-          deactivatedQuestions,
+          apiQuestions,
           apiSections,
           bloomLevels,
           difficultyLevels,
           questionFormats,
         ] = await Promise.all([
-          listQuestions({ courseId, status: "active" }),
-          listQuestions({ courseId, status: "deactivated" }),
+          listQuestions({ courseId, status: "all" }),
           listLearningContentSections(courseId),
           listBloomLevels(),
           listDifficultyLevels(),
@@ -140,7 +139,6 @@ export function QuestionsTab({
           return;
         }
 
-        const apiQuestions = [...activeQuestions, ...deactivatedQuestions];
         const nextSections = apiSections.map((section) => ({
           id: section.id,
           title: section.title,
@@ -158,6 +156,9 @@ export function QuestionsTab({
             difficultyLevels,
           ),
         );
+        const activeQuestionCount = apiQuestions.filter(
+          (question) => question.status === "active",
+        ).length;
 
         setSections(nextSections);
         setLookups(nextLookups);
@@ -165,7 +166,7 @@ export function QuestionsTab({
         if (onReadinessChange !== undefined) {
           onReadinessChange({
             sectionCount: nextSections.length,
-            activeQuestionCount: activeQuestions.length,
+            activeQuestionCount,
           });
         }
         setExpandedQuestionId((currentId) => {
@@ -220,6 +221,7 @@ export function QuestionsTab({
           courseSectionId: formValues.courseSectionId,
           questionFormatId: formValues.questionFormatId,
           prompt: formValues.prompt,
+          correctReason: formValues.correctReason,
           bloomLevelId: formValues.bloomLevelId,
           difficultyLevelId: formValues.difficultyLevelId,
           baseDifficulty: formValues.baseDifficulty,
@@ -234,6 +236,10 @@ export function QuestionsTab({
         await updateQuestion(editingQuestion.id, {
           courseSectionId: formValues.courseSectionId,
           prompt: formValues.prompt,
+          correctReason:
+            formValues.correctReason === undefined
+              ? ""
+              : formValues.correctReason,
           questionFormatId: formValues.questionFormatId,
           bloomLevelId: formValues.bloomLevelId,
           difficultyLevelId: formValues.difficultyLevelId,
@@ -420,6 +426,14 @@ export function QuestionsTab({
                           </li>
                         ))}
                       </ul>
+                      {question.correctReason === undefined ? undefined : (
+                        <p className="mt-4 rounded-lg bg-page px-3 py-2 text-sm text-ink">
+                          <span className="font-semibold">
+                            Why this is correct:{" "}
+                          </span>
+                          {question.correctReason}
+                        </p>
+                      )}
                       <menu className="mt-4 flex list-none flex-wrap gap-2 p-0">
                         <li>
                           <button

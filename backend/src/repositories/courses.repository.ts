@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
+  booleanFromDatabase,
+  dateFromDatabase,
   isUuid,
   SqlParameter,
   textFromDatabase,
@@ -17,6 +19,9 @@ type CourseRow = {
   quiz_question_count: number;
   section_count: number;
   active_question_count: number;
+  is_enrolled: boolean | null;
+  enrollment_is_required: boolean | null;
+  enrollment_due_at: Date | null;
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -32,6 +37,9 @@ export type PublicCourse = {
   quizQuestionCount: number;
   sectionCount: number;
   activeQuestionCount: number;
+  isEnrolled: boolean | undefined;
+  isRequired: boolean | undefined;
+  dueAt: Date | undefined;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -48,9 +56,54 @@ export type CourseListFilters = {
   visibility: string | undefined;
   search: string | undefined;
   status: string | undefined;
+  learnerCatalogue?: boolean;
 };
 
-const courseSelectSql = `SELECT
+const courseFromSql = `FROM courses c
+JOIN course_visibilities cv ON cv.course_visibility_id = c.course_visibility_id
+JOIN course_statuses cs ON cs.course_status_id = c.course_status_id`;
+
+const courseCountJoinsSql = `LEFT JOIN (
+  SELECT course_id, count(*)::int AS section_count
+  FROM course_sections
+  GROUP BY course_id
+) sc ON sc.course_id = c.id
+LEFT JOIN (
+  SELECT question_section.course_id, count(*)::int AS active_question_count
+  FROM questions question_count
+  JOIN course_sections question_section
+    ON question_section.id = question_count.course_section_id
+  JOIN question_statuses question_status
+    ON question_status.question_status_id = question_count.question_status_id
+  WHERE question_status.status_code = 'active'
+  GROUP BY question_section.course_id
+) aq ON aq.course_id = c.id`;
+
+function courseSelectSql(enrolledParamIndex: number | undefined): string {
+  const enrollmentSelect =
+    enrolledParamIndex === undefined
+      ? `NULL::boolean AS is_enrolled,
+  NULL::boolean AS enrollment_is_required,
+  NULL::timestamptz AS enrollment_due_at`
+      : `(my_enr.is_required IS NOT NULL) AS is_enrolled,
+  my_enr.is_required AS enrollment_is_required,
+  my_enr.due_at AS enrollment_due_at`;
+  const enrollmentJoin =
+    enrolledParamIndex === undefined
+      ? ''
+      : `LEFT JOIN LATERAL (
+  SELECT e.is_required, e.due_at
+  FROM enrollments e
+  JOIN enrollment_statuses es
+    ON es.enrollment_status_id = e.enrollment_status_id
+  WHERE e.course_id = c.id
+    AND e.user_id = $${enrolledParamIndex}
+    AND es.status_code = 'active'
+  ORDER BY e.enrolled_at DESC
+  LIMIT 1
+) my_enr ON true`;
+
+  return `SELECT
   c.id,
   c.owning_organization_id,
   c.title,
@@ -58,27 +111,16 @@ const courseSelectSql = `SELECT
   cv.visibility_code AS visibility,
   cs.status_code AS status,
   c.quiz_question_count,
-  (
-    SELECT count(*)::int
-    FROM course_sections section_count
-    WHERE section_count.course_id = c.id
-  ) AS section_count,
-  (
-    SELECT count(*)::int
-    FROM questions question_count
-    JOIN course_sections question_section
-      ON question_section.id = question_count.course_section_id
-    JOIN question_statuses question_status
-      ON question_status.question_status_id = question_count.question_status_id
-    WHERE question_section.course_id = c.id
-      AND question_status.status_code = 'active'
-  ) AS active_question_count,
+  coalesce(sc.section_count, 0)::int AS section_count,
+  coalesce(aq.active_question_count, 0)::int AS active_question_count,
+  ${enrollmentSelect},
   c.created_by,
   c.created_at,
   c.updated_at
-FROM courses c
-JOIN course_visibilities cv ON cv.course_visibility_id = c.course_visibility_id
-JOIN course_statuses cs ON cs.course_status_id = c.course_status_id`;
+${courseFromSql}
+${courseCountJoinsSql}
+${enrollmentJoin}`;
+}
 
 function toPublicCourse(row: CourseRow): PublicCourse {
   return {
@@ -91,14 +133,21 @@ function toPublicCourse(row: CourseRow): PublicCourse {
     quizQuestionCount: row.quiz_question_count,
     sectionCount: row.section_count,
     activeQuestionCount: row.active_question_count,
+    isEnrolled: booleanFromDatabase(row.is_enrolled),
+    isRequired: booleanFromDatabase(row.enrollment_is_required),
+    dueAt: dateFromDatabase(row.enrollment_due_at),
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-function accessSql(access: CourseAccess, values: SqlParameter[]): string {
+function accessSql(
+  access: CourseAccess,
+  values: SqlParameter[],
+): { clause: string; enrolledParamIndex: number | undefined } {
   const parts: string[] = [];
+  let enrolledParamIndex: number | undefined;
   if (access.includeCommunity) {
     parts.push(`cv.visibility_code = 'community'`);
   }
@@ -110,19 +159,41 @@ function accessSql(access: CourseAccess, values: SqlParameter[]): string {
   }
   if (access.enrolledUserId !== undefined) {
     values.push(access.enrolledUserId);
+    enrolledParamIndex = values.length;
     parts.push(`EXISTS (
       SELECT 1
       FROM enrollments e
       JOIN enrollment_statuses es ON es.enrollment_status_id = e.enrollment_status_id
       WHERE e.course_id = c.id
-        AND e.user_id = $${values.length}
+        AND e.user_id = $${enrolledParamIndex}
         AND es.status_code = 'active'
     )`);
   }
   if (parts.length === 0) {
-    return 'false';
+    return { clause: 'false', enrolledParamIndex };
   }
-  return `(${parts.join(' OR ')})`;
+  return { clause: `(${parts.join(' OR ')})`, enrolledParamIndex };
+}
+
+function appendSharedListFilters(
+  filters: CourseListFilters,
+  values: SqlParameter[],
+  conditions: string[],
+) {
+  if (filters.organizationId !== undefined) {
+    values.push(filters.organizationId);
+    conditions.push(`c.owning_organization_id = $${values.length}`);
+  }
+  if (filters.visibility !== undefined) {
+    values.push(filters.visibility);
+    conditions.push(`cv.visibility_code = $${values.length}`);
+  }
+  if (filters.search !== undefined) {
+    values.push(`%${filters.search}%`);
+    conditions.push(
+      `(c.title ILIKE $${values.length} OR coalesce(c.description, '') ILIKE $${values.length})`,
+    );
+  }
 }
 
 @Injectable()
@@ -134,7 +205,7 @@ export class CoursesRepository {
       return undefined;
     }
     const result = await this.postgres.query<CourseRow>(
-      `${courseSelectSql} WHERE c.id = $1`,
+      `${courseSelectSql(undefined)} WHERE c.id = $1`,
       [courseId],
     );
     const row = result.rows[0];
@@ -144,15 +215,15 @@ export class CoursesRepository {
     return toPublicCourse(row);
   }
 
-  async isVisible(
-    courseId: string,
-    access: CourseAccess,
-  ): Promise<boolean> {
+  async isVisible(courseId: string, access: CourseAccess): Promise<boolean> {
     const values: SqlParameter[] = [];
-    const accessClause = accessSql(access, values);
+    const accessResult = accessSql(access, values);
     values.push(courseId);
     const result = await this.postgres.query<{ id: string }>(
-      `${courseSelectSql} WHERE ${accessClause} AND c.id = $${values.length}`,
+      `SELECT c.id
+       ${courseFromSql}
+       WHERE ${accessResult.clause} AND c.id = $${values.length}
+       LIMIT 1`,
       values,
     );
     return result.rows[0] !== undefined;
@@ -163,29 +234,45 @@ export class CoursesRepository {
     access: CourseAccess,
   ): Promise<PublicCourse[]> {
     const values: SqlParameter[] = [];
-    const conditions: string[] = [accessSql(access, values)];
-    if (filters.organizationId !== undefined) {
-      values.push(filters.organizationId);
-      conditions.push(`c.owning_organization_id = $${values.length}`);
+    const accessResult = accessSql(access, values);
+    const conditions: string[] = [];
+
+    if (filters.learnerCatalogue === true) {
+      if (accessResult.enrolledParamIndex === undefined) {
+        conditions.push(
+          `${accessResult.clause} AND cs.status_code = 'active'`,
+        );
+      } else {
+        conditions.push(`(
+          (${accessResult.clause} AND cs.status_code = 'active')
+          OR (
+            cs.status_code = 'deactivated'
+            AND EXISTS (
+              SELECT 1
+              FROM enrollments e
+              JOIN enrollment_statuses es
+                ON es.enrollment_status_id = e.enrollment_status_id
+              WHERE e.course_id = c.id
+                AND e.user_id = $${accessResult.enrolledParamIndex}
+                AND es.status_code = 'active'
+            )
+          )
+        )`);
+      }
+    } else {
+      conditions.push(accessResult.clause);
+      if (filters.status !== undefined && filters.status !== 'all') {
+        values.push(filters.status);
+        conditions.push(`cs.status_code = $${values.length}`);
+      } else if (filters.status !== 'all') {
+        conditions.push(`cs.status_code = 'active'`);
+      }
     }
-    if (filters.visibility !== undefined) {
-      values.push(filters.visibility);
-      conditions.push(`cv.visibility_code = $${values.length}`);
-    }
-    if (filters.status !== undefined && filters.status !== 'all') {
-      values.push(filters.status);
-      conditions.push(`cs.status_code = $${values.length}`);
-    } else if (filters.status !== 'all') {
-      conditions.push(`cs.status_code = 'active'`);
-    }
-    if (filters.search !== undefined) {
-      values.push(`%${filters.search}%`);
-      conditions.push(
-        `(c.title ILIKE $${values.length} OR coalesce(c.description, '') ILIKE $${values.length})`,
-      );
-    }
+
+    appendSharedListFilters(filters, values, conditions);
+
     const result = await this.postgres.query<CourseRow>(
-      `${courseSelectSql}
+      `${courseSelectSql(accessResult.enrolledParamIndex)}
        ${whereClause(conditions)}
        ORDER BY c.updated_at DESC`,
       values,

@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   IsUUID,
   Min,
   ValidateNested,
@@ -45,6 +46,15 @@ class CreateQuestionDto {
   @IsString()
   prompt: string;
 
+  @ApiProperty({
+    required: false,
+    description: 'Optional explanation of why the correct answer is correct',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  correctReason?: string;
+
   @ApiProperty({ description: 'bloom_levels.bloom_level_id' })
   @IsNumber()
   bloomLevelId: number;
@@ -81,6 +91,15 @@ class UpdateQuestionDto {
   @IsOptional()
   @IsString()
   prompt?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Optional explanation of why the correct answer is correct',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  correctReason?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -131,7 +150,11 @@ export class QuestionsController {
   @ApiQuery({ name: 'bloomLevelId', required: false })
   @ApiQuery({ name: 'difficultyLevelId', required: false })
   @ApiQuery({ name: 'questionFormatId', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: ['active', 'deactivated'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['active', 'deactivated', 'all'],
+  })
   @ApiOperation({
     summary: 'List questions (authors)',
     description:
@@ -179,6 +202,7 @@ export class QuestionsController {
       courseSectionId: dto.courseSectionId,
       questionFormatId: dto.questionFormatId,
       prompt: dto.prompt,
+      correctReason: dto.correctReason,
       bloomLevelId: dto.bloomLevelId,
       difficultyLevelId: dto.difficultyLevelId,
       baseDifficulty: dto.baseDifficulty,
@@ -201,6 +225,7 @@ export class QuestionsController {
     return this.questions.update(actor, id, {
       courseSectionId: dto.courseSectionId,
       prompt: dto.prompt,
+      correctReason: dto.correctReason,
       questionFormatId: dto.questionFormatId,
       bloomLevelId: dto.bloomLevelId,
       difficultyLevelId: dto.difficultyLevelId,

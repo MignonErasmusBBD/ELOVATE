@@ -113,23 +113,44 @@ export function CoursesPage() {
       setErrorMessage(undefined);
 
       try {
-        const [active, archived, enrollments] = await Promise.all([
-          listCourses(),
-          listCourses({ status: "deactivated" }),
-          listMyEnrollments("active"),
-        ]);
+        const courses = await listCourses({ status: "all" });
+        const listIncludesEnrollment = courses.every(
+          (course) => course.isEnrolled !== undefined,
+        );
+        const enrollments = listIncludesEnrollment
+          ? []
+          : await listMyEnrollments("active");
 
         if (cancelled) return;
-        setActiveCourses(active);
-        setArchivedCourses(archived);
-        setEnrolledCourseIds(new Set(enrollments.map((e) => e.courseId)));
+        setActiveCourses(
+          courses.filter((course) => course.status !== "deactivated" && course.status !== "draft"),
+        );
+        setArchivedCourses(
+          courses.filter((course) => course.status === "deactivated"),
+        );
+
+        const nextEnrolledIds = new Set<string>();
         const nextRequirements = new Map<string, EnrollmentRequirement>();
-        for (const enrollment of enrollments) {
-          nextRequirements.set(enrollment.courseId, {
-            isRequired: enrollment.isRequired,
-            dueAt: enrollment.dueAt,
-          });
+        if (listIncludesEnrollment) {
+          for (const course of courses) {
+            if (course.isEnrolled === true) {
+              nextEnrolledIds.add(course.id);
+              nextRequirements.set(course.id, {
+                isRequired: course.isRequired === true,
+                dueAt: course.dueAt,
+              });
+            }
+          }
+        } else {
+          for (const enrollment of enrollments) {
+            nextEnrolledIds.add(enrollment.courseId);
+            nextRequirements.set(enrollment.courseId, {
+              isRequired: enrollment.isRequired,
+              dueAt: enrollment.dueAt,
+            });
+          }
         }
+        setEnrolledCourseIds(nextEnrolledIds);
         setEnrollmentRequirements(nextRequirements);
       } catch {
         if (cancelled === false) {

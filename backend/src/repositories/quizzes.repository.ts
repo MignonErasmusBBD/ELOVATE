@@ -5,6 +5,7 @@ import {
   isUuid,
   SqlParameter,
   SqlQuery,
+  textFromDatabase,
   whereClause,
 } from '../helpers/values';
 import { PostgresService } from '../services/postgres.service';
@@ -27,6 +28,7 @@ type ItemRow = {
   quiz_attempt_id: string;
   question_id: string;
   prompt: string;
+  correct_reason: string | null;
   selected_option_id: string | null;
   is_correct: boolean | null;
   answered_at: Date | null;
@@ -55,6 +57,7 @@ export type PublicAttemptItem = {
   id: string;
   questionId: string;
   prompt: string;
+  correctReason: string | undefined;
   selectedOptionId: string | undefined;
   isCorrect: boolean | undefined;
   answeredAt: Date | undefined;
@@ -136,6 +139,7 @@ function toPublicAttempt(
         return {
           ...item,
           isCorrect: undefined,
+          correctReason: undefined,
           options: item.options.map((opt) => ({ ...opt, isCorrect: undefined })),
         };
       }
@@ -749,6 +753,7 @@ export class QuizzesRepository {
       .join(', ');
     const itemResult = await this.postgres.query<ItemRow>(
       `SELECT qi.id, qi.quiz_attempt_id, qi.question_id, q.prompt,
+              q.correct_reason,
               qi.selected_option_id, qi.is_correct, qi.answered_at,
               qi.question_started_at,
               bl.level_name AS bloom_level,
@@ -807,6 +812,7 @@ export class QuizzesRepository {
         id: row.id,
         questionId: row.question_id,
         prompt: row.prompt,
+        correctReason: textFromDatabase(row.correct_reason),
         selectedOptionId:
           row.selected_option_id === null ? undefined : row.selected_option_id,
         isCorrect: booleanFromDatabase(row.is_correct),

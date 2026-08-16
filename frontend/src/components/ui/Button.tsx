@@ -16,7 +16,7 @@ const variantClasses: Record<ButtonVariant, string> = {
   compact:
     "rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white focus-coral hover:brightness-[0.97] disabled:cursor-not-allowed disabled:opacity-60",
   outline:
-    "rounded-lg border border-ink bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:bg-page disabled:cursor-not-allowed disabled:opacity-60",
+    "rounded-lg border border-border-ui bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:bg-page disabled:cursor-not-allowed disabled:opacity-60",
 };
 
 export function Button({

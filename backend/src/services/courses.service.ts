@@ -84,23 +84,22 @@ export class CoursesService {
       const items = await this.courses.list(filters, enrolledAccess);
       return { items };
     }
-    const items = await this.courses.list(filters, this.accessFor(actor));
     if (
       filters.status === 'all' &&
       this.canSeeNonActive(actor) === false
     ) {
-      return {
-        items: items.filter((course) => course.status === 'active'),
-      };
+      const items = await this.courses.list(
+        { ...filters, learnerCatalogue: true },
+        this.accessFor(actor),
+      );
+      return { items };
     }
+    const items = await this.courses.list(filters, this.accessFor(actor));
     return { items };
   }
 
   async getOne(actor: AuthUser, courseId: string) {
-    const course = await this.requireVisibleCourse(actor, courseId);
-    const sections = await this.content.listSections(courseId);
-    const topics = await this.content.listTopics(courseId);
-    return { ...course, sections, topics };
+    return this.requireVisibleCourse(actor, courseId);
   }
 
   async create(

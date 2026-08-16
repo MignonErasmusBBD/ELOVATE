@@ -1,5 +1,6 @@
 import { QuestionMarkIcon } from "@/components/icons/QuestionMarkIcon";
 import type { AttemptItem } from "@/helpers/quizzesApi";
+import { CorrectReasonNotice } from "./CorrectReasonNotice";
 
 type QuizQuestionCardProps = {
   item: AttemptItem;
@@ -158,6 +159,7 @@ export function QuizQuestionCard({
               <span className="font-semibold">{correctOption.optionText}</span>
             </p>
           )}
+          <CorrectReasonNotice reason={item.correctReason} />
         </section>
       ) : hasAnswered ? (
         <p className="mt-6 text-sm font-medium text-text-secondary">

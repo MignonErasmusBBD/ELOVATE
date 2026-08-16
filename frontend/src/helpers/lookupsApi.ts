@@ -106,26 +106,91 @@ async function fetchLookupItems<T>(
   return parsed;
 }
 
+let bloomLevelsCache: BloomLevelLookup[] | undefined;
+let bloomLevelsInFlight: Promise<BloomLevelLookup[]> | undefined;
+let difficultyLevelsCache: DifficultyLevelLookup[] | undefined;
+let difficultyLevelsInFlight: Promise<DifficultyLevelLookup[]> | undefined;
+let questionFormatsCache: QuestionFormatLookup[] | undefined;
+let questionFormatsInFlight: Promise<QuestionFormatLookup[]> | undefined;
+
+async function cachedLookup<T>(
+  cached: T[] | undefined,
+  inFlight: Promise<T[]> | undefined,
+  load: () => Promise<T[]>,
+  remember: (items: T[]) => void,
+  rememberInFlight: (request: Promise<T[]> | undefined) => void,
+): Promise<T[]> {
+  if (cached !== undefined) {
+    return cached;
+  }
+  if (inFlight !== undefined) {
+    return inFlight;
+  }
+  const request = load()
+    .then((items) => {
+      remember(items);
+      return items;
+    })
+    .finally(() => {
+      rememberInFlight(undefined);
+    });
+  rememberInFlight(request);
+  return request;
+}
+
 export async function listBloomLevels(): Promise<BloomLevelLookup[]> {
-  return fetchLookupItems(
-    "/lookups/bloom-levels",
-    parseBloomLevel,
-    "Could not load bloom levels.",
+  return cachedLookup(
+    bloomLevelsCache,
+    bloomLevelsInFlight,
+    () =>
+      fetchLookupItems(
+        "/lookups/bloom-levels",
+        parseBloomLevel,
+        "Could not load bloom levels.",
+      ),
+    (items) => {
+      bloomLevelsCache = items;
+    },
+    (request) => {
+      bloomLevelsInFlight = request;
+    },
   );
 }
 
 export async function listDifficultyLevels(): Promise<DifficultyLevelLookup[]> {
-  return fetchLookupItems(
-    "/lookups/difficulty-levels",
-    parseDifficultyLevel,
-    "Could not load difficulty levels.",
+  return cachedLookup(
+    difficultyLevelsCache,
+    difficultyLevelsInFlight,
+    () =>
+      fetchLookupItems(
+        "/lookups/difficulty-levels",
+        parseDifficultyLevel,
+        "Could not load difficulty levels.",
+      ),
+    (items) => {
+      difficultyLevelsCache = items;
+    },
+    (request) => {
+      difficultyLevelsInFlight = request;
+    },
   );
 }
 
 export async function listQuestionFormats(): Promise<QuestionFormatLookup[]> {
-  return fetchLookupItems(
-    "/lookups/question-formats",
-    parseQuestionFormat,
-    "Could not load question formats.",
+  return cachedLookup(
+    questionFormatsCache,
+    questionFormatsInFlight,
+    () =>
+      fetchLookupItems(
+        "/lookups/question-formats",
+        parseQuestionFormat,
+        "Could not load question formats.",
+      ),
+    (items) => {
+      questionFormatsCache = items;
+    },
+    (request) => {
+      questionFormatsInFlight = request;
+    },
   );
 }

@@ -1,4 +1,5 @@
 import type { AttemptItem } from "@/helpers/quizzesApi";
+import { CorrectReasonNotice } from "./CorrectReasonNotice";
 
 type QuizReviewCardProps = {
   item: AttemptItem;
@@ -63,6 +64,11 @@ export function QuizReviewCard({ item, questionNumber }: QuizReviewCardProps) {
           <span className="font-semibold">Correct answer:</span>{" "}
           {correctOption.optionText}
         </p>
+      )}
+      {item.correctReason === undefined ? undefined : (
+        <section className="mt-4 rounded-xl bg-ink/5 px-4 py-3">
+          <CorrectReasonNotice reason={item.correctReason} className="mt-0" />
+        </section>
       )}
     </article>
   );

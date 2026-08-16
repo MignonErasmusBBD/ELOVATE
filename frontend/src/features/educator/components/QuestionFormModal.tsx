@@ -19,6 +19,7 @@ export type QuestionFormOption = {
 
 export type QuestionFormValues = {
   prompt: string;
+  correctReason: string | undefined;
   courseSectionId: string;
   questionFormatId: number;
   bloomLevelId: number;
@@ -26,6 +27,8 @@ export type QuestionFormValues = {
   baseDifficulty: number;
   options: QuestionFormOption[];
 };
+
+const CORRECT_REASON_MAX_LENGTH = 1000;
 
 export type QuestionFormLookups = {
   bloomLevels: BloomLevelLookup[];
@@ -94,6 +97,9 @@ export function QuestionFormModal({
 
   const [questionPrompt, setQuestionPrompt] = useState(
     initialQuestion?.prompt ?? "",
+  );
+  const [correctReason, setCorrectReason] = useState(
+    initialQuestion?.correctReason ?? "",
   );
   const [courseSectionId, setCourseSectionId] = useState(initialSectionId);
   const [questionFormatId, setQuestionFormatId] = useState(initialFormatId);
@@ -274,8 +280,10 @@ export function QuestionFormModal({
             const difficultyRank =
               selectedDifficulty === undefined ? 1 : selectedDifficulty.rank;
 
+            const trimmedReason = correctReason.trim();
             void onSave({
               prompt: questionPrompt.trim(),
+              correctReason: trimmedReason === "" ? undefined : trimmedReason,
               courseSectionId,
               questionFormatId,
               bloomLevelId,
@@ -464,6 +472,24 @@ export function QuestionFormModal({
               + Add option
             </button>
           </fieldset>
+
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">
+              Why is this correct?{" "}
+              <span className="font-normal text-text-secondary">(optional)</span>
+            </span>
+            <textarea
+              value={correctReason}
+              disabled={isSubmitting}
+              maxLength={CORRECT_REASON_MAX_LENGTH}
+              onChange={(event) => setCorrectReason(event.target.value)}
+              placeholder="Explain why the correct answer is right. Learners see this when they review."
+              className="mt-2 min-h-24 w-full rounded-lg border border-border-ui bg-surface px-3 py-2 text-sm text-ink"
+            />
+            <span className="mt-1 block text-xs text-text-secondary">
+              {correctReason.length}/{CORRECT_REASON_MAX_LENGTH} characters
+            </span>
+          </label>
 
           {validationMessage === undefined ? undefined : (
             <p className="text-sm text-coral" role="alert">

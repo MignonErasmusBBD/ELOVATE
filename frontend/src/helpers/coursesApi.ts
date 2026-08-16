@@ -1,5 +1,5 @@
 import { ElovateApiError, fetchElovateApi } from "@/helpers/elovateApi";
-import { readOptionalNumber } from "@/helpers/jsonFields";
+import { readOptionalBoolean, readOptionalNumber } from "@/helpers/jsonFields";
 
 export type ElovateCourseStatus = "active" | "deactivated" | "draft";
 
@@ -12,7 +12,41 @@ export type ElovateCourseSummary = {
   organizationId?: string;
   sectionCount?: number;
   activeQuestionCount?: number;
+  isEnrolled?: boolean;
+  isRequired?: boolean;
+  dueAt?: string;
 };
+
+const COURSE_CACHE_MS = 20_000;
+
+type CachedCourse = {
+  course: ElovateCourseSummary;
+  expiresAt: number;
+};
+
+const courseCache = new Map<string, CachedCourse>();
+const courseInFlight = new Map<
+  string,
+  Promise<ElovateCourseSummary | undefined>
+>();
+
+function rememberCourse(course: ElovateCourseSummary) {
+  const existing = courseCache.get(course.id);
+  const merged =
+    existing === undefined
+      ? course
+      : {
+          ...existing.course,
+          ...course,
+          isEnrolled: course.isEnrolled ?? existing.course.isEnrolled,
+          isRequired: course.isRequired ?? existing.course.isRequired,
+          dueAt: course.dueAt ?? existing.course.dueAt,
+        };
+  courseCache.set(course.id, {
+    course: merged,
+    expiresAt: Date.now() + COURSE_CACHE_MS,
+  });
+}
 
 export type CreateCourseInput = {
   title: string;
@@ -70,6 +104,9 @@ export function parseCourseSummary(
     status,
     sectionCount: readOptionalNumber(item, "sectionCount"),
     activeQuestionCount: readOptionalNumber(item, "activeQuestionCount"),
+    isEnrolled: readOptionalBoolean(item, "isEnrolled"),
+    isRequired: readOptionalBoolean(item, "isRequired"),
+    dueAt: readOptionalString(item, "dueAt"),
   };
 }
 
@@ -101,6 +138,9 @@ export async function listCourses(
     throw new Error("Course list response was invalid.");
   }
 
+  for (const course of parsedCourses) {
+    rememberCourse(course);
+  }
   return parsedCourses;
 }
 
@@ -159,16 +199,37 @@ function readApiErrorMessage(body: unknown): string {
 export async function getCourse(
   courseId: string,
 ): Promise<ElovateCourseSummary | undefined> {
-  const response = await fetchElovateApi(`/courses/${courseId}`);
-  if (response.status === 404) {
-    return undefined;
+  const cached = courseCache.get(courseId);
+  if (cached !== undefined && Date.now() < cached.expiresAt) {
+    return cached.course;
   }
-  if (response.ok === false) {
-    const body: unknown = await response.json().catch(() => undefined);
-    throw new ElovateApiError(response.status, readApiErrorMessage(body));
+
+  const inFlight = courseInFlight.get(courseId);
+  if (inFlight !== undefined) {
+    return inFlight;
   }
-  const body: unknown = await response.json();
-  return parseCourseSummary(body);
+
+  const request = (async () => {
+    const response = await fetchElovateApi(`/courses/${courseId}`);
+    if (response.status === 404) {
+      return undefined;
+    }
+    if (response.ok === false) {
+      const body: unknown = await response.json().catch(() => undefined);
+      throw new ElovateApiError(response.status, readApiErrorMessage(body));
+    }
+    const body: unknown = await response.json();
+    const course = parseCourseSummary(body);
+    if (course !== undefined) {
+      rememberCourse(course);
+    }
+    return course;
+  })().finally(() => {
+    courseInFlight.delete(courseId);
+  });
+
+  courseInFlight.set(courseId, request);
+  return request;
 }
 
 export async function createCourse(
