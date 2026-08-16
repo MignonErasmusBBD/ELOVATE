@@ -1,33 +1,61 @@
 "use client";
 
-import { useEffect } from "react";
-import { ExplainTip } from "@/components/ui/ExplainTip";
+import { useEffect, useState } from "react";
+import { Spinner } from "@/components/ui/Spinner";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import {
-  enrollmentStatusLabel,
-  enrollmentStatusTone,
-} from "@/helpers/enrollmentStatus";
-import { explainCopy } from "@/helpers/explainCopy";
+  getEducatorStudentCourseDashboard,
+  type StudentCourseDashboard,
+} from "@/helpers/studentDashboardApi";
+import { AttemptsTrendChart } from "@/features/student/components/AttemptsTrendChart";
+import { BreakdownTabs } from "@/features/student/components/BreakdownTabs";
+import { GrowthHighlights } from "@/features/student/components/GrowthHighlights";
+import { RecommendationCards } from "@/features/student/components/RecommendationCards";
 import type { EducatorStudentSummary } from "../types";
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { explainCopy } from "@/helpers/explainCopy";
 import { StudentCognitiveLevelChart } from "./StudentCognitiveLevelChart";
 
 type StudentDetailsModalProps = {
+  courseId: string;
   student: EducatorStudentSummary;
   onClose: () => void;
 };
 
 function statusPillTone(status: EducatorStudentSummary["status"]) {
-  return enrollmentStatusTone(status);
+  if (status === "active") {
+    return "success" as const;
+  }
+  if (status === "completed") {
+    return "muted" as const;
+  }
+  return "warning" as const;
 }
 
 function statusLabel(status: EducatorStudentSummary["status"]) {
-  return enrollmentStatusLabel(status);
+  if (status === "active") {
+    return "Active";
+  }
+  if (status === "completed") {
+    return "Completed";
+  }
+  return "Withdrawn";
 }
 
 export function StudentDetailsModal({
+  courseId,
   student,
   onClose,
 }: StudentDetailsModalProps) {
+  const [dashboard, setDashboard] = useState<
+    StudentCourseDashboard | undefined
+  >(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadErrorMessage, setLoadErrorMessage] = useState<string | undefined>(
+    undefined,
+  );
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -39,8 +67,51 @@ export function StudentDetailsModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const hasCognitiveLevels = student.cognitiveLevels.length > 0;
-  const hasInterventions = student.interventionLabels.length > 0;
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDashboard() {
+      setIsLoading(true);
+      setLoadErrorMessage(undefined);
+      setDashboard(undefined);
+      try {
+        const nextDashboard = await getEducatorStudentCourseDashboard(
+          courseId,
+          student.userId,
+        );
+        if (cancelled === false) {
+          setDashboard(nextDashboard);
+        }
+      } catch (error) {
+        if (cancelled === false) {
+          setLoadErrorMessage(
+            errorMessageFromUnknown(
+              error,
+              "Could not load this learner's practice insights.",
+            ),
+          );
+        }
+      } finally {
+        if (cancelled === false) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadDashboard();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, student.userId]);
+
+  const practicePercent =
+    dashboard?.avgScorePercent !== undefined
+      ? Math.round(dashboard.avgScorePercent)
+      : student.practiceQuizPercent;
+  const practiceAttempts =
+    dashboard?.totalAttempts !== undefined
+      ? dashboard.totalAttempts
+      : student.practiceAttemptCount;
 
   return (
     <div
@@ -103,9 +174,7 @@ export function StudentDetailsModal({
                 Practice Quiz
               </h3>
               <p className="mt-1 text-xl font-bold text-ink">
-                {student.practiceQuizPercent === undefined
-                  ? "—"
-                  : `${student.practiceQuizPercent}%`}
+                {practicePercent === undefined ? "—" : `${practicePercent}%`}
               </p>
             </article>
           </li>
@@ -115,50 +184,107 @@ export function StudentDetailsModal({
                 Practice Attempts
               </h3>
               <p className="mt-1 text-xl font-bold text-ink">
-                {student.practiceAttemptCount === undefined
-                  ? "—"
-                  : student.practiceAttemptCount}
+                {practiceAttempts === undefined ? "—" : practiceAttempts}
               </p>
             </article>
           </li>
         </ul>
 
-        <section className="mt-6 rounded-2xl border border-border-ui p-5">
-          <header className="flex items-center justify-between gap-2">
-            <h3 className="min-w-0 text-base font-bold text-ink">
-              Performance by Cognitive Level
-            </h3>
-            <ExplainTip label="About this student cognitive chart">
-              {explainCopy.studentCognitive}
-            </ExplainTip>
-          </header>
-          {hasCognitiveLevels ? (
-            <StudentCognitiveLevelChart
-              cognitiveLevels={student.cognitiveLevels}
-            />
-          ) : (
-            <p className="mt-3 text-sm text-text-secondary">
-              Cognitive-level performance is not available yet for this student.
-            </p>
-          )}
-        </section>
+        {isLoading ? (
+          <p className="mt-8 flex items-center gap-3 text-sm text-text-secondary">
+            <Spinner />
+            Loading practice insights…
+          </p>
+        ) : undefined}
 
-        <section className="mt-6 rounded-xl border border-coral/40 bg-coral/10 p-5">
-          <h3 className="text-base font-bold text-coral">
-            Trigger Interventions
-          </h3>
-          {hasInterventions ? (
-            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-coral">
-              {student.interventionLabels.map((label) => (
-                <li key={label}>{label}</li>
+        {loadErrorMessage !== undefined ? (
+          <p className="mt-8 rounded-xl border border-coral/40 bg-coral/10 px-4 py-3 text-sm text-coral">
+            {loadErrorMessage}
+          </p>
+        ) : undefined}
+
+        {dashboard !== undefined ? (
+          <section className="mt-8 flex flex-col gap-6">
+            <article className="rounded-2xl border border-border-ui bg-surface p-5 md:p-6">
+              <AttemptsTrendChart
+                trendAttempts={dashboard.trendAttempts}
+                overallAvgScorePercent={dashboard.overallAvgScorePercent}
+                totalAttempts={dashboard.totalAttempts}
+                viewerRole="educator"
+              />
+            </article>
+
+            {dashboard.recommendations
+              .filter((r) => r.flagType === "mandatory_at_risk")
+              .map((r) => (
+                <article
+                  key={r.id}
+                  className="rounded-2xl border border-coral/30 bg-coral/5 p-5 md:p-6"
+                >
+                  <header className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-coral/15 text-coral">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-4 w-4">
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                    </span>
+                    <span className="text-sm font-semibold text-coral">
+                      Mandatory course — progress at risk
+                    </span>
+                  </header>
+                  <p className="mt-3 text-sm leading-relaxed text-ink">
+                    {r.sentence}
+                  </p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-text-secondary">
+                    {r.evidence}
+                  </p>
+                </article>
               ))}
-            </ul>
-          ) : (
-            <p className="mt-3 text-sm text-text-secondary">
-              No open interventions.
-            </p>
-          )}
-        </section>
+
+            {dashboard.recommendations.filter(
+              (r) => r.flagType !== "mandatory_at_risk",
+            ).length > 0 && (
+              <article className="rounded-2xl border border-border-ui bg-surface p-5 md:p-6">
+                <RecommendationCards
+                  recommendations={dashboard.recommendations.filter(
+                    (r) => r.flagType !== "mandatory_at_risk",
+                  )}
+                  courseId={courseId}
+                  showLinks={false}
+                  viewerRole="educator"
+                />
+              </article>
+            )}
+
+            <article className="rounded-2xl border border-border-ui bg-surface p-5 md:p-6">
+              <BreakdownTabs
+                bloomBreakdown={dashboard.bloomBreakdown}
+                sectionBreakdown={dashboard.sectionBreakdown}
+                difficultyBreakdown={dashboard.difficultyBreakdown}
+                viewerRole="educator"
+              />
+            </article>
+
+            {dashboard.totalAttempts > 0 ? (
+              <article className="rounded-2xl border border-border-ui bg-surface p-5 md:p-6">
+                <GrowthHighlights
+                  totalAttempts={dashboard.totalAttempts}
+                  growthDeltaPercent={dashboard.growthDeltaPercent}
+                  streakAboveTarget={dashboard.streakAboveTarget}
+                  mostImprovedCategory={dashboard.mostImprovedCategory}
+                  regressionFlag={dashboard.regressionFlag}
+                  stalledFlag={dashboard.stalledFlag}
+                  bestScorePercent={dashboard.bestScorePercent}
+                  firstAttemptScorePercent={dashboard.firstAttemptScorePercent}
+                  avgScorePercent={dashboard.avgScorePercent}
+                  viewerRole="educator"
+                />
+              </article>
+            ) : undefined}
+          </section>
+        ) : undefined}
+
       </article>
     </div>
   );

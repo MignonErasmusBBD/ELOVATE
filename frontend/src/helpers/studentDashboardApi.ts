@@ -8,6 +8,12 @@ import {
   readRequiredString,
 } from "@/helpers/jsonFields";
 
+export type MandatoryFlagResult = {
+  flaggedCount: number;
+  resolvedCount: number;
+  activeFlaggedUserIds: string[];
+};
+
 export type TrendAttempt = {
   attemptNumber: number;
   scorePercent: number;
@@ -176,6 +182,47 @@ export async function getStudentCourseDashboard(
     throw new Error("Student dashboard response was invalid.");
   }
   return dashboard;
+}
+
+export async function getActiveMandatoryFlaggedUserIds(
+  courseId: string,
+): Promise<string[]> {
+  const body = await elovateApiJson(
+    `/analytics/educator/courses/${encodeURIComponent(courseId)}/flags/mandatory-progress`,
+  );
+  if (isPlainObject(body) === false) {
+    return [];
+  }
+  const rawIds = "activeFlaggedUserIds" in body ? Reflect.get(body, "activeFlaggedUserIds") : undefined;
+  return Array.isArray(rawIds)
+    ? rawIds.filter((id): id is string => typeof id === "string")
+    : [];
+}
+
+export async function triggerMandatoryProgressFlags(
+  courseId: string,
+): Promise<MandatoryFlagResult> {
+  const body = await elovateApiJson(
+    `/analytics/educator/courses/${encodeURIComponent(courseId)}/flags/mandatory-progress`,
+    { method: "POST" },
+  );
+  if (isPlainObject(body) === false) {
+    throw new Error("Mandatory progress flag response was invalid.");
+  }
+  const rawIds = "activeFlaggedUserIds" in body ? Reflect.get(body, "activeFlaggedUserIds") : undefined;
+  const activeFlaggedUserIds: string[] = Array.isArray(rawIds)
+    ? rawIds.filter((id): id is string => typeof id === "string")
+    : [];
+  return {
+    flaggedCount: readOptionalNumber(body, "flaggedCount") ?? 0,
+    resolvedCount: readOptionalNumber(body, "resolvedCount") ?? 0,
+    activeFlaggedUserIds: (() => {
+      const raw = (body as Record<string, unknown>)["activeFlaggedUserIds"];
+      return Array.isArray(raw)
+        ? raw.filter((id): id is string => typeof id === "string")
+        : [];
+    })(),
+  };
 }
 
 export async function getEducatorStudentCourseDashboard(

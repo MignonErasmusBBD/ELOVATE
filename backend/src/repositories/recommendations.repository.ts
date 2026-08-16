@@ -9,6 +9,9 @@ import {
   fillTemplate,
 } from './recommendation-templates';
 
+// Minimum completed quiz attempts for a mandatory enrollment to be considered progressing.
+const MIN_MANDATORY_QUIZ_ATTEMPTS = 4;
+
 // Minimum questions answered before a section is included in flag evaluation.
 const MIN_QUESTIONS_FOR_FLAG = 3;
 // Section score below this triggers repeated_low_topic and content_not_retained.
@@ -203,6 +206,129 @@ export class RecommendationsRepository {
       });
     }
     return result;
+  }
+
+  async activeMandatoryFlaggedUserIds(courseId: string): Promise<string[]> {
+    const result = await this.postgres.query<{ student_id: string }>(
+      `SELECT sr.student_id
+       FROM student_recommendations sr
+       JOIN recommendation_statuses rs
+         ON rs.recommendation_status_id = sr.recommendation_status_id
+       WHERE sr.course_id = $1
+         AND sr.flag_type = 'mandatory_at_risk'
+         AND sr.target_ref IS NULL
+         AND rs.status_code = 'active'`,
+      [courseId],
+    );
+    return result.rows.map((r) => r.student_id);
+  }
+
+  async evaluateMandatoryProgressFlags(
+    courseId: string,
+  ): Promise<{ flaggedCount: number; resolvedCount: number; activeFlaggedUserIds: string[] }> {
+    const [enrolled, activeFlags] = await Promise.all([
+      this.postgres.query<{ user_id: string; due_at: Date; total_attempts: number }>(
+        `SELECT e.user_id, e.due_at,
+                coalesce(scp.total_attempts, 0)::int AS total_attempts
+         FROM enrollments e
+         JOIN enrollment_statuses es
+           ON es.enrollment_status_id = e.enrollment_status_id
+         LEFT JOIN student_course_profile scp
+           ON scp.user_id = e.user_id AND scp.course_id = e.course_id
+         WHERE e.course_id = $1
+           AND e.is_required = true
+           AND e.due_at IS NOT NULL
+           AND es.status_code = 'active'`,
+        [courseId],
+      ),
+      this.postgres.query<{ id: string; student_id: string }>(
+        `SELECT sr.id, sr.student_id
+         FROM student_recommendations sr
+         JOIN recommendation_statuses rs
+           ON rs.recommendation_status_id = sr.recommendation_status_id
+         WHERE sr.course_id = $1
+           AND sr.flag_type = 'mandatory_at_risk'
+           AND sr.target_ref IS NULL
+           AND rs.status_code = 'active'`,
+        [courseId],
+      ),
+    ]);
+
+    const activeFlagByUser = new Map<string, string>();
+    for (const flag of activeFlags.rows) {
+      activeFlagByUser.set(flag.student_id, flag.id);
+    }
+
+    let flaggedCount = 0;
+    let resolvedCount = 0;
+    const activeFlaggedUserIds: string[] = [];
+
+    for (const row of enrolled.rows) {
+      const dueDate = new Date(row.due_at).toISOString().split('T')[0];
+      const needsFlag = row.total_attempts < MIN_MANDATORY_QUIZ_ATTEMPTS;
+      const existingId = activeFlagByUser.get(row.user_id);
+      const evidence = JSON.stringify({
+        attempts: row.total_attempts,
+        min_attempts: MIN_MANDATORY_QUIZ_ATTEMPTS,
+        due_date: dueDate,
+      });
+
+      if (needsFlag) {
+        activeFlaggedUserIds.push(row.user_id);
+        if (existingId !== undefined) {
+          await this.postgres.query(
+            `UPDATE student_recommendations
+             SET last_evaluated_at = now(), evidence = $2
+             WHERE id = $1`,
+            [existingId, evidence],
+          );
+        } else {
+          const resolved = await this.postgres.query<{ id: string }>(
+            `SELECT sr.id FROM student_recommendations sr
+             JOIN recommendation_statuses rs
+               ON rs.recommendation_status_id = sr.recommendation_status_id
+             WHERE sr.student_id = $1 AND sr.course_id = $2
+               AND sr.flag_type = 'mandatory_at_risk' AND sr.target_ref IS NULL
+               AND rs.status_code = 'resolved'
+             LIMIT 1`,
+            [row.user_id, courseId],
+          );
+          if (resolved.rows[0] !== undefined) {
+            await this.postgres.query(
+              `UPDATE student_recommendations
+               SET recommendation_status_id = rs.recommendation_status_id,
+                   triggered_at = now(), last_evaluated_at = now(),
+                   evidence = $2, resolved_at = NULL
+               FROM recommendation_statuses rs
+               WHERE student_recommendations.id = $1 AND rs.status_code = 'active'`,
+              [resolved.rows[0].id, evidence],
+            );
+          } else {
+            await this.postgres.query(
+              `INSERT INTO student_recommendations
+                 (student_id, course_id, flag_type, target_ref, recommendation_status_id, evidence)
+               SELECT $1, $2, 'mandatory_at_risk', NULL, rs.recommendation_status_id, $3
+               FROM recommendation_statuses rs
+               WHERE rs.status_code = 'active'`,
+              [row.user_id, courseId, evidence],
+            );
+          }
+          flaggedCount += 1;
+        }
+      } else if (existingId !== undefined) {
+        await this.postgres.query(
+          `UPDATE student_recommendations
+           SET recommendation_status_id = rs.recommendation_status_id,
+               resolved_at = now(), last_evaluated_at = now()
+           FROM recommendation_statuses rs
+           WHERE student_recommendations.id = $1 AND rs.status_code = 'resolved'`,
+          [existingId],
+        );
+        resolvedCount += 1;
+      }
+    }
+
+    return { flaggedCount, resolvedCount, activeFlaggedUserIds };
   }
 
   private async detectFlags(

@@ -69,7 +69,7 @@ export function ExplainTip({
         <QuestionMarkIcon className="size-3.5" />
       </button>
       {isOpen === false ? undefined : (
-        <p
+        <div
           id={panelId}
           role="note"
           className={`absolute top-full z-40 mt-2 w-72 max-w-[min(18rem,calc(100vw-2rem))] rounded-xl border border-border-ui bg-surface p-3 text-left text-xs font-normal leading-relaxed text-text-secondary shadow-[0_12px_32px_rgba(30,27,51,0.16)] ${
@@ -77,7 +77,7 @@ export function ExplainTip({
           }`}
         >
           {children}
-        </p>
+        </div>
       )}
     </span>
   );
