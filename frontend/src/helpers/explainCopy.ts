@@ -25,6 +25,12 @@ export const explainCopy = {
     "Count of active questions by Bloom level, stacked by Easy, Medium, and Hard. Use it to see whether harder items are clustered on only a few skills.",
   interventionFlags:
     "Open intervention rules for this course. Each bar is how many learners currently match that rule, such as a low score or a long gap since the last quiz.",
+  practiceAttemptProgress:
+    "Each coral point is the class average for that attempt number (first quiz, second quiz, and so on). The dotted line is the course-wide average. Named lines are learners more than two standard deviations from the class.",
+  practiceScoreDistribution:
+    "The solid curve is how learner averages are spread. The dotted curve is an ideal bell around the target mean. If the class mean sits left of the ideal line, scores are lower than the target.",
+  practiceQuestionSuccess:
+    "All shows the mix of too-hard, too-easy, and balanced items. Needs revision lists questions under 30% success. High success lists items over 95% that may no longer challenge learners.",
   questionsBank:
     "Only active questions are drawn into practice quizzes. Deactivate a question to retire it without deleting quiz history.",
   questionBloom:

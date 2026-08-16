@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { ExplainTip } from "@/components/ui/ExplainTip";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { explainCopy } from "@/helpers/explainCopy";
 import type {
   EducatorCoursePracticeInsights,
   QuestionSuccessStat,
@@ -463,13 +465,18 @@ export function PracticeInsightsTab({ insights }: PracticeInsightsTabProps) {
       <ul className="grid list-none grid-cols-1 gap-6 p-0">
         <li>
           <article className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
-            <h3 className="text-base font-bold text-ink">
-              Practice attempt progress
-            </h3>
-            <p className="mt-1 text-sm text-text-secondary">
-              Class average (coral), course-wide average (dark dotted), and any
-              outlier learners (±2 SD) as named trajectories.
-            </p>
+            <header>
+              <h3 className="flex items-start justify-between gap-2 text-base font-bold text-ink">
+                <span className="min-w-0">Practice attempt progress</span>
+                <ExplainTip label="About practice attempt progress">
+                  {explainCopy.practiceAttemptProgress}
+                </ExplainTip>
+              </h3>
+              <p className="mt-1 text-sm text-text-secondary">
+                Class average (coral), course-wide average (dark dotted), and any
+                outlier learners (±2 SD) as named trajectories.
+              </p>
+            </header>
             {showAttemptProgress ? (
               <AttemptProgressChart
                 courseWideAveragePercent={
@@ -496,14 +503,19 @@ export function PracticeInsightsTab({ insights }: PracticeInsightsTabProps) {
 
         <li>
           <article className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
-            <h3 className="text-base font-bold text-ink">
-              Score distribution
-            </h3>
-            <p className="mt-1 text-sm text-text-secondary">
-              Class score distribution (solid) against an ideal bell curve
-              centred at {insights.scoreDistribution.idealMeanPercent}%
-              (dotted). Vertical lines mark the class and ideal means.
-            </p>
+            <header>
+              <h3 className="flex items-start justify-between gap-2 text-base font-bold text-ink">
+                <span className="min-w-0">Score distribution</span>
+                <ExplainTip label="About the score distribution">
+                  {explainCopy.practiceScoreDistribution}
+                </ExplainTip>
+              </h3>
+              <p className="mt-1 text-sm text-text-secondary">
+                Class score distribution (solid) against an ideal bell curve
+                centred at {insights.scoreDistribution.idealMeanPercent}%
+                (dotted). Vertical lines mark the class and ideal means.
+              </p>
+            </header>
             {showDistribution ? (
               <ScoreDistributionChart
                 densityCurve={insights.scoreDistribution.densityCurve}
@@ -530,14 +542,19 @@ export function PracticeInsightsTab({ insights }: PracticeInsightsTabProps) {
 
         <li>
           <article className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
-            <h3 className="text-base font-bold text-ink">
-              Question success rates
-            </h3>
-            <p className="mt-1 text-sm text-text-secondary">
-              Review the overall mix, then drill into items that need revision
-              (&lt;{LOW_SUCCESS_PERCENT}%) or look too easy (&gt;
-              {HIGH_SUCCESS_PERCENT}%).
-            </p>
+            <header>
+              <h3 className="flex items-start justify-between gap-2 text-base font-bold text-ink">
+                <span className="min-w-0">Question success rates</span>
+                <ExplainTip label="About question success rates">
+                  {explainCopy.practiceQuestionSuccess}
+                </ExplainTip>
+              </h3>
+              <p className="mt-1 text-sm text-text-secondary">
+                Review the overall mix, then drill into items that need revision
+                (&lt;{LOW_SUCCESS_PERCENT}%) or look too easy (&gt;
+                {HIGH_SUCCESS_PERCENT}%).
+              </p>
+            </header>
 
             {showQuestionSuccess ? (
               <>
