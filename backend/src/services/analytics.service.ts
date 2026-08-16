@@ -25,6 +25,11 @@ export class AnalyticsService {
     return this.analytics.courseMastery(actor.id, courseId);
   }
 
+  async readStudentCourseDashboard(actor: AuthUser, courseId: string) {
+    requirePermission(actor, ['analytics.read.self']);
+    return this.analytics.studentCourseDashboard(actor.id, courseId);
+  }
+
   async readOrganizationOverview(
     actor: AuthUser,
     organizationId: string | undefined,

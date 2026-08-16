@@ -499,6 +499,163 @@ export class QuizzesRepository {
            updated_at = now()`,
         [userId],
       );
+
+      // Refresh dashboard summary columns on student_course_profile.
+      // Aggregate all completed attempts so the dashboard can do a plain read.
+      const attemptScores = await query<{
+        score_percent: number | null;
+        time_seconds: number | null;
+      }>(
+        `SELECT
+           (count(*) FILTER (WHERE qi.is_correct = true)::float
+            / NULLIF(count(qi.id), 0)::float * 100) AS score_percent,
+           EXTRACT(EPOCH FROM (qa.completed_at - qa.started_at))::float AS time_seconds
+         FROM quiz_attempts qa
+         JOIN quiz_attempt_items qi ON qi.quiz_attempt_id = qa.id
+         JOIN quiz_attempt_statuses st ON st.quiz_attempt_status_id = qa.quiz_attempt_status_id
+         WHERE qa.user_id = $1 AND qa.course_id = $2 AND st.status_code = 'completed'
+         GROUP BY qa.id, qa.completed_at, qa.started_at
+         ORDER BY qa.completed_at ASC`,
+        [userId, courseId],
+      );
+
+      const scores = attemptScores.rows.map((r) =>
+        r.score_percent === null ? 0 : r.score_percent,
+      );
+      const times = attemptScores.rows.map((r) =>
+        r.time_seconds === null ? 0 : r.time_seconds,
+      );
+      const totalAttempts = scores.length;
+
+      let avgScorePercent: number | null = null;
+      let avgTimeSeconds: number | null = null;
+      let bestScorePercent: number | null = null;
+      let firstAttemptScorePct: number | null = null;
+      let streakAboveTarget = 0;
+      let growthDeltaPercent: number | null = null;
+      let regressionFlag = false;
+      let stalledFlag = false;
+
+      if (totalAttempts > 0) {
+        avgScorePercent = scores.reduce((sum, s) => sum + s, 0) / totalAttempts;
+        avgTimeSeconds = times.reduce((sum, t) => sum + t, 0) / totalAttempts;
+        bestScorePercent = Math.max(...scores);
+        firstAttemptScorePct = scores[0] ?? null;
+
+        for (let i = scores.length - 1; i >= 0; i--) {
+          if ((scores[i] ?? 0) >= 70) {
+            streakAboveTarget++;
+          } else {
+            break;
+          }
+        }
+
+        if (totalAttempts >= 4) {
+          const n = Math.min(3, Math.floor(totalAttempts / 2));
+          const firstN = scores.slice(0, n).reduce((sum, s) => sum + s, 0) / n;
+          const lastN = scores.slice(-n).reduce((sum, s) => sum + s, 0) / n;
+          growthDeltaPercent = lastN - firstN;
+        }
+
+        if (totalAttempts >= 6) {
+          const firstThreeAvg =
+            ((scores[0] ?? 0) + (scores[1] ?? 0) + (scores[2] ?? 0)) / 3;
+          const lastThreeAvg =
+            ((scores[totalAttempts - 3] ?? 0) +
+              (scores[totalAttempts - 2] ?? 0) +
+              (scores[totalAttempts - 1] ?? 0)) /
+            3;
+          regressionFlag = lastThreeAvg < firstThreeAvg - 5;
+        }
+
+        if (totalAttempts >= 5) {
+          const lastFive = scores.slice(-5);
+          const avg5 = lastFive.reduce((sum, s) => sum + s, 0) / 5;
+          const variance =
+            lastFive.reduce((sum, s) => sum + (s - avg5) ** 2, 0) / 5;
+          stalledFlag = variance < 25 && avg5 < 70;
+        }
+      }
+
+      // Most improved: bloom level with the largest improvement from first to second half.
+      let mostImprovedCategory: string | null = null;
+      if (totalAttempts >= 4) {
+        const improvedResult = await query<{
+          category: string;
+          improvement: number;
+        }>(
+          `WITH ordered_attempts AS (
+             SELECT qa.id,
+                    row_number() OVER (ORDER BY qa.completed_at ASC) AS rn,
+                    count(*) OVER ()                                  AS total
+             FROM quiz_attempts qa
+             JOIN quiz_attempt_statuses st
+               ON st.quiz_attempt_status_id = qa.quiz_attempt_status_id
+             WHERE qa.user_id = $1 AND qa.course_id = $2
+               AND st.status_code = 'completed'
+           ),
+           split_items AS (
+             SELECT qi.question_id, qi.is_correct,
+                    CASE WHEN oa.rn <= oa.total / 2 THEN 'first' ELSE 'second' END AS half
+             FROM quiz_attempt_items qi
+             JOIN ordered_attempts oa ON oa.id = qi.quiz_attempt_id
+           ),
+           bloom_perf AS (
+             SELECT bl.level_name AS category,
+                    avg(CASE WHEN si.is_correct THEN 100.0 ELSE 0.0 END)
+                      FILTER (WHERE si.half = 'first')  AS first_pct,
+                    avg(CASE WHEN si.is_correct THEN 100.0 ELSE 0.0 END)
+                      FILTER (WHERE si.half = 'second') AS second_pct
+             FROM bloom_levels bl
+             JOIN questions q ON q.bloom_level_id = bl.bloom_level_id
+             JOIN course_sections cs
+               ON cs.id = q.course_section_id AND cs.course_id = $2
+             JOIN split_items si ON si.question_id = q.id
+             GROUP BY bl.level_name
+             HAVING count(*) >= 4
+           )
+           SELECT category,
+                  (second_pct - first_pct) AS improvement
+           FROM bloom_perf
+           WHERE first_pct IS NOT NULL AND second_pct IS NOT NULL
+           ORDER BY improvement DESC NULLS LAST
+           LIMIT 1`,
+          [userId, courseId],
+        );
+        const row = improvedResult.rows[0];
+        if (row !== undefined && row.improvement > 0) {
+          mostImprovedCategory = row.category;
+        }
+      }
+
+      await query(
+        `UPDATE student_course_profile SET
+           total_attempts          = $3,
+           avg_score_percent       = $4,
+           avg_time_seconds        = $5,
+           best_score_percent      = $6,
+           first_attempt_score_pct = $7,
+           streak_above_target     = $8,
+           most_improved_category  = $9,
+           growth_delta_percent    = $10,
+           regression_flag         = $11,
+           stalled_flag            = $12
+         WHERE user_id = $1 AND course_id = $2`,
+        [
+          userId,
+          courseId,
+          totalAttempts,
+          avgScorePercent,
+          avgTimeSeconds,
+          bestScorePercent,
+          firstAttemptScorePct,
+          streakAboveTarget,
+          mostImprovedCategory,
+          growthDeltaPercent,
+          regressionFlag,
+          stalledFlag,
+        ],
+      );
     });
   }
 

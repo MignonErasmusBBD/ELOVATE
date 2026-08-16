@@ -275,6 +275,193 @@ export class AnalyticsRepository {
     };
   }
 
+  async studentCourseDashboard(userId: string, courseId: string) {
+    const [profileResult, trendResult, bloomResult, sectionResult, difficultyResult] =
+      await Promise.all([
+        this.postgres.query<{
+          total_attempts: number;
+          avg_score_percent: number | null;
+          avg_time_seconds: number | null;
+          best_score_percent: number | null;
+          first_attempt_score_pct: number | null;
+          streak_above_target: number;
+          most_improved_category: string | null;
+          growth_delta_percent: number | null;
+          regression_flag: boolean;
+          stalled_flag: boolean;
+          questions_answered: number;
+          correct_count: number;
+        }>(
+          `SELECT total_attempts, avg_score_percent, avg_time_seconds,
+                  best_score_percent, first_attempt_score_pct,
+                  streak_above_target, most_improved_category,
+                  growth_delta_percent, regression_flag, stalled_flag,
+                  questions_answered, correct_count
+           FROM student_course_profile
+           WHERE user_id = $1 AND course_id = $2`,
+          [userId, courseId],
+        ),
+
+        // Last 10 completed attempts — cheap direct query via the partial index.
+        this.postgres.query<{
+          attempt_num: number;
+          score_percent: number;
+        }>(
+          `WITH attempt_totals AS (
+             SELECT qa.id,
+                    qa.completed_at,
+                    count(*) FILTER (WHERE qi.is_correct = true)  AS correct_count,
+                    count(qi.id)                                  AS total_count
+             FROM quiz_attempts qa
+             JOIN quiz_attempt_items qi ON qi.quiz_attempt_id = qa.id
+             JOIN quiz_attempt_statuses st
+               ON st.quiz_attempt_status_id = qa.quiz_attempt_status_id
+             WHERE qa.user_id = $1 AND qa.course_id = $2
+               AND st.status_code = 'completed'
+             GROUP BY qa.id, qa.completed_at
+           ),
+           ranked AS (
+             SELECT *,
+                    row_number() OVER (ORDER BY completed_at DESC) AS recent_rank,
+                    row_number() OVER (ORDER BY completed_at ASC)  AS attempt_num
+             FROM attempt_totals
+           )
+           SELECT attempt_num::int,
+                  CASE WHEN total_count > 0
+                    THEN (correct_count::float / total_count::float * 100)
+                    ELSE 0
+                  END AS score_percent
+           FROM ranked
+           WHERE recent_rank <= 10
+           ORDER BY completed_at ASC`,
+          [userId, courseId],
+        ),
+
+        this.postgres.query<{
+          level_name: string;
+          questions_answered: number;
+          correct_count: number;
+        }>(
+          `SELECT bl.level_name, sbm.questions_answered, sbm.correct_count
+           FROM student_bloom_mastery sbm
+           JOIN bloom_levels bl ON bl.bloom_level_id = sbm.bloom_level_id
+           WHERE sbm.user_id = $1 AND sbm.course_id = $2
+           ORDER BY bl.level_rank`,
+          [userId, courseId],
+        ),
+
+        this.postgres.query<{
+          section_title: string;
+          questions_answered: number;
+          correct_count: number;
+        }>(
+          `SELECT cs.title AS section_title, ssm.questions_answered, ssm.correct_count
+           FROM student_section_mastery ssm
+           JOIN course_sections cs ON cs.id = ssm.course_section_id
+           WHERE ssm.user_id = $1 AND ssm.course_id = $2
+           ORDER BY cs.position, cs.title`,
+          [userId, courseId],
+        ),
+
+        this.postgres.query<{
+          level_name: string;
+          questions_answered: number;
+          correct_count: number;
+        }>(
+          `SELECT dl.level_name, sdm.questions_answered, sdm.correct_count
+           FROM student_difficulty_mastery sdm
+           JOIN difficulty_levels dl ON dl.difficulty_level_id = sdm.difficulty_level_id
+           WHERE sdm.user_id = $1 AND sdm.course_id = $2
+           ORDER BY dl.level_rank`,
+          [userId, courseId],
+        ),
+      ]);
+
+    const profile = profileResult.rows[0];
+    const totalAttempts = profile?.total_attempts ?? 0;
+    const overallQuestionsAnswered = profile?.questions_answered ?? 0;
+    const overallCorrectCount = profile?.correct_count ?? 0;
+    const overallAvgScorePercent =
+      overallQuestionsAnswered > 0
+        ? (overallCorrectCount / overallQuestionsAnswered) * 100
+        : undefined;
+
+    function toBreakdown(rows: { level_name?: string; section_title?: string; questions_answered: number; correct_count: number }[]) {
+      return rows.map((r) => ({
+        categoryName: r.level_name ?? r.section_title ?? '',
+        questionsAnswered: r.questions_answered,
+        scorePercent:
+          r.questions_answered > 0
+            ? (r.correct_count / r.questions_answered) * 100
+            : 0,
+      }));
+    }
+
+    const bloomBreakdown = toBreakdown(
+      bloomResult.rows.map((r) => ({ level_name: r.level_name, questions_answered: r.questions_answered, correct_count: r.correct_count })),
+    );
+    const sectionBreakdown = toBreakdown(
+      sectionResult.rows.map((r) => ({ level_name: r.section_title, questions_answered: r.questions_answered, correct_count: r.correct_count })),
+    );
+    const difficultyBreakdown = toBreakdown(
+      difficultyResult.rows.map((r) => ({ level_name: r.level_name, questions_answered: r.questions_answered, correct_count: r.correct_count })),
+    );
+
+    // Generate 2–3 recommendations from the weakest categories across all breakdowns.
+    const allCategories = [
+      ...bloomBreakdown.map((c) => ({ ...c, dimension: 'cognitive level' })),
+      ...sectionBreakdown.map((c) => ({ ...c, dimension: 'section' })),
+      ...difficultyBreakdown.map((c) => ({ ...c, dimension: 'difficulty' })),
+    ]
+      .filter((c) => c.questionsAnswered >= 3)
+      .sort((a, b) => a.scorePercent - b.scorePercent);
+
+    const recommendations: string[] = [];
+    const seen = new Set<string>();
+    for (const cat of allCategories) {
+      if (recommendations.length >= 3) break;
+      const key = cat.categoryName;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const pct = Math.round(cat.scorePercent);
+      if (pct < 70) {
+        recommendations.push(
+          `Work on ${cat.dimension} "${cat.categoryName}" — currently ${pct}%, target is 70%.`,
+        );
+      }
+    }
+    if (recommendations.length === 0 && allCategories.length > 0) {
+      const weakest = allCategories[0];
+      if (weakest !== undefined) {
+        recommendations.push(
+          `Keep practising "${weakest.categoryName}" to maintain your ${Math.round(weakest.scorePercent)}% score.`,
+        );
+      }
+    }
+
+    return {
+      totalAttempts,
+      avgScorePercent: profile?.avg_score_percent ?? undefined,
+      avgTimeSeconds: profile?.avg_time_seconds ?? undefined,
+      overallAvgScorePercent,
+      trendAttempts: trendResult.rows.map((r) => ({
+        attemptNumber: r.attempt_num,
+        scorePercent: Math.round(r.score_percent * 10) / 10,
+      })),
+      bloomBreakdown,
+      sectionBreakdown,
+      difficultyBreakdown,
+      streakAboveTarget: profile?.streak_above_target ?? 0,
+      mostImprovedCategory: profile?.most_improved_category ?? undefined,
+      growthDeltaPercent: profile?.growth_delta_percent ?? undefined,
+      regressionFlag: profile?.regression_flag ?? false,
+      stalledFlag: profile?.stalled_flag ?? false,
+      bestScorePercent: profile?.best_score_percent ?? undefined,
+      firstAttemptScorePercent: profile?.first_attempt_score_pct ?? undefined,
+      recommendations,
+    };
+  }
+
   async educatorCourseOverview(courseId: string) {
     const [
       totals,
