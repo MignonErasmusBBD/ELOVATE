@@ -41,6 +41,6 @@ ELOVATE helps organisations deliver skills training that adapts to each learner,
 
 ## Demonstration click through
 
-<video src="assets/full-demo.webm" controls width="100%">
-  <a href="assets/full-demo.webm">Download the full demo video</a>
+<video src="https://github.com/MignonErasmusBBD/ELOVATE/raw/chore/update-readme/assets/full-demo.mp4" controls width="100%">
+  <a href="https://github.com/MignonErasmusBBD/ELOVATE/raw/chore/update-readme/assets/full-demo.mp4">Download the ELOVATE demonstration click-through</a>
 </video>
