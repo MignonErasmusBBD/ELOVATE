@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SearchField } from "@/components/ui/SearchField";
+import { Spinner } from "@/components/ui/Spinner";
+import { useActionFeedback } from "@/features/platform";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import { itemsMatchingSearch } from "@/helpers/search";
 import {
   createLearningContentSection,
   deleteLearningContentSection,
@@ -58,6 +62,8 @@ export function LearningContentTab({
   courseTitle,
   onReadinessChange,
 }: LearningContentTabProps) {
+  const { showSuccess } = useActionFeedback();
+  const [searchQuery, setSearchQuery] = useState("");
   const [sections, setSections] = useState<LearningContentSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadErrorMessage, setLoadErrorMessage] = useState<string | undefined>();
@@ -146,6 +152,7 @@ export function LearningContentTab({
           contentBlocks,
         });
         setExpandedSectionId(created.id);
+        showSuccess("Learning section created.");
       } else if (
         sectionModalMode.kind === "edit" &&
         editingSection !== undefined
@@ -155,6 +162,7 @@ export function LearningContentTab({
           position: editingSection.position,
           contentBlocks,
         });
+        showSuccess("Learning section updated.");
       }
       setSectionModalMode({ kind: "closed" });
       setReloadToken((currentToken) => currentToken + 1);
@@ -171,6 +179,7 @@ export function LearningContentTab({
     setSubmitErrorMessage(undefined);
     try {
       await deleteLearningContentSection(courseId, sectionId);
+      showSuccess("Learning section deleted.");
       if (expandedSectionId === sectionId) {
         setExpandedSectionId(undefined);
       }
@@ -182,12 +191,21 @@ export function LearningContentTab({
     }
   }
 
+  const visibleSections = itemsMatchingSearch(
+    sections,
+    searchQuery,
+    (section) => [
+      section.title,
+      ...section.contentBlocks.map((block) => block.bodyText),
+    ],
+  );
+
   return (
     <section
       aria-labelledby="learning-content-heading"
       className="mt-6 min-w-0"
     >
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <h2
           id="learning-content-heading"
           className="min-w-0 break-words text-xl font-bold tracking-tight text-ink"
@@ -200,14 +218,29 @@ export function LearningContentTab({
             setSubmitErrorMessage(undefined);
             setSectionModalMode({ kind: "create" });
           }}
-          className="rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97]"
+          className="self-start rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97]"
         >
           + Add Section
         </button>
       </header>
 
+      {sections.length > 0 ? (
+        <section className="mt-4">
+          <SearchField
+            id="learning-content-search"
+            label="Search learning content"
+            placeholder="Search learning content"
+            value={searchQuery}
+            onChange={setSearchQuery}
+          />
+        </section>
+      ) : undefined}
+
       {isLoading ? (
-        <p className="mt-4 text-sm text-text-secondary">Loading learning content…</p>
+        <p className="mt-4 inline-flex items-center gap-2 text-sm text-text-secondary">
+          <Spinner className="size-4" />
+          Loading learning content…
+        </p>
       ) : undefined}
 
       {loadErrorMessage === undefined ? undefined : (
@@ -224,9 +257,15 @@ export function LearningContentTab({
         </p>
       ) : undefined}
 
-      {sections.length === 0 ? undefined : (
+      {sections.length > 0 && visibleSections.length === 0 ? (
+        <p className="mt-4 text-sm text-text-secondary">
+          No learning content matches your search.
+        </p>
+      ) : undefined}
+
+      {visibleSections.length === 0 ? undefined : (
         <ul className="mt-4 flex list-none flex-col gap-3 p-0">
-          {sections.map((section) => {
+          {visibleSections.map((section) => {
             const isExpanded = expandedSectionId === section.id;
 
             return (

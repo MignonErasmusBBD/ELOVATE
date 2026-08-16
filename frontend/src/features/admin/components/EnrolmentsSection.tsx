@@ -7,6 +7,8 @@ import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
+import { ActionNotice } from "@/components/ui/ActionNotice";
+import { useActionFeedback } from "@/features/platform";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import {
   dueAtToInputValue,
@@ -197,6 +199,7 @@ export function EnrolmentsSection({
     .filter((person) => person.status === "active")
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
   const activeCourses = courses.filter((course) => course.status === "active");
+  const { showSuccess } = useActionFeedback();
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [isRequiredAssignment, setIsRequiredAssignment] = useState(false);
@@ -266,6 +269,9 @@ export function EnrolmentsSection({
       onEnrolmentsChange([createdEnrolment, ...remainingEnrolments]);
       setIsRequiredAssignment(false);
       setAssignmentDueAt("");
+      showSuccess(
+        `${createdEnrolment.userFullName} was enrolled in ${createdEnrolment.courseTitle}.`,
+      );
     } catch (error) {
       setFormError(
         errorMessageFromUnknown(error, "Could not enrol that person."),
@@ -294,8 +300,14 @@ export function EnrolmentsSection({
     try {
       if (status === "active") {
         await activateEnrolment(enrolment.id);
+        showSuccess(
+          `${enrolment.userFullName} was re-enrolled in ${enrolment.courseTitle}.`,
+        );
       } else {
         await withdrawEnrolment(enrolment.id);
+        showSuccess(
+          `${enrolment.userFullName} was withdrawn from ${enrolment.courseTitle}.`,
+        );
       }
     } catch (error) {
       setActionError(
@@ -327,6 +339,9 @@ export function EnrolmentsSection({
           }
           return updatedEnrolment;
         }),
+      );
+      showSuccess(
+        `Enrolment details updated for ${updatedEnrolment.userFullName}.`,
       );
     } catch (error) {
       setActionError(
@@ -438,7 +453,7 @@ export function EnrolmentsSection({
               />
             </FormField>
           ) : undefined}
-          <Button variant="compact" type="submit" disabled={isSaving}>
+          <Button variant="compact" type="submit" isBusy={isSaving}>
             {isSaving ? "Enrolling…" : "Enrol"}
           </Button>
         </fieldset>
@@ -449,9 +464,11 @@ export function EnrolmentsSection({
       )}
 
       {actionError === undefined ? undefined : (
-        <p className="mb-4 text-sm text-coral" role="alert">
-          {actionError}
-        </p>
+        <ActionNotice
+          tone="error"
+          message={actionError}
+          className="mb-4"
+        />
       )}
 
       {enrolments.length > 0 ? (
@@ -811,7 +828,8 @@ function EnrolmentRow({
             variant="compact"
             type="button"
             className="self-start px-3 py-1.5 text-xs sm:self-auto"
-            disabled={isDirty === false || isSavingRequirement}
+            isBusy={isSavingRequirement}
+            disabled={isDirty === false}
             onClick={() => {
               void handleSaveRequirement();
             }}

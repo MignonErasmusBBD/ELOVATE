@@ -127,7 +127,7 @@ export function useOrgAdminDirectory(
       } catch (error) {
         if (error instanceof ElovateApiError && error.statusCode === 403) {
           setErrorMessage(
-            "You need the org_admin role to manage people and enrolments.",
+            "You need the Org Admin role to manage people and enrolments.",
           );
         } else {
           setErrorMessage(

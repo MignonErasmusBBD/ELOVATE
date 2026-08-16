@@ -7,6 +7,7 @@ import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { SearchableMultiSelect } from "@/components/ui/SearchableMultiSelect";
+import { useActionFeedback } from "@/features/platform";
 import { notifyAccountChanged } from "@/helpers/accountEvents";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import { clearFieldError, hasFieldErrors } from "@/helpers/formErrors";
@@ -57,6 +58,7 @@ export function CompaniesSection({
   onPeopleChange,
   onOrganizationsChange,
 }: CompaniesSectionProps) {
+  const { showSuccess } = useActionFeedback();
   const [companyName, setCompanyName] = useState("");
   const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<CompanyFieldErrors>({});
@@ -136,6 +138,7 @@ export function CompaniesSection({
       ) {
         notifyAccountChanged();
       }
+      showSuccess(`${createdOrganization.name} was created.`);
     } catch (error) {
       onOrganizationsChange(previousOrganizations);
       onPeopleChange(previousPeople);
@@ -173,6 +176,11 @@ export function CompaniesSection({
     );
     try {
       await setOrganisationStatus(organizationId, status);
+      showSuccess(
+        status === "active"
+          ? "Organisation is active again."
+          : "Organisation was suspended.",
+      );
     } catch (error) {
       onOrganizationsChange(previousOrganizations);
       setStatusErrorByOrganizationId((currentErrors) => ({
@@ -194,7 +202,7 @@ export function CompaniesSection({
         <p className="mt-1 text-sm text-text-secondary">
           Create organisations and assign at least one admin. Only people who
           are not already in an organisation can be assigned. They are placed
-          in the new organisation and granted org_admin.
+          in the new organisation and granted Org Admin.
         </p>
       </header>
 
@@ -270,7 +278,7 @@ export function CompaniesSection({
           variant="compact"
           type="submit"
           className="self-start"
-          disabled={isSaving}
+          isBusy={isSaving}
         >
           {isSaving ? "Creating…" : "Create"}
         </Button>

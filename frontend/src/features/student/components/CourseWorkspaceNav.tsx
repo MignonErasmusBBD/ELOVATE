@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { WORKSPACE_BAR_CLASS } from "@/helpers/pageLayout";
 
 type CourseWorkspaceNavProps = {
   courseId: string;
@@ -50,7 +51,7 @@ export function CourseWorkspaceNav({
 
   return (
     <header className="border-b border-border-ui bg-surface">
-      <section className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 md:px-10">
+      <section className={WORKSPACE_BAR_CLASS}>
         <section className="flex flex-wrap items-center justify-between gap-3">
           <section className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">

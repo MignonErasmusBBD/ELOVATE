@@ -4,7 +4,9 @@ import { useRef, useState } from "react";
 import { FormField } from "@/components/ui/FormField";
 import { Label } from "@/components/ui/Label";
 import { SearchableMultiSelect } from "@/components/ui/SearchableMultiSelect";
+import { useActionFeedback } from "@/features/platform";
 import { notifyAccountChanged } from "@/helpers/accountEvents";
+import { displayRoleName } from "@/helpers/displayLabels";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import {
   organisationAdminIds,
@@ -50,6 +52,7 @@ export function OrganisationAdminAssignments({
   onSavingChange,
   onError,
 }: OrganisationAdminAssignmentsProps) {
+  const { showSuccess } = useActionFeedback();
   const saveLock = useRef(false);
   const [statusFilter, setStatusFilter] =
     useState<OrganizationStatusFilter>("active");
@@ -96,6 +99,7 @@ export function OrganisationAdminAssignments({
       ) {
         notifyAccountChanged();
       }
+      showSuccess("Org Admin assignments updated.");
     } catch (error) {
       onError(
         errorMessageFromUnknown(
@@ -117,7 +121,7 @@ export function OrganisationAdminAssignments({
           id="organisation-admin-heading"
           className="text-lg font-bold text-ink"
         >
-          {role.roleName}
+          {displayRoleName(role.roleName)}
         </h3>
         {role.description === undefined ? undefined : (
           <p className="mt-1 text-sm text-text-secondary">{role.description}</p>
@@ -126,7 +130,7 @@ export function OrganisationAdminAssignments({
 
       {organizations.length === 0 ? (
         <p className="text-sm text-text-secondary">
-          Create an organisation first, then assign org_admin there.
+          Create an organisation first, then assign Org Admin there.
         </p>
       ) : undefined}
 

@@ -31,8 +31,8 @@ export function EducatorTabNav({
                 aria-current={isSelected ? "true" : undefined}
                 className={
                   isSelected
-                    ? "border-b-2 border-ink px-4 py-3 text-sm font-semibold text-ink"
-                    : "border-b-2 border-transparent px-4 py-3 text-sm font-medium text-text-secondary hover:text-ink"
+                    ? "border-b-2 border-ink px-3 py-2.5 text-sm font-semibold text-ink sm:px-4 sm:py-3"
+                    : "border-b-2 border-transparent px-3 py-2.5 text-sm font-medium text-text-secondary hover:text-ink sm:px-4 sm:py-3"
                 }
               >
                 {tab.label}

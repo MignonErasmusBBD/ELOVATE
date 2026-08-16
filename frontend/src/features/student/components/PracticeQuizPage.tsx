@@ -10,7 +10,9 @@ import {
   type AttemptItem,
   type QuizAttempt,
 } from "@/helpers/quizzesApi";
+import { Spinner } from "@/components/ui/Spinner";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import { NARROW_PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
 import type { QuizPhase } from "../types";
 import { BackToLessonLink } from "./BackToLessonLink";
 import { useQuizProgress } from "./QuizProgressContext";
@@ -134,9 +136,10 @@ export function PracticeQuizPage({ courseId }: PracticeQuizPageProps) {
 
   if (phase === "loading" || phase === "completing") {
     return (
-      <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
+      <section className={NARROW_PAGE_SHELL_CLASS}>
         <div className="flex min-h-48 items-center justify-center rounded-2xl border border-border-ui bg-surface p-8 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
-          <p className="text-base font-medium text-text-secondary">
+          <p className="inline-flex items-center gap-2 text-base font-medium text-text-secondary">
+            <Spinner className="size-5" />
             {phase === "loading" ? "Generating your quiz…" : "Marking your quiz…"}
           </p>
         </div>
@@ -146,7 +149,7 @@ export function PracticeQuizPage({ courseId }: PracticeQuizPageProps) {
 
   if (phase === "error") {
     return (
-      <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
+      <section className={NARROW_PAGE_SHELL_CLASS}>
         <div className="rounded-2xl border border-coral/40 bg-coral/10 p-8">
           <p className="font-semibold text-ink">Something went wrong</p>
           <p className="mt-2 text-sm text-text-secondary">
@@ -166,7 +169,7 @@ export function PracticeQuizPage({ courseId }: PracticeQuizPageProps) {
 
   if (phase === "start") {
     return (
-      <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
+      <section className={NARROW_PAGE_SHELL_CLASS}>
         <QuizStartCard
           courseTitle={courseTitle ?? "this course"}
           onStartQuiz={handleStartQuiz}
@@ -192,7 +195,7 @@ export function PracticeQuizPage({ courseId }: PracticeQuizPageProps) {
         : undefined;
 
     return (
-      <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
+      <section className={NARROW_PAGE_SHELL_CLASS}>
         <QuizScoreCard
           courseId={courseId}
           correctAnswerCount={correctCount}
@@ -233,7 +236,7 @@ export function PracticeQuizPage({ courseId }: PracticeQuizPageProps) {
       : localSelection;
 
     return (
-      <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
+      <section className={NARROW_PAGE_SHELL_CLASS}>
         <QuizQuestionCard
           item={currentItem}
           questionNumber={currentItemIndex + 1}

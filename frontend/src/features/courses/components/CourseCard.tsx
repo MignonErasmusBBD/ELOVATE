@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Spinner } from "@/components/ui/Spinner";
 import {
   courseCardUrgencyClassName,
   dueDateLabel,
@@ -158,7 +159,7 @@ export function CourseCard({
 
   return (
     <article
-      className={`flex h-full min-w-0 flex-col rounded-2xl bg-surface p-6 shadow-[0_8px_24px_rgba(30,27,51,0.06)] transition-shadow hover:shadow-[0_12px_32px_rgba(30,27,51,0.1)] ${cardBorderClass}`}
+      className={`flex h-full min-w-0 flex-col rounded-2xl bg-surface p-4 shadow-[0_8px_24px_rgba(30,27,51,0.06)] transition-shadow hover:shadow-[0_12px_32px_rgba(30,27,51,0.1)] sm:p-6 ${cardBorderClass}`}
     >
       <header className="flex items-start justify-between gap-3">
         <figure className="m-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-coral text-white">
@@ -221,8 +222,9 @@ export function CourseCard({
           type="button"
           disabled={isEnrolling}
           onClick={handleEnrolClick}
-          className="mt-4 text-left text-sm font-semibold text-coral hover:underline disabled:opacity-60"
+          className="mt-4 inline-flex items-center gap-2 text-left text-sm font-semibold text-coral hover:underline disabled:opacity-60"
         >
+          {isEnrolling ? <Spinner className="size-4" /> : undefined}
           {isEnrolling ? "Enrolling…" : "Enrol →"}
         </button>
       ) : (

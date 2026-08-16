@@ -67,8 +67,8 @@ export function CourseVisibilityToggle({
               onClick={() => onSelectVisibility(option.id)}
               className={
                 isSelected
-                  ? "flex flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white"
-                  : "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-ink"
+                  ? "flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-white sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
+                  : "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-text-secondary hover:text-ink sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
               }
             >
               {option.id === "community" ? <GlobeIcon /> : <LockIcon />}

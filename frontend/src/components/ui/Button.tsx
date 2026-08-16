@@ -1,9 +1,11 @@
 import type { ButtonHTMLAttributes } from "react";
+import { Spinner } from "./Spinner";
 
 type ButtonVariant = "primary" | "ghost" | "compact" | "outline";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
+  isBusy?: boolean;
 };
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -21,13 +23,20 @@ export function Button({
   className = "",
   variant = "primary",
   type = "button",
+  isBusy = false,
+  disabled,
+  children,
   ...props
 }: ButtonProps) {
   return (
     <button
       type={type}
-      className={`${variantClasses[variant]} ${className}`}
+      disabled={disabled === true || isBusy}
+      className={`inline-flex items-center justify-center gap-2 ${variantClasses[variant]} ${className}`}
       {...props}
-    />
+    >
+      {isBusy ? <Spinner className="size-4" /> : undefined}
+      {children}
+    </button>
   );
 }

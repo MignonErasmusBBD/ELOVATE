@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Spinner } from "@/components/ui/Spinner";
+import { displayFormatCode } from "@/helpers/displayLabels";
 import type {
   BloomLevelLookup,
   DifficultyLevelLookup,
@@ -337,7 +339,7 @@ export function QuestionFormModal({
                     key={format.questionFormatId}
                     value={format.questionFormatId}
                   >
-                    {format.formatCode}
+                    {displayFormatCode(format.formatCode)}
                   </option>
                 ))}
               </select>
@@ -489,8 +491,9 @@ export function QuestionFormModal({
               <button
                 type="submit"
                 disabled={isSubmitting || sections.length === 0}
-                className="rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] disabled:opacity-60"
               >
+                {isSubmitting ? <Spinner className="size-4" /> : undefined}
                 {isSubmitting
                   ? "Saving…"
                   : isEditing

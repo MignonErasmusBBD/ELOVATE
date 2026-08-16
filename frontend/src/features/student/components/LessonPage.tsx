@@ -6,6 +6,7 @@ import { SkipForwardIcon } from "@/components/icons/SkipForwardIcon";
 import { VolumeIcon } from "@/components/icons/VolumeIcon";
 import { ElovateApiError, errorMessageFromUnknown } from "@/helpers/elovateApi";
 import { getCourse } from "@/helpers/coursesApi";
+import { PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
 import { recordContentView } from "@/helpers/contentViewApi";
 import {
   listLearningContentSections,
@@ -172,7 +173,7 @@ export function LessonPage({ courseId }: LessonPageProps) {
 
   if (isLoading) {
     return (
-      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+      <section className={PAGE_SHELL_CLASS}>
         <p className="text-text-secondary">Loading lesson content…</p>
       </section>
     );
@@ -193,8 +194,8 @@ export function LessonPage({ courseId }: LessonPageProps) {
           : errorMessage;
 
     return (
-      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
-        <div className="rounded-2xl border border-border-ui bg-surface p-8 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
+      <section className={PAGE_SHELL_CLASS}>
+        <div className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)] sm:p-8">
           <h1 className="text-2xl font-bold tracking-tight text-ink">
             {heading}
           </h1>
@@ -212,7 +213,7 @@ export function LessonPage({ courseId }: LessonPageProps) {
 
   if (units.length === 0 || selectedUnit === undefined) {
     return (
-      <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+      <section className={PAGE_SHELL_CLASS}>
         <p className="text-text-secondary">
           This course has no lesson content yet.
         </p>
@@ -221,7 +222,7 @@ export function LessonPage({ courseId }: LessonPageProps) {
   }
 
   return (
-    <section className="mx-auto grid min-w-0 max-w-7xl gap-8 px-4 py-10 sm:px-6 md:px-10 md:py-12 lg:grid-cols-[17rem_minmax(0,1fr)]">
+    <section className={`${PAGE_SHELL_CLASS} grid gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-8`}>
       <LessonSidebar
         units={units}
         selectedUnitId={selectedUnitId}

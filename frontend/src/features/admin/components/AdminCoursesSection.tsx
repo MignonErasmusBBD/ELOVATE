@@ -7,6 +7,8 @@ import { FieldError } from "@/components/ui/FieldError";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
+import { ActionNotice } from "@/components/ui/ActionNotice";
+import { useActionFeedback } from "@/features/platform";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import { clearFieldError } from "@/helpers/formErrors";
 import {
@@ -90,6 +92,7 @@ export function AdminCoursesSection({
   onCoursesChange,
   onDirectoryChanged,
 }: AdminCoursesSectionProps) {
+  const { showSuccess } = useActionFeedback();
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
   const [fieldErrors, setFieldErrors] = useState<CourseFieldErrors>({});
@@ -151,6 +154,7 @@ export function AdminCoursesSection({
       onCoursesChange([createdCourse, ...courses]);
       setCourseTitle("");
       setCourseDescription("");
+      showSuccess(`${createdCourse.title} was created as a draft.`);
     } catch (error) {
       setFormError(
         errorMessageFromUnknown(error, "Could not create that course."),
@@ -187,6 +191,11 @@ export function AdminCoursesSection({
     );
     try {
       await setCourseStatus(course.id, status);
+      showSuccess(
+        status === "active"
+          ? `${course.title} is now active.`
+          : `${course.title} was deactivated.`,
+      );
     } catch (error) {
       setActionError(
         errorMessageFromUnknown(error, "Could not update course status."),
@@ -291,16 +300,19 @@ export function AdminCoursesSection({
           variant="compact"
           type="submit"
           className="self-start"
-          disabled={isSaving || canCreate === false}
+          isBusy={isSaving}
+          disabled={canCreate === false}
         >
           {isSaving ? "Adding…" : "Add course"}
         </Button>
       </form>
 
       {actionError === undefined ? undefined : (
-        <p className="mb-4 text-sm text-coral" role="alert">
-          {actionError}
-        </p>
+        <ActionNotice
+          tone="error"
+          message={actionError}
+          className="mb-4"
+        />
       )}
 
       {courses.length > 0 ? (

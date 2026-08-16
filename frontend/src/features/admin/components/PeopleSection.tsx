@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, type SubmitEvent } from "react";
+import { ActionNotice } from "@/components/ui/ActionNotice";
 import { Button } from "@/components/ui/Button";
 import { FieldError } from "@/components/ui/FieldError";
 import { FormField } from "@/components/ui/FormField";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
+import { useActionFeedback } from "@/features/platform";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import { selectedIfAvailable } from "@/helpers/selectedIfAvailable";
 import { selectPlaceholder } from "@/helpers/selectPlaceholder";
@@ -59,6 +61,7 @@ export function PeopleSection({
   onUnassignedPeopleChange,
   onDirectoryChanged,
 }: PeopleSectionProps) {
+  const { showSuccess } = useActionFeedback();
   const [selectedUserId, setSelectedUserId] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<StatusFilter<PersonStatus>>("active");
@@ -127,6 +130,7 @@ export function PeopleSection({
           organizationId,
         },
       ]);
+      showSuccess(`${placedPerson.fullName} was added to the organisation.`);
     } catch (error) {
       setFormError(
         errorMessageFromUnknown(error, "Could not add that person."),
@@ -146,7 +150,7 @@ export function PeopleSection({
       isAssigned === false &&
       person.id === currentUserId
     ) {
-      setActionError("You cannot remove your own org_admin role.");
+      setActionError("You cannot remove your own Org Admin role.");
       return;
     }
 
@@ -159,8 +163,14 @@ export function PeopleSection({
     try {
       if (isAssigned) {
         await assignRole(person.id, roleName);
+        showSuccess(
+          `${displayRoleName(roleName)} assigned to ${person.fullName}.`,
+        );
       } else {
         await unassignRole(person.id, roleName);
+        showSuccess(
+          `${displayRoleName(roleName)} removed from ${person.fullName}.`,
+        );
       }
     } catch (error) {
       setActionError(
@@ -193,6 +203,11 @@ export function PeopleSection({
     );
     try {
       await setPersonStatus(person.id, status);
+      showSuccess(
+        status === "active"
+          ? `${person.fullName} is active again.`
+          : `${person.fullName} was deactivated.`,
+      );
     } catch (error) {
       setActionError(
         errorMessageFromUnknown(error, "Could not update person status."),
@@ -244,7 +259,7 @@ export function PeopleSection({
             ))}
           </Select>
         </FormField>
-        <Button variant="compact" type="submit" disabled={isSaving}>
+        <Button variant="compact" type="submit" isBusy={isSaving}>
           {isSaving ? "Adding…" : "Add"}
         </Button>
       </form>
@@ -254,9 +269,7 @@ export function PeopleSection({
       )}
 
       {actionError === undefined ? undefined : (
-        <p className="mb-4 text-sm text-coral" role="alert">
-          {actionError}
-        </p>
+        <ActionNotice tone="error" message={actionError} className="mb-4" />
       )}
 
       {organisationMembers.length > 0 ? (

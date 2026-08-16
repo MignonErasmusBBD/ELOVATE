@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SearchField } from "@/components/ui/SearchField";
+import { Spinner } from "@/components/ui/Spinner";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { useActionFeedback } from "@/features/platform";
+import { displayFormatCode } from "@/helpers/displayLabels";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import { itemsMatchingSearch } from "@/helpers/search";
 import { listLearningContentSections } from "@/helpers/learningContentApi";
 import {
   listBloomLevels,
@@ -86,6 +91,8 @@ export function QuestionsTab({
   courseTitle,
   onReadinessChange,
 }: QuestionsTabProps) {
+  const { showSuccess } = useActionFeedback();
+  const [searchQuery, setSearchQuery] = useState("");
   const [questions, setQuestions] = useState<EducatorQuestion[]>([]);
   const [sections, setSections] = useState<CourseSectionOption[]>([]);
   const [lookups, setLookups] = useState<QuestionFormLookups>({
@@ -219,6 +226,7 @@ export function QuestionsTab({
           options,
         });
         setExpandedQuestionId(created.id);
+        showSuccess("Question created.");
       } else if (
         questionModalMode.kind === "edit" &&
         editingQuestion !== undefined
@@ -232,6 +240,7 @@ export function QuestionsTab({
           baseDifficulty: formValues.baseDifficulty,
           options,
         });
+        showSuccess("Question updated.");
       }
       setQuestionModalMode({ kind: "closed" });
       setReloadToken((currentToken) => currentToken + 1);
@@ -249,8 +258,10 @@ export function QuestionsTab({
     try {
       if (question.status === "active") {
         await deactivateQuestion(question.id);
+        showSuccess("Question deactivated.");
       } else {
         await activateQuestion(question.id);
+        showSuccess("Question activated.");
       }
       setReloadToken((currentToken) => currentToken + 1);
     } catch (error) {
@@ -266,9 +277,21 @@ export function QuestionsTab({
     setQuestionModalMode({ kind: "create" });
   }
 
+  const visibleQuestions = itemsMatchingSearch(
+    questions,
+    searchQuery,
+    (question) => [
+      question.prompt,
+      displayFormatCode(question.formatCode),
+      question.bloomLevelName,
+      question.difficultyName,
+      question.sectionTitle,
+    ],
+  );
+
   return (
     <section aria-labelledby="questions-heading" className="mt-6 min-w-0">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <h2
           id="questions-heading"
           className="min-w-0 break-words text-xl font-bold tracking-tight text-ink"
@@ -279,14 +302,29 @@ export function QuestionsTab({
           type="button"
           onClick={openCreateModal}
           disabled={isLoading}
-          className="rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] disabled:opacity-50"
+          className="self-start rounded-lg bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:brightness-[0.97] disabled:opacity-50"
         >
           + Add Question
         </button>
       </header>
 
+      {questions.length > 0 ? (
+        <section className="mt-4">
+          <SearchField
+            id="questions-search"
+            label="Search questions"
+            placeholder="Search questions"
+            value={searchQuery}
+            onChange={setSearchQuery}
+          />
+        </section>
+      ) : undefined}
+
       {isLoading ? (
-        <p className="mt-4 text-sm text-text-secondary">Loading questions…</p>
+        <p className="mt-4 inline-flex items-center gap-2 text-sm text-text-secondary">
+          <Spinner className="size-4" />
+          Loading questions…
+        </p>
       ) : undefined}
 
       {loadErrorMessage === undefined ? undefined : (
@@ -303,9 +341,15 @@ export function QuestionsTab({
         </p>
       ) : undefined}
 
-      {questions.length === 0 ? undefined : (
+      {questions.length > 0 && visibleQuestions.length === 0 ? (
+        <p className="mt-4 text-sm text-text-secondary">
+          No questions match your search.
+        </p>
+      ) : undefined}
+
+      {visibleQuestions.length === 0 ? undefined : (
         <ul className="mt-4 flex list-none flex-col gap-3 p-0">
-          {questions.map((question) => {
+          {visibleQuestions.map((question) => {
             const isExpanded = expandedQuestionId === question.id;
             const isActive = question.status === "active";
 
@@ -328,7 +372,7 @@ export function QuestionsTab({
                       </span>
                       <ul className="mt-2 flex list-none flex-wrap gap-2 p-0">
                         <li className="rounded-full bg-ink/10 px-2.5 py-1 text-xs font-semibold text-ink">
-                          {question.formatCode}
+                          {displayFormatCode(question.formatCode)}
                         </li>
                         <li className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800">
                           {question.bloomLevelName}

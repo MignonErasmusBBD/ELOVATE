@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCurrentUser } from "@/features/platform";
+import { Spinner } from "@/components/ui/Spinner";
+import { useActionFeedback, useCurrentUser } from "@/features/platform";
 import { listCourses, type ElovateCourseSummary } from "@/helpers/coursesApi";
+import { PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
+import { itemsMatchingSearch } from "@/helpers/search";
 import {
   listMyEnrollments,
   startCommunityEnrollment,
@@ -12,6 +15,19 @@ import {
 import type { CourseFilter } from "../types";
 import { CourseCard } from "./CourseCard";
 import { CourseFilterBar } from "./CourseFilterBar";
+
+function emptyCoursesMessage(
+  selectedFilter: CourseFilter,
+  searchQuery: string,
+): string {
+  if (searchQuery.trim() !== "") {
+    return "No courses match your search.";
+  }
+  if (selectedFilter === "enrolled") {
+    return "You haven't enrolled in any courses yet.";
+  }
+  return "No courses found.";
+}
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
@@ -70,10 +86,12 @@ function CourseGrid({
 
 export function CoursesPage() {
   const { profile, isLoading: isProfileLoading } = useCurrentUser();
+  const { showSuccess, showError } = useActionFeedback();
   const hasOrg = profile?.organizationId !== undefined;
   const router = useRouter();
 
   const [selectedFilter, setSelectedFilter] = useState<CourseFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [activeCourses, setActiveCourses] = useState<ElovateCourseSummary[]>([]);
   const [archivedCourses, setArchivedCourses] = useState<ElovateCourseSummary[]>([]);
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
@@ -131,9 +149,14 @@ export function CoursesPage() {
   }, [isProfileLoading, profile]);
 
   async function handleEnrol(courseId: string) {
-    await startCommunityEnrollment(courseId);
-    setEnrolledCourseIds((prev) => new Set([...prev, courseId]));
-    router.push(`/student/courses/${courseId}`);
+    try {
+      await startCommunityEnrollment(courseId);
+      setEnrolledCourseIds((prev) => new Set([...prev, courseId]));
+      showSuccess("You are enrolled. Opening the course…");
+      router.push(`/student/courses/${courseId}`);
+    } catch {
+      showError("Could not enrol in that course.");
+    }
   }
 
   const allCourses = [
@@ -141,13 +164,27 @@ export function CoursesPage() {
     ...archivedCourses.filter((c) => enrolledCourseIds.has(c.id)),
   ];
 
-  // Courses matching the active filter
-  const filteredCourses = allCourses.filter((course) => {
-    if (selectedFilter === "community") return course.visibility === "community";
-    if (selectedFilter === "organisation") return course.visibility === "private";
-    if (selectedFilter === "enrolled") return enrolledCourseIds.has(course.id);
-    return true;
-  });
+  const filteredCourses = itemsMatchingSearch(
+    allCourses.filter((course) => {
+      if (selectedFilter === "community") {
+        return course.visibility === "community";
+      }
+      if (selectedFilter === "organisation") {
+        return course.visibility === "private";
+      }
+      if (selectedFilter === "enrolled") {
+        return enrolledCourseIds.has(course.id);
+      }
+      return true;
+    }),
+    searchQuery,
+    (course) => {
+      if (course.description === undefined) {
+        return [course.title];
+      }
+      return [course.title, course.description];
+    },
+  );
 
   // Split view for "all" and "community" filters
   const useSplit =
@@ -186,7 +223,7 @@ export function CoursesPage() {
     isProfileLoading || profile === undefined || isCoursesLoading;
 
   return (
-    <section className="mx-auto min-w-0 max-w-7xl px-4 py-10 sm:px-6 md:px-10 md:py-12">
+    <section className={PAGE_SHELL_CLASS}>
       <header>
         <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
           All Courses
@@ -202,11 +239,16 @@ export function CoursesPage() {
           selected={selectedFilter}
           hasOrg={hasOrg}
           onSelect={setSelectedFilter}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
         />
       </div>
 
       {isLoading && (
-        <p className="mt-10 text-sm text-text-secondary">Loading courses…</p>
+        <p className="mt-10 inline-flex items-center gap-2 text-sm text-text-secondary">
+          <Spinner className="size-4" />
+          Loading courses…
+        </p>
       )}
 
       {isLoading === false && errorMessage !== undefined && (
@@ -267,7 +309,9 @@ export function CoursesPage() {
               )}
 
               {splitIsEmpty && (
-                <p className="text-sm text-text-secondary">No courses found.</p>
+                <p className="text-sm text-text-secondary">
+                  {emptyCoursesMessage(selectedFilter, searchQuery)}
+                </p>
               )}
             </div>
           )}
@@ -277,9 +321,7 @@ export function CoursesPage() {
             <div className="mt-10">
               {singleListCourses.length === 0 ? (
                 <p className="text-sm text-text-secondary">
-                  {selectedFilter === "enrolled"
-                    ? "You haven't enrolled in any courses yet."
-                    : "No courses found."}
+                  {emptyCoursesMessage(selectedFilter, searchQuery)}
                 </p>
               ) : (
                 <CourseGrid

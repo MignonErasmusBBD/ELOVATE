@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SearchField } from "@/components/ui/SearchField";
+import { Spinner } from "@/components/ui/Spinner";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import { itemsMatchingSearch } from "@/helpers/search";
 import {
   formatEnrollmentDate,
   listCourseEnrollments,
@@ -17,14 +20,16 @@ type StudentsTabProps = {
   courseTitle: string;
 };
 
-function statusPillTone(status: EnrollmentStatus) {
+function statusPillTone(
+  status: EnrollmentStatus,
+): "success" | "muted" | "warning" {
   if (status === "active") {
-    return "success" as const;
+    return "success";
   }
   if (status === "completed") {
-    return "muted" as const;
+    return "muted";
   }
-  return "warning" as const;
+  return "warning";
 }
 
 function statusLabel(status: EnrollmentStatus) {
@@ -55,6 +60,7 @@ function toStudentSummary(enrollment: ElovateEnrollment): EducatorStudentSummary
 }
 
 export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
+  const [searchQuery, setSearchQuery] = useState("");
   const [students, setStudents] = useState<EducatorStudentSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadErrorMessage, setLoadErrorMessage] = useState<string | undefined>();
@@ -114,6 +120,11 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
   const selectedStudent = students.find(
     (student) => student.id === selectedStudentId,
   );
+  const visibleStudents = itemsMatchingSearch(
+    students,
+    searchQuery,
+    (student) => [student.fullName, student.emailAddress],
+  );
 
   return (
     <section aria-labelledby="students-heading" className="mt-6">
@@ -130,8 +141,23 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
         </p>
       </header>
 
+      {students.length > 0 ? (
+        <section className="mt-4">
+          <SearchField
+            id="students-search"
+            label="Search students"
+            placeholder="Search students"
+            value={searchQuery}
+            onChange={setSearchQuery}
+          />
+        </section>
+      ) : undefined}
+
       {isLoading ? (
-        <p className="mt-4 text-sm text-text-secondary">Loading students…</p>
+        <p className="mt-4 inline-flex items-center gap-2 text-sm text-text-secondary">
+          <Spinner className="size-4" />
+          Loading students…
+        </p>
       ) : undefined}
 
       {loadErrorMessage === undefined ? undefined : (
@@ -148,9 +174,15 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
         </p>
       ) : undefined}
 
-      {students.length === 0 ? undefined : (
+      {students.length > 0 && visibleStudents.length === 0 ? (
+        <p className="mt-4 text-sm text-text-secondary">
+          No students match your search.
+        </p>
+      ) : undefined}
+
+      {visibleStudents.length === 0 ? undefined : (
         <ul className="mt-4 flex list-none flex-col gap-4 p-0">
-          {students.map((student) => (
+          {visibleStudents.map((student) => (
             <li key={student.enrollmentId}>
               <article className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
                 <header className="flex flex-wrap items-start justify-between gap-3">

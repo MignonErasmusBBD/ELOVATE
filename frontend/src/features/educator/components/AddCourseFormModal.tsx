@@ -230,7 +230,7 @@ export function AddCourseFormModal({
             variant="compact"
             type="submit"
             className="self-start"
-            disabled={isSubmitting}
+            isBusy={isSubmitting}
           >
             {isSubmitting ? "Adding…" : "Add course"}
           </Button>
