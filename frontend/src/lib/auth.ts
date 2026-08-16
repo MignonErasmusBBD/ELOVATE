@@ -54,16 +54,8 @@ pool.on("connect", (client) => {
   client.query("SET search_path TO public").catch(console.error);
 });
 
-/** Drop JWKS minted under a different BETTER_AUTH_SECRET so /token can mint a new key. */
-export const jwksReady = pool
-  .query("DELETE FROM public.jwks")
-  .then((result) => {
-    if (result.rowCount !== null && result.rowCount > 0) {
-      console.info(
-        `[auth] Removed ${result.rowCount} JWKS row(s) so a key can be minted with the current secret`,
-      );
-    }
-  });
+/** Auth route waits on this before handling requests. Do not delete public.jwks. */
+export const jwksReady = Promise.resolve();
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
