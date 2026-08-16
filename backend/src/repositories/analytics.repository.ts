@@ -4,6 +4,28 @@ import { PostgresService } from '../services/postgres.service';
 import { RecommendationsRepository } from './recommendations.repository';
 import type { Audience } from './recommendation-templates';
 
+function isUndefinedColumn(error: unknown): boolean {
+  if (error === null || typeof error !== 'object') {
+    return false;
+  }
+  return Reflect.get(error, 'code') === '42703';
+}
+
+type DashboardProfileRow = {
+  total_attempts: number;
+  avg_score_percent: number | null;
+  avg_time_seconds: number | null;
+  best_score_percent: number | null;
+  first_attempt_score_pct: number | null;
+  streak_above_target: number;
+  most_improved_category: string | null;
+  growth_delta_percent: number | null;
+  regression_flag: boolean;
+  stalled_flag: boolean;
+  questions_answered: number;
+  correct_count: number;
+};
+
 type OverallRow = {
   user_id: string;
   aggregate_rating: number;
@@ -280,32 +302,57 @@ export class AnalyticsRepository {
     };
   }
 
+  private async readDashboardProfile(
+    userId: string,
+    courseId: string,
+  ): Promise<{ rows: DashboardProfileRow[] }> {
+    try {
+      return await this.postgres.query<DashboardProfileRow>(
+        `SELECT total_attempts, avg_score_percent, avg_time_seconds,
+                best_score_percent, first_attempt_score_pct,
+                streak_above_target, most_improved_category,
+                growth_delta_percent, regression_flag, stalled_flag,
+                questions_answered, correct_count
+         FROM student_course_profile
+         WHERE user_id = $1 AND course_id = $2`,
+        [userId, courseId],
+      );
+    } catch (error) {
+      if (isUndefinedColumn(error) === false) {
+        throw error;
+      }
+      const fallback = await this.postgres.query<{
+        questions_answered: number;
+        correct_count: number;
+      }>(
+        `SELECT questions_answered, correct_count
+         FROM student_course_profile
+         WHERE user_id = $1 AND course_id = $2`,
+        [userId, courseId],
+      );
+      return {
+        rows: fallback.rows.map((row) => ({
+          total_attempts: 0,
+          avg_score_percent: null,
+          avg_time_seconds: null,
+          best_score_percent: null,
+          first_attempt_score_pct: null,
+          streak_above_target: 0,
+          most_improved_category: null,
+          growth_delta_percent: null,
+          regression_flag: false,
+          stalled_flag: false,
+          questions_answered: row.questions_answered,
+          correct_count: row.correct_count,
+        })),
+      };
+    }
+  }
+
   async studentCourseDashboard(userId: string, courseId: string, audience: Audience = 'student') {
     const [profileResult, trendResult, bloomResult, sectionResult, difficultyResult, activeRecommendations] =
       await Promise.all([
-        this.postgres.query<{
-          total_attempts: number;
-          avg_score_percent: number | null;
-          avg_time_seconds: number | null;
-          best_score_percent: number | null;
-          first_attempt_score_pct: number | null;
-          streak_above_target: number;
-          most_improved_category: string | null;
-          growth_delta_percent: number | null;
-          regression_flag: boolean;
-          stalled_flag: boolean;
-          questions_answered: number;
-          correct_count: number;
-        }>(
-          `SELECT total_attempts, avg_score_percent, avg_time_seconds,
-                  best_score_percent, first_attempt_score_pct,
-                  streak_above_target, most_improved_category,
-                  growth_delta_percent, regression_flag, stalled_flag,
-                  questions_answered, correct_count
-           FROM student_course_profile
-           WHERE user_id = $1 AND course_id = $2`,
-          [userId, courseId],
-        ),
+        this.readDashboardProfile(userId, courseId),
 
         // Last 10 completed attempts — cheap direct query via the partial index.
         this.postgres.query<{

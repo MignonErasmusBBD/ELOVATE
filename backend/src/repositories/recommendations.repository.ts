@@ -167,26 +167,41 @@ export class RecommendationsRepository {
     courseId: string,
     audience: Audience = 'student',
   ): Promise<RenderedRecommendation[]> {
-    const rows = await this.postgres.query<{
+    let rows: Array<{
       id: string;
       flag_type: string;
       target_ref: string | null;
       evidence: Record<string, string | number>;
       section_title: string | null;
-    }>(
-      `SELECT sr.id, sr.flag_type, sr.target_ref, sr.evidence,
-              cs.title AS section_title
-       FROM student_recommendations sr
-       JOIN recommendation_statuses rs
-         ON rs.recommendation_status_id = sr.recommendation_status_id
-       LEFT JOIN course_sections cs ON cs.id = sr.target_ref
-       WHERE sr.student_id = $1 AND sr.course_id = $2 AND rs.status_code = 'active'
-       ORDER BY sr.triggered_at DESC`,
-      [userId, courseId],
-    );
+    }>;
+    try {
+      const result = await this.postgres.query<{
+        id: string;
+        flag_type: string;
+        target_ref: string | null;
+        evidence: Record<string, string | number>;
+        section_title: string | null;
+      }>(
+        `SELECT sr.id, sr.flag_type, sr.target_ref, sr.evidence,
+                cs.title AS section_title
+         FROM student_recommendations sr
+         JOIN recommendation_statuses rs
+           ON rs.recommendation_status_id = sr.recommendation_status_id
+         LEFT JOIN course_sections cs ON cs.id = sr.target_ref
+         WHERE sr.student_id = $1 AND sr.course_id = $2 AND rs.status_code = 'active'
+         ORDER BY sr.triggered_at DESC`,
+        [userId, courseId],
+      );
+      rows = result.rows;
+    } catch (error) {
+      if (isMissingRelation(error)) {
+        return [];
+      }
+      throw error;
+    }
 
     const result: RenderedRecommendation[] = [];
-    for (const row of rows.rows) {
+    for (const row of rows) {
       const flagType = row.flag_type as FlagType;
       const key = `${flagType}:${audience}` as `${FlagType}:${Audience}`;
       const template = TEMPLATES[key];
