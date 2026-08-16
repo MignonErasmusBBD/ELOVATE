@@ -102,11 +102,13 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
       setIsLoading(true);
       setLoadErrorMessage(undefined);
       try {
-        const [activeEnrollments, completedEnrollments, flaggedIds] = await Promise.all([
-          listCourseEnrollments({ courseId, status: "active" }),
-          listCourseEnrollments({ courseId, status: "completed" }),
-          getActiveMandatoryFlaggedUserIds(courseId),
-        ]);
+        const [activeEnrollments, completedEnrollments, overdueEnrollments, flaggedIds] =
+          await Promise.all([
+            listCourseEnrollments({ courseId, status: "active" }),
+            listCourseEnrollments({ courseId, status: "completed" }),
+            listCourseEnrollments({ courseId, status: "overdue" }),
+            getActiveMandatoryFlaggedUserIds(courseId),
+          ]);
         if (cancelled) {
           return;
         }
@@ -115,6 +117,7 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
         const nextStudents = [
           ...activeEnrollments,
           ...completedEnrollments,
+          ...overdueEnrollments,
         ].map(toStudentSummary);
         setStudents(nextStudents);
         setSelectedStudentId((currentId) => {
