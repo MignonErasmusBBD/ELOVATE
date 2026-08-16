@@ -47,6 +47,8 @@ function toStudentSummary(enrollment: ElovateEnrollment): EducatorStudentSummary
     status: enrollment.status,
     enrolledAtLabel: formatEnrollmentDate(enrollment.enrolledAt),
     needsAttention: false,
+    practiceAttemptCount: enrollment.practiceAttemptCount,
+    practiceQuizPercent: enrollment.practiceQuizPercent,
     cognitiveLevels: [],
     interventionLabels: [],
   };
@@ -194,7 +196,7 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
                     <dt className="text-xs font-medium text-text-secondary">
                       Practice Quiz
                     </dt>
-                    <dd className="mt-1 text-sm font-semibold text-text-secondary">
+                    <dd className="mt-1 text-sm font-semibold text-ink">
                       {student.practiceQuizPercent === undefined
                         ? "—"
                         : `${student.practiceQuizPercent}%`}
@@ -204,7 +206,7 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
                     <dt className="text-xs font-medium text-text-secondary">
                       Practice Attempts
                     </dt>
-                    <dd className="mt-1 text-sm font-semibold text-text-secondary">
+                    <dd className="mt-1 text-sm font-semibold text-ink">
                       {student.practiceAttemptCount === undefined
                         ? "—"
                         : student.practiceAttemptCount}

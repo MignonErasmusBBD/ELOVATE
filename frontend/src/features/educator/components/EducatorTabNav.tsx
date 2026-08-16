@@ -2,6 +2,7 @@ import type { EducatorTabId } from "../types";
 
 const educatorTabs: { id: EducatorTabId; label: string }[] = [
   { id: "overview", label: "Overview" },
+  { id: "practice-insights", label: "Practice Insights" },
   { id: "students", label: "Students" },
   { id: "questions", label: "Questions" },
   { id: "learning-content", label: "Learning Content" },

@@ -79,6 +79,22 @@ export class AnalyticsService {
     };
   }
 
+  async readEducatorCoursePracticeInsights(actor: AuthUser, courseId: string) {
+    requirePermission(actor, ['analytics.read.org']);
+    const course = await this.courses.findById(courseId);
+    if (course === undefined) {
+      throw new NotFoundException('Course not found');
+    }
+    this.requireCourseOverviewAccess(actor, course);
+    const insights =
+      await this.analytics.educatorCoursePracticeInsights(courseId);
+    return {
+      ...insights,
+      courseId,
+      courseTitle: course.title,
+    };
+  }
+
   private requireCourseOverviewAccess(
     actor: AuthUser,
     course: {

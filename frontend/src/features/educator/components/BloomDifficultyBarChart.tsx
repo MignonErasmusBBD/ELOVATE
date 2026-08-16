@@ -15,6 +15,16 @@ export function BloomDifficultyBarChart({
 }: BloomDifficultyBarChartProps) {
   const categories = bloomDifficulty.map((entry) => entry.levelName);
 
+  let maxQuestionCount = 0;
+  for (const entry of bloomDifficulty) {
+    const stackedCount =
+      entry.easyCount + entry.mediumCount + entry.hardCount;
+    if (stackedCount > maxQuestionCount) {
+      maxQuestionCount = stackedCount;
+    }
+  }
+  const yAxisMax = maxQuestionCount < 1 ? 1 : maxQuestionCount;
+
   const options: ApexOptions = {
     chart: {
       type: "bar",
@@ -41,6 +51,14 @@ export function BloomDifficultyBarChart({
       },
     },
     yaxis: {
+      min: 0,
+      max: yAxisMax,
+      tickAmount: yAxisMax,
+      forceNiceScale: false,
+      decimalsInFloat: 0,
+      labels: {
+        formatter: (value) => `${Math.round(value)}`,
+      },
       title: {
         text: "Number of Questions",
         style: { color: "#5A5670", fontWeight: 600 },
@@ -55,6 +73,9 @@ export function BloomDifficultyBarChart({
     },
     tooltip: {
       theme: "light",
+      y: {
+        formatter: (value) => `${Math.round(value)}`,
+      },
     },
   };
 

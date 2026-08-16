@@ -18,6 +18,10 @@ import {
   getEducatorCourseOverview,
   type EducatorCourseOverview,
 } from "@/helpers/educatorOverviewApi";
+import {
+  getEducatorCoursePracticeInsights,
+  type EducatorCoursePracticeInsights,
+} from "@/helpers/educatorPracticeInsightsApi";
 import type { EducatorCourseVisibility, EducatorTabId } from "../types";
 import {
   AddCourseFormModal,
@@ -29,6 +33,7 @@ import { EducatorMetricsRow } from "./EducatorMetricsRow";
 import { EducatorTabNav } from "./EducatorTabNav";
 import { LearningContentTab } from "./LearningContentTab";
 import { OverviewTab } from "./OverviewTab";
+import { PracticeInsightsTab } from "./PracticeInsightsTab";
 import { QuestionsTab } from "./QuestionsTab";
 import { StudentsTab } from "./StudentsTab";
 
@@ -78,6 +83,15 @@ export function EducatorDashboardPage() {
     string | undefined
   >();
   const [overviewReloadToken, setOverviewReloadToken] = useState(0);
+  const [practiceInsights, setPracticeInsights] = useState<
+    EducatorCoursePracticeInsights | undefined
+  >(undefined);
+  const [isPracticeInsightsLoading, setIsPracticeInsightsLoading] =
+    useState(false);
+  const [practiceInsightsErrorMessage, setPracticeInsightsErrorMessage] =
+    useState<string | undefined>();
+  const [practiceInsightsReloadToken, setPracticeInsightsReloadToken] =
+    useState(0);
 
   const canCreateCourse =
     courseVisibilityFilter === "community" ||
@@ -265,10 +279,58 @@ export function EducatorDashboardPage() {
     };
   }, [overviewReloadToken, selectedCourseId]);
 
+  useEffect(() => {
+    if (selectedCourseId === "" || selectedTabId !== "practice-insights") {
+      if (selectedCourseId === "") {
+        setPracticeInsights(undefined);
+        setPracticeInsightsErrorMessage(undefined);
+        setIsPracticeInsightsLoading(false);
+      }
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadPracticeInsights() {
+      setIsPracticeInsightsLoading(true);
+      setPracticeInsightsErrorMessage(undefined);
+      try {
+        const insights = await getEducatorCoursePracticeInsights(
+          selectedCourseId,
+        );
+        if (cancelled === false) {
+          setPracticeInsights(insights);
+        }
+      } catch (error) {
+        if (cancelled === false) {
+          setPracticeInsights(undefined);
+          setPracticeInsightsErrorMessage(
+            errorMessageFromUnknown(
+              error,
+              "Could not load practice insights.",
+            ),
+          );
+        }
+      } finally {
+        if (cancelled === false) {
+          setIsPracticeInsightsLoading(false);
+        }
+      }
+    }
+
+    void loadPracticeInsights();
+    return () => {
+      cancelled = true;
+    };
+  }, [practiceInsightsReloadToken, selectedCourseId, selectedTabId]);
+
   function handleSelectTab(tabId: EducatorTabId) {
     setSelectedTabId(tabId);
     if (tabId === "overview" && selectedCourseId !== "") {
       setOverviewReloadToken((currentToken) => currentToken + 1);
+    }
+    if (tabId === "practice-insights" && selectedCourseId !== "") {
+      setPracticeInsightsReloadToken((currentToken) => currentToken + 1);
     }
   }
 
@@ -463,6 +525,31 @@ export function EducatorDashboardPage() {
         courseOverview !== undefined ? (
           <OverviewTab overview={courseOverview} />
         ) : undefined}
+
+        {selectedCourseId !== "" &&
+        selectedTabId === "practice-insights" &&
+        isPracticeInsightsLoading ? (
+          <p className="mt-6 text-sm text-text-secondary">
+            Loading practice insights…
+          </p>
+        ) : undefined}
+
+        {selectedCourseId !== "" &&
+        selectedTabId === "practice-insights" &&
+        practiceInsightsErrorMessage !== undefined ? (
+          <p className="mt-6 text-sm text-coral" role="alert">
+            {practiceInsightsErrorMessage}
+          </p>
+        ) : undefined}
+
+        {selectedCourseId !== "" &&
+        selectedTabId === "practice-insights" &&
+        isPracticeInsightsLoading === false &&
+        practiceInsightsErrorMessage === undefined &&
+        practiceInsights !== undefined ? (
+          <PracticeInsightsTab insights={practiceInsights} />
+        ) : undefined}
+
         {selectedCourseId !== "" && selectedTabId === "students" ? (
           <StudentsTab
             key={selectedCourseId}

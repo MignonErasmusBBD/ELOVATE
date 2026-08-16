@@ -2,7 +2,8 @@ export type EducatorTabId =
   | "overview"
   | "students"
   | "questions"
-  | "learning-content";
+  | "learning-content"
+  | "practice-insights";
 
 export type EducatorCourseVisibility = "community" | "private";
 
