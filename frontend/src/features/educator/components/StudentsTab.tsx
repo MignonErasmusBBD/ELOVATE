@@ -62,7 +62,6 @@ function toStudentSummary(enrollment: ElovateEnrollment): EducatorStudentSummary
     isRequired: enrollment.isRequired,
     practiceAttemptCount: enrollment.practiceAttemptCount,
     practiceQuizPercent: enrollment.practiceQuizPercent,
-    isRequired: enrollment.isRequired,
     cognitiveLevels: [],
     interventionLabels: [],
   };
