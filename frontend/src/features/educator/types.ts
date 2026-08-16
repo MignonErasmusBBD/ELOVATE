@@ -51,6 +51,7 @@ export type EducatorStudentSummary = {
   timeSpentLabel?: string;
   cheatAccessCount?: number;
   improvementLabel?: string;
+  isRequired: boolean;
   cognitiveLevels: EducatorStudentCognitiveLevel[];
   interventionLabels: string[];
 };

@@ -73,6 +73,18 @@ export type PracticeQuestionSuccess = {
   answeredQuestionCount: number;
 };
 
+export type CourseGrowthHighlightType =
+  | "progress"
+  | "consistency"
+  | "momentum"
+  | "honesty";
+
+export type CourseGrowthHighlight = {
+  type: CourseGrowthHighlightType;
+  title: string;
+  description: string;
+};
+
 export type EducatorCoursePracticeInsights = {
   courseId: string;
   courseTitle: string;
@@ -81,6 +93,7 @@ export type EducatorCoursePracticeInsights = {
   questionSuccess: PracticeQuestionSuccess;
   attemptInsights: string[];
   outlierInsights: string[];
+  growthHighlights: CourseGrowthHighlight[];
   distributionInsights: string[];
   questionSuccessInsights: string[];
 };
@@ -369,6 +382,47 @@ function parseQuestionSuccess(
   };
 }
 
+function parseGrowthHighlightType(
+  value: string | undefined,
+): CourseGrowthHighlightType | undefined {
+  if (
+    value === "progress" ||
+    value === "consistency" ||
+    value === "momentum" ||
+    value === "honesty"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function parseGrowthHighlight(
+  item: unknown,
+): CourseGrowthHighlight | undefined {
+  if (isPlainObject(item) === false) {
+    return undefined;
+  }
+  const type = parseGrowthHighlightType(readRequiredString(item, "type"));
+  const title = readRequiredString(item, "title");
+  const description = readRequiredString(item, "description");
+  if (type === undefined || title === undefined || description === undefined) {
+    return undefined;
+  }
+  return { type, title, description };
+}
+
+function parseGrowthHighlights(body: object): CourseGrowthHighlight[] {
+  const items = readObjectList(body, "growthHighlights");
+  const highlights: CourseGrowthHighlight[] = [];
+  for (const item of items) {
+    const parsed = parseGrowthHighlight(item);
+    if (parsed !== undefined) {
+      highlights.push(parsed);
+    }
+  }
+  return highlights;
+}
+
 export function parseEducatorCoursePracticeInsights(
   body: unknown,
 ): EducatorCoursePracticeInsights | undefined {
@@ -399,6 +453,7 @@ export function parseEducatorCoursePracticeInsights(
     questionSuccess,
     attemptInsights: readStringList(body, "attemptInsights"),
     outlierInsights: readStringList(body, "outlierInsights"),
+    growthHighlights: parseGrowthHighlights(body),
     distributionInsights: readStringList(body, "distributionInsights"),
     questionSuccessInsights: readStringList(body, "questionSuccessInsights"),
   };

@@ -9,6 +9,7 @@ import type {
   QuestionSuccessStat,
 } from "@/helpers/educatorPracticeInsightsApi";
 import { AttemptProgressChart } from "./AttemptProgressChart";
+import { CourseGrowthHighlights } from "./CourseGrowthHighlights";
 import {
   QuestionSuccessFilterToggle,
   type QuestionSuccessFilterId,
@@ -493,6 +494,7 @@ export function PracticeInsightsTab({ insights }: PracticeInsightsTabProps) {
               title="Recommendations & insights"
               insights={insights.attemptInsights}
             />
+            <CourseGrowthHighlights highlights={insights.growthHighlights} />
             <InsightsList
               headingId="practice-outlier-insights-heading"
               title="Outlier recommendations"

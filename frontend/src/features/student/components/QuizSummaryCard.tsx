@@ -98,7 +98,7 @@ export function QuizSummaryCard({ items }: QuizSummaryCardProps) {
   );
 
   return (
-    <article className="rounded-2xl border border-border-ui bg-surface p-6 shadow-[0_8px_24px_rgba(30,27,51,0.06)] md:p-8">
+    <article className="mt-8 rounded-2xl border border-border-ui bg-surface p-6 shadow-[0_8px_24px_rgba(30,27,51,0.06)] md:p-8">
       <h2 className="text-lg font-bold tracking-tight text-ink">
         Performance breakdown
       </h2>

@@ -57,6 +57,7 @@ function buildDashboardForCourse(
         timeSpentLabel: "00:30:14",
         cheatAccessCount: 34,
         improvementLabel: "+12%",
+        isRequired: true,
         cognitiveLevels: [
           { levelName: "Remember", percentCorrect: 90, questionCount: 3 },
           { levelName: "Understand", percentCorrect: 80, questionCount: 3 },
@@ -85,6 +86,7 @@ function buildDashboardForCourse(
         timeSpentLabel: "01:12:40",
         cheatAccessCount: 12,
         improvementLabel: "+45%",
+        isRequired: false,
         cognitiveLevels: [
           { levelName: "Remember", percentCorrect: 90, questionCount: 3 },
           { levelName: "Understand", percentCorrect: 80, questionCount: 3 },
@@ -113,6 +115,7 @@ function buildDashboardForCourse(
         timeSpentLabel: "00:45:02",
         cheatAccessCount: 21,
         improvementLabel: "+8%",
+        isRequired: true,
         cognitiveLevels: [
           { levelName: "Remember", percentCorrect: 70, questionCount: 3 },
           { levelName: "Understand", percentCorrect: 65, questionCount: 3 },

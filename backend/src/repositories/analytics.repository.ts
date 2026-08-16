@@ -1128,6 +1128,226 @@ function buildOutlierInsights(
   return insights;
 }
 
+type CourseGrowthHighlight = {
+  type: 'progress' | 'consistency' | 'momentum' | 'honesty';
+  title: string;
+  description: string;
+};
+
+function meanOfAttemptSlice(
+  scores: StudentAttemptScore[],
+  startIndex: number,
+  endIndexExclusive: number,
+): number | undefined {
+  const slice: number[] = [];
+  for (let index = startIndex; index < endIndexExclusive; index += 1) {
+    const attempt = scores[index];
+    if (attempt !== undefined) {
+      slice.push(attempt.scorePercent);
+    }
+  }
+  return meanOfNumbers(slice);
+}
+
+function buildCourseGrowthHighlights(
+  students: StudentPracticeSeries[],
+  attemptAverages: Array<{
+    attemptNumber: number;
+    averagePercent: number;
+    studentCount: number;
+  }>,
+  classMeanPercent: number | undefined,
+): CourseGrowthHighlight[] {
+  if (students.length === 0) {
+    return [];
+  }
+
+  const list: CourseGrowthHighlight[] = [];
+  let totalAttempts = 0;
+  let learnersWithMultipleAttempts = 0;
+  let learnersImproved = 0;
+  let learnersRegressed = 0;
+  let learnersAboveTarget = 0;
+  let bestLearnerMean = 0;
+
+  for (const student of students) {
+    totalAttempts += student.attemptScores.length;
+    if (student.meanPercent >= 70) {
+      learnersAboveTarget += 1;
+    }
+    if (student.meanPercent > bestLearnerMean) {
+      bestLearnerMean = student.meanPercent;
+    }
+
+    if (student.attemptScores.length >= 2) {
+      learnersWithMultipleAttempts += 1;
+      const first = student.attemptScores[0];
+      const last = student.attemptScores[student.attemptScores.length - 1];
+      if (first !== undefined && last !== undefined) {
+        if (last.scorePercent > first.scorePercent + 5) {
+          learnersImproved += 1;
+        }
+        if (last.scorePercent < first.scorePercent - 5) {
+          learnersRegressed += 1;
+        }
+      }
+    }
+  }
+
+  let recentDipCount = 0;
+  for (const student of students) {
+    if (student.attemptScores.length < 4) {
+      continue;
+    }
+    const midpoint = Math.floor(student.attemptScores.length / 2);
+    const earlyMean = meanOfAttemptSlice(student.attemptScores, 0, midpoint);
+    const lateMean = meanOfAttemptSlice(
+      student.attemptScores,
+      student.attemptScores.length - 3,
+      student.attemptScores.length,
+    );
+    if (
+      earlyMean !== undefined &&
+      lateMean !== undefined &&
+      lateMean < earlyMean - 5
+    ) {
+      recentDipCount += 1;
+    }
+  }
+
+  // --- Honesty ---
+  if (recentDipCount >= 2 || (students.length >= 3 && recentDipCount / students.length >= 0.3)) {
+    list.push({
+      type: 'honesty',
+      title: 'Recent scores have dipped for several learners',
+      description: `${recentDipCount} learner${recentDipCount === 1 ? '' : 's'} scored lower on recent quizzes than earlier ones. Check weak sections and whether later attempts are harder.`,
+    });
+  } else if (
+    learnersWithMultipleAttempts >= 3 &&
+    learnersRegressed >= Math.ceil(learnersWithMultipleAttempts * 0.4)
+  ) {
+    list.push({
+      type: 'honesty',
+      title: 'More learners finishing below where they started',
+      description: `${learnersRegressed} of ${learnersWithMultipleAttempts} learners with multiple attempts ended lower than attempt 1. Review early content or quiz difficulty.`,
+    });
+  }
+
+  // --- Progress ---
+  const firstAverage = attemptAverages[0];
+  const lastAverage = attemptAverages[attemptAverages.length - 1];
+  if (
+    firstAverage !== undefined &&
+    lastAverage !== undefined &&
+    attemptAverages.length >= 2 &&
+    lastAverage.attemptNumber > firstAverage.attemptNumber
+  ) {
+    const delta = lastAverage.averagePercent - firstAverage.averagePercent;
+    if (delta >= 5) {
+      list.push({
+        type: 'progress',
+        title: `+${delta} points class average since attempt ${firstAverage.attemptNumber}`,
+        description: `Cohort average moved from ${firstAverage.averagePercent}% to ${lastAverage.averagePercent}% by attempt ${lastAverage.attemptNumber}. Practice volume is paying off.`,
+      });
+    } else if (delta <= -5) {
+      if (list.every((highlight) => highlight.type !== 'honesty')) {
+        list.push({
+          type: 'honesty',
+          title: 'Class average has slipped across attempts',
+          description: `Average fell from ${firstAverage.averagePercent}% on attempt ${firstAverage.attemptNumber} to ${lastAverage.averagePercent}% on attempt ${lastAverage.attemptNumber}.`,
+        });
+      }
+    }
+  }
+
+  if (
+    learnersWithMultipleAttempts >= 3 &&
+    learnersImproved >= Math.ceil(learnersWithMultipleAttempts * 0.4)
+  ) {
+    const improvedShare = roundPercent(
+      (learnersImproved / learnersWithMultipleAttempts) * 100,
+    );
+    list.push({
+      type: 'progress',
+      title: `${improvedShare}% of active learners improved`,
+      description: `${learnersImproved} of ${learnersWithMultipleAttempts} learners with multiple attempts scored higher on their latest quiz than their first.`,
+    });
+  }
+
+  // --- Consistency ---
+  if (learnersAboveTarget >= 2 && classMeanPercent !== undefined) {
+    const aboveShare = roundPercent(
+      (learnersAboveTarget / students.length) * 100,
+    );
+    if (classMeanPercent >= 70 || aboveShare >= 40) {
+      list.push({
+        type: 'consistency',
+        title: `${learnersAboveTarget} learner${learnersAboveTarget === 1 ? '' : 's'} averaging ≥70%`,
+        description: `${aboveShare}% of the cohort sits at or above the 70% target across their practice attempts.`,
+      });
+    }
+  } else if (classMeanPercent !== undefined && classMeanPercent >= 70) {
+    list.push({
+      type: 'consistency',
+      title: `${classMeanPercent}% class average`,
+      description:
+        'The cohort mean is at or above the 70% target — solid, sustained performance overall.',
+    });
+  }
+
+  // --- Momentum ---
+  let peakAttempt:
+    | { attemptNumber: number; averagePercent: number; studentCount: number }
+    | undefined;
+  for (const attemptAverage of attemptAverages) {
+    if (
+      peakAttempt === undefined ||
+      attemptAverage.averagePercent > peakAttempt.averagePercent
+    ) {
+      peakAttempt = attemptAverage;
+    }
+  }
+  if (
+    peakAttempt !== undefined &&
+    peakAttempt.averagePercent >= 70 &&
+    peakAttempt.studentCount >= 2
+  ) {
+    list.push({
+      type: 'momentum',
+      title: `${peakAttempt.averagePercent}% peak on attempt ${peakAttempt.attemptNumber}`,
+      description: `That is the strongest class average so far (${peakAttempt.studentCount} learners). Aim to make it the new floor, not a one-off spike.`,
+    });
+  } else if (bestLearnerMean >= 70) {
+    list.push({
+      type: 'momentum',
+      title: `${roundPercent(bestLearnerMean)}% top learner average`,
+      description:
+        'At least one learner is averaging at or above the 70% target. Use their trajectory as a stretch reference for the rest of the class.',
+    });
+  }
+
+  // --- Honesty fallback ---
+  if (list.every((highlight) => highlight.type !== 'honesty')) {
+    if (totalAttempts < 8 || students.length < 3) {
+      list.push({
+        type: 'honesty',
+        title: 'Still early for the cohort',
+        description:
+          'With limited completed attempts, cohort trends are noisy. Growth highlights get clearer as more learners finish quizzes.',
+      });
+    } else {
+      list.push({
+        type: 'honesty',
+        title: 'Scores naturally vary across learners',
+        description:
+          'Quiz-to-quiz and learner-to-learner variation is normal — watch the class trend and outliers together rather than any single result.',
+      });
+    }
+  }
+
+  return list.slice(0, 4);
+}
+
 function buildDistributionInsights(
   studentCount: number,
   classMeanPercent: number | undefined,
@@ -1363,6 +1583,11 @@ function buildEducatorPracticeInsights(
       courseWideAveragePercent,
     ),
     outlierInsights: buildOutlierInsights(outliers, classMeanPercent),
+    growthHighlights: buildCourseGrowthHighlights(
+      students,
+      attemptAverages,
+      classMeanPercent,
+    ),
     distributionInsights: buildDistributionInsights(
       students.length,
       classMeanPercent,
