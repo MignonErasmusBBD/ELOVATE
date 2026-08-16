@@ -117,7 +117,8 @@ export function CourseWorkspaceNav({
           </ul>
           <ExplainTip label="About the course workspace">
             Lesson is the reading material. Practice Quiz draws from the
-            question bank. Dashboard shows your scores and Bloom breakdown.
+            question bank. Dashboard shows your quiz trend, breakdown by
+            skill and section, and growth highlights.
           </ExplainTip>
         </nav>
       </section>

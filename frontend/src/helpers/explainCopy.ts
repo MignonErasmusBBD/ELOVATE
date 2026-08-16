@@ -13,6 +13,12 @@ export const explainCopy = {
     "Each attempt picks questions from this course based on how you have been doing. After you answer, you see whether you were right and why, then a score at the end.",
   practiceQuizProgress:
     "Each point is one finished practice quiz. The line shows your score over time so you can see whether you are improving.",
+  studentRecentAttempts:
+    "Your last 10 completed quiz scores, plotted in order. The dashed line is your overall average across all attempts.",
+  studentPerformanceBreakdown:
+    "Percentage of questions answered correctly, grouped by cognitive level, course section, or difficulty. Scores are across all your attempts, not just the last 10.",
+  studentGrowthHighlights:
+    "Callouts about your practice trends — progress since your first attempts, streaks above the 70% target, and honest flags when scores have dipped or stalled.",
   cognitiveLevel:
     "Bloom's taxonomy groups questions by thinking skill: Remember, Understand, Apply, Analyze, Evaluate, Create. The bar is the share of those questions you have answered correctly in this course.",
   studentCognitive:

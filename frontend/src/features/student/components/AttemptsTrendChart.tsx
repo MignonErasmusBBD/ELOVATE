@@ -2,8 +2,9 @@
 
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { explainCopy } from "@/helpers/explainCopy";
 import type { TrendAttempt } from "@/helpers/studentDashboardApi";
-import { InfoTooltip } from "./InfoTooltip";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -23,10 +24,9 @@ export function AttemptsTrendChart({
       <h2 className="text-xl font-bold tracking-tight text-ink">
         Recent attempts
       </h2>
-      <InfoTooltip
-        label="What recent attempts shows"
-        text="Your last 10 completed quiz scores, plotted in order. The dashed line is your overall average across all attempts."
-      />
+      <ExplainTip label="About recent attempts">
+        {explainCopy.studentRecentAttempts}
+      </ExplainTip>
     </header>
   );
 

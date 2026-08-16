@@ -1,4 +1,5 @@
-import { InfoTooltip } from "./InfoTooltip";
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { explainCopy } from "@/helpers/explainCopy";
 
 type Highlight = {
   type: "progress" | "consistency" | "momentum" | "honesty";
@@ -181,10 +182,9 @@ export function GrowthHighlights(props: GrowthHighlightsProps) {
         >
           Growth highlights
         </h2>
-        <InfoTooltip
-          label="What growth highlights shows"
-          text="Callouts about your practice trends — progress since your first attempts, streaks above the 70% target, and honest flags when scores have dipped or stalled."
-        />
+        <ExplainTip label="About growth highlights">
+          {explainCopy.studentGrowthHighlights}
+        </ExplainTip>
       </header>
 
       <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
