@@ -14,10 +14,19 @@
 <div align="center">
 
 ## About
-
 ELOVATE helps organisations deliver skills training that adapts to each learner, so people practise what they still struggle with instead of wasting time on content they already know. Learners get clear progress signals - attempt trends, performance by skill and difficulty, and growth highlights—so they know where to focus next. Educators and admins see cohort and individual insights in one place, making it easier to spot who needs support, which questions need revision, and whether mandatory training is on track.
 
-<br>
+[Try ELOVATE live](https://elovate-web-production.up.railway.app/) 
+
+## Tech stack
+
+| Layer | Technologies |
+| --- | --- |
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4, ApexCharts |
+| Backend | NestJS 11, TypeScript, Swagger |
+| Data | PostgreSQL, Flyway migrations |
+| Auth | Better Auth, Google OAuth |
+| Tooling | pnpm (frontend), npm (backend), Docker Compose |
 
 ## Team Members
 
@@ -28,11 +37,4 @@ ELOVATE helps organisations deliver skills training that adapts to each learner,
 | Mignon Erasmus | mignon.erasmus@bbd.co.za |
 
 <br>
-
-[Our deployed ELOVATE site](https://elovate-web-production.up.railway.app/) 
 </div>
-
-## Run
-
-- **Frontend** (Next.js, port 3000): `cd frontend` then `pnpm install` and `pnpm dev`
-- **API** (NestJS, port 3001): connects to Postgres from the repo-root `.env` — see `backend/README.md`
