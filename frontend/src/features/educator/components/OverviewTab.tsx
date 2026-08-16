@@ -191,18 +191,24 @@ export function OverviewTab({ overview }: OverviewTabProps) {
             </header>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
+                <colgroup>
+                  <col className="w-[18%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[36%]" />
+                  <col className="w-[26%]" />
+                </colgroup>
                 <thead>
                   <tr>
-                    <th className="border-b border-border-ui pb-2 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    <th className="border-b border-border-ui pb-3 pr-6 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
                       Flag
                     </th>
-                    <th className="border-b border-border-ui pb-2 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    <th className="border-b border-border-ui pb-3 pr-6 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
                       Category
                     </th>
-                    <th className="border-b border-border-ui pb-2 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                      Triggers when…
+                    <th className="border-b border-border-ui pb-3 pr-6 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                      Flagging condition
                     </th>
-                    <th className="border-b border-border-ui pb-2 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    <th className="border-b border-border-ui pb-3 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary">
                       Recommended action
                     </th>
                   </tr>
@@ -210,28 +216,28 @@ export function OverviewTab({ overview }: OverviewTabProps) {
                 <tbody>
                   {FLAG_REFERENCE.map((row) => (
                     <tr key={row.flagLabel} className="group">
-                      <td className="py-3 pr-4 align-top font-medium text-ink group-last:pb-0">
+                      <td className="py-4 pr-6 align-top font-medium text-ink group-last:pb-0">
                         {row.flagLabel}
                       </td>
-                      <td className="py-3 pr-4 align-top group-last:pb-0">
+                      <td className="py-4 pr-6 align-top group-last:pb-0">
                         <span
-                          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
+                          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
                           style={{
                             background: `${row.categoryColor}18`,
                             color: row.categoryColor,
                           }}
                         >
                           <span
-                            className="h-1.5 w-1.5 rounded-full"
+                            className="h-1.5 w-1.5 shrink-0 rounded-full"
                             style={{ background: row.categoryColor }}
                           />
                           {row.category}
                         </span>
                       </td>
-                      <td className="py-3 pr-4 align-top text-text-secondary group-last:pb-0">
+                      <td className="py-4 pr-6 align-top text-text-secondary group-last:pb-0">
                         {row.condition}
                       </td>
-                      <td className="py-3 align-top text-text-secondary group-last:pb-0">
+                      <td className="py-4 align-top text-text-secondary group-last:pb-0">
                         {row.action}
                       </td>
                     </tr>
