@@ -13,6 +13,9 @@ import { BreakdownTabs } from "@/features/student/components/BreakdownTabs";
 import { GrowthHighlights } from "@/features/student/components/GrowthHighlights";
 import { RecommendationCards } from "@/features/student/components/RecommendationCards";
 import type { EducatorStudentSummary } from "../types";
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { explainCopy } from "@/helpers/explainCopy";
+import { StudentCognitiveLevelChart } from "./StudentCognitiveLevelChart";
 
 type StudentDetailsModalProps = {
   courseId: string;
