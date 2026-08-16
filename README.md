@@ -38,3 +38,9 @@ ELOVATE helps organisations deliver skills training that adapts to each learner,
 
 <br>
 </div>
+
+## Demonstration click through
+
+<video src="assets/full-demo.webm" controls width="100%">
+  <a href="assets/full-demo.webm">Download the full demo video</a>
+</video>
