@@ -55,7 +55,7 @@ export function CourseGrowthHighlights({
 
   return (
     <section aria-labelledby="course-growth-heading" className="mt-4">
-      <header className="flex items-center gap-2">
+      <header className="flex items-center justify-between gap-2">
         <h3
           id="course-growth-heading"
           className="text-base font-bold text-ink"
