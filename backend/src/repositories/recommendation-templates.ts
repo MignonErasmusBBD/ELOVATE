@@ -24,7 +24,7 @@ export type TemplateEntry = {
 
 // All copy lives here. Detection logic writes flag_type + evidence only.
 // Swap audience key to get educator-facing copy from the same flags.
-export const TEMPLATES: Record<`${FlagType}:${Audience}`, TemplateEntry> = {
+export const TEMPLATES: Partial<Record<`${FlagType}:${Audience}`, TemplateEntry>> = {
   'repeated_low_topic:student': {
     category: 'needs_reinforcement',
     sentence:
