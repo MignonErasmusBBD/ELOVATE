@@ -111,9 +111,9 @@ export const TEMPLATES: Partial<Record<`${FlagType}:${Audience}`, TemplateEntry>
   'mandatory_at_risk:educator': {
     category: 'talk_to_educator',
     sentence:
-      'Mandatory course requirement not met — {attempts} quiz attempt(s) completed, minimum is {min_attempts}. Due {due_date}.',
+      'Mandatory course requirement not met — {attempts} quiz attempt(s) completed, minimum is {min_attempts}. Progress required by {due_date}.',
     evidence:
-      '{attempts} completed quiz attempt(s) recorded against a required minimum of {min_attempts}. Enrollment due date: {due_date}.',
+      '{attempts} completed quiz attempt(s) recorded against a required minimum of {min_attempts}. Student must reach the minimum by {due_date}.',
     cta: 'none',
   },
 };
