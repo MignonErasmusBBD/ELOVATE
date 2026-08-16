@@ -17,36 +17,10 @@ export type ElovateCourseSummary = {
   dueAt?: string;
 };
 
-const COURSE_CACHE_MS = 20_000;
-
-type CachedCourse = {
-  course: ElovateCourseSummary;
-  expiresAt: number;
-};
-
-const courseCache = new Map<string, CachedCourse>();
 const courseInFlight = new Map<
   string,
   Promise<ElovateCourseSummary | undefined>
 >();
-
-function rememberCourse(course: ElovateCourseSummary) {
-  const existing = courseCache.get(course.id);
-  const merged =
-    existing === undefined
-      ? course
-      : {
-          ...existing.course,
-          ...course,
-          isEnrolled: course.isEnrolled ?? existing.course.isEnrolled,
-          isRequired: course.isRequired ?? existing.course.isRequired,
-          dueAt: course.dueAt ?? existing.course.dueAt,
-        };
-  courseCache.set(course.id, {
-    course: merged,
-    expiresAt: Date.now() + COURSE_CACHE_MS,
-  });
-}
 
 export type CreateCourseInput = {
   title: string;
@@ -138,9 +112,6 @@ export async function listCourses(
     throw new Error("Course list response was invalid.");
   }
 
-  for (const course of parsedCourses) {
-    rememberCourse(course);
-  }
   return parsedCourses;
 }
 
@@ -199,11 +170,6 @@ function readApiErrorMessage(body: unknown): string {
 export async function getCourse(
   courseId: string,
 ): Promise<ElovateCourseSummary | undefined> {
-  const cached = courseCache.get(courseId);
-  if (cached !== undefined && Date.now() < cached.expiresAt) {
-    return cached.course;
-  }
-
   const inFlight = courseInFlight.get(courseId);
   if (inFlight !== undefined) {
     return inFlight;
@@ -219,11 +185,7 @@ export async function getCourse(
       throw new ElovateApiError(response.status, readApiErrorMessage(body));
     }
     const body: unknown = await response.json();
-    const course = parseCourseSummary(body);
-    if (course !== undefined) {
-      rememberCourse(course);
-    }
-    return course;
+    return parseCourseSummary(body);
   })().finally(() => {
     courseInFlight.delete(courseId);
   });

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ExplainTip } from "@/components/ui/ExplainTip";
 import { Spinner } from "@/components/ui/Spinner";
 import { displayFormatCode } from "@/helpers/displayLabels";
+import { explainCopy } from "@/helpers/explainCopy";
 import type {
   BloomLevelLookup,
   DifficultyLevelLookup,
@@ -379,8 +381,11 @@ export function QuestionFormModal({
               </select>
             </label>
             <label className="block">
-              <span className="text-sm font-semibold text-ink">
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
                 Bloom Level *
+                <ExplainTip label="About Bloom level">
+                  {explainCopy.questionBloom}
+                </ExplainTip>
               </span>
               <select
                 value={bloomLevelId}
@@ -474,9 +479,12 @@ export function QuestionFormModal({
           </fieldset>
 
           <label className="block">
-            <span className="text-sm font-semibold text-ink">
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
               Why is this correct?{" "}
               <span className="font-normal text-text-secondary">(optional)</span>
+              <ExplainTip label="About the correct-answer reason">
+                {explainCopy.questionReason}
+              </ExplainTip>
             </span>
             <textarea
               value={correctReason}

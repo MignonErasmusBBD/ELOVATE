@@ -3,6 +3,8 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { explainCopy } from "@/helpers/explainCopy";
 import type { PracticeQuizAttempt } from "../types";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -144,9 +146,12 @@ export function PracticeQuizProgressChart({
         <section className="min-w-0">
           <h2
             id="practice-quiz-progress-heading"
-            className="text-xl font-bold tracking-tight text-ink"
+            className="flex min-w-0 items-center gap-1.5 text-xl font-bold tracking-tight text-ink"
           >
             Practice quiz progress
+            <ExplainTip label="About practice quiz progress">
+              {explainCopy.practiceQuizProgress}
+            </ExplainTip>
           </h2>
           <p className="mt-1 text-sm text-text-secondary">
             {isViewingLatestWindow

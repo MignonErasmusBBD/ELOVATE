@@ -737,10 +737,6 @@ export class QuizzesRepository {
     return new Set(result.rows.map((r) => r.question_id));
   }
 
-  private shouldHideCorrect(status: string): boolean {
-    return status === 'generated' || status === 'in_progress';
-  }
-
   private async loadItems(
     attemptIds: string[],
   ): Promise<Map<string, PublicAttemptItem[]>> {

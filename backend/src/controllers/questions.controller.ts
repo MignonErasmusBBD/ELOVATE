@@ -195,7 +195,7 @@ export class QuestionsController {
   @ApiOperation({
     summary: 'Create question',
     description:
-      'Insert questions, question_options, question_topics.\nPermission: question.create (community_admin, org_admin, educator).',
+      'Insert questions (including optional correct_reason), question_options, question_topics.\nPermission: question.create (community_admin, org_admin, educator).',
   })
   create(@CurrentUser() actor: AuthUser, @Body() dto: CreateQuestionDto) {
     return this.questions.create(actor, {
@@ -215,7 +215,7 @@ export class QuestionsController {
   @ApiOperation({
     summary: 'Update question',
     description:
-      'Update questions / options. Options cannot be replaced after quiz_attempt_items exist.\nPermission: question.update (community_admin, org_admin, educator).',
+      'Update questions (including optional correct_reason) / options. Options cannot be replaced after quiz_attempt_items exist.\nPermission: question.update (community_admin, org_admin, educator).',
   })
   update(
     @CurrentUser() actor: AuthUser,

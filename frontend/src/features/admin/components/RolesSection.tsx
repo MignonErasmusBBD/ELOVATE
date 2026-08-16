@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ActionNotice } from "@/components/ui/ActionNotice";
+import { ExplainTip } from "@/components/ui/ExplainTip";
 import { FormField } from "@/components/ui/FormField";
 import { Label } from "@/components/ui/Label";
 import { SearchableMultiSelect } from "@/components/ui/SearchableMultiSelect";
@@ -9,6 +10,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useActionFeedback } from "@/features/platform";
 import { notifyAccountChanged } from "@/helpers/accountEvents";
 import { displayRoleName } from "@/helpers/displayLabels";
+import { explainCopy } from "@/helpers/explainCopy";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import {
   peopleWithRole,
@@ -97,7 +99,9 @@ export function RolesSection({
       ) {
         notifyAccountChanged();
       }
-      showSuccess(`${displayRoleName(roleName)} assignments updated.`);
+      showSuccess(
+        `${displayRoleName(roleName)} assignments updated. People keep Learner and gain the extra permissions for that role.`,
+      );
     } catch (error) {
       setActionError(
         errorMessageFromUnknown(error, "Could not update role assignments."),
@@ -112,8 +116,15 @@ export function RolesSection({
   return (
     <section aria-labelledby="roles-heading" className="mt-8">
       <header className="mb-5">
-        <h2 id="roles-heading" className="text-xl font-bold text-ink">
+        <h2
+          id="roles-heading"
+          className="flex items-center gap-1.5 text-xl font-bold text-ink"
+        >
           Roles
+          <ExplainTip label="About roles">
+            {explainCopy.rolesPlatform} {explainCopy.rolesCommunity}{" "}
+            {explainCopy.rolesOrgAdmin}
+          </ExplainTip>
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
           Platform Admin and Community Admin cover the whole platform.

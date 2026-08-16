@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getStudentCourseDashboard } from "@/helpers/studentDashboardApi";
-import type { StudentCourseDashboard } from "@/helpers/studentDashboardApi";
 import { getCourse } from "@/helpers/coursesApi";
 import { PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
+import { getStudentCourseDashboard } from "@/helpers/studentDashboardApi";
+import type { StudentCourseDashboard } from "@/helpers/studentDashboardApi";
 import { AttemptsTrendChart } from "./AttemptsTrendChart";
 import { BreakdownTabs } from "./BreakdownTabs";
 import { GrowthHighlights } from "./GrowthHighlights";

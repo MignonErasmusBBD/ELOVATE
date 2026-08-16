@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ExplainTip } from "@/components/ui/ExplainTip";
 import { WORKSPACE_BAR_CLASS } from "@/helpers/pageLayout";
 
 type CourseWorkspaceNavProps = {
@@ -75,7 +76,7 @@ export function CourseWorkspaceNav({
           )}
         </section>
 
-        <nav aria-label="Course sections">
+        <nav aria-label="Course sections" className="flex flex-wrap items-center gap-2">
           <ul className="flex list-none flex-wrap gap-2 p-0">
             {workspaceLinks.map((link) => {
               const isCurrent = link.match(pathname);
@@ -114,6 +115,10 @@ export function CourseWorkspaceNav({
               );
             })}
           </ul>
+          <ExplainTip label="About the course workspace">
+            Lesson is the reading material. Practice Quiz draws from the
+            question bank. Dashboard shows your scores and Bloom breakdown.
+          </ExplainTip>
         </nav>
       </section>
     </header>

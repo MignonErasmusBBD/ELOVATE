@@ -202,8 +202,9 @@ export class UsersRepository {
       email: row.email,
       fullName: textFromDatabase(row.full_name),
       status: row.status,
-      roleNames: row.role_names ?? [],
-      permissionCodes: row.permission_codes ?? [],
+      roleNames: row.role_names === null ? [] : row.role_names,
+      permissionCodes:
+        row.permission_codes === null ? [] : row.permission_codes,
     };
   }
 }

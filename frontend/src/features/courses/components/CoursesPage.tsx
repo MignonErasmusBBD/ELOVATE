@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ExplainTip } from "@/components/ui/ExplainTip";
 import { Spinner } from "@/components/ui/Spinner";
 import { useActionFeedback, useCurrentUser } from "@/features/platform";
 import { listCourses, type ElovateCourseSummary } from "@/helpers/coursesApi";
+import { explainCopy } from "@/helpers/explainCopy";
 import { PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
 import { itemsMatchingSearch } from "@/helpers/search";
 import {
@@ -173,7 +175,9 @@ export function CoursesPage() {
     try {
       await startCommunityEnrollment(courseId);
       setEnrolledCourseIds((prev) => new Set([...prev, courseId]));
-      showSuccess("You are enrolled. Opening the course…");
+      showSuccess(
+        "You are enrolled. You can open the lesson, take the practice quiz, and come back later — your progress stays on this account.",
+      );
       router.push(`/student/courses/${courseId}`);
     } catch {
       showError("Could not enrol in that course.");
@@ -246,8 +250,11 @@ export function CoursesPage() {
   return (
     <section className={PAGE_SHELL_CLASS}>
       <header>
-        <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
+        <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-ink md:text-4xl">
           All Courses
+          <ExplainTip label="About the course catalogue">
+            {explainCopy.coursesCatalogue}
+          </ExplainTip>
         </h1>
         <p className="mt-2 max-w-2xl text-base text-text-secondary">
           Browse our catalog of courses. Click on a course to explore its

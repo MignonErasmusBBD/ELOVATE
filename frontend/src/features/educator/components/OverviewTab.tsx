@@ -1,5 +1,7 @@
 "use client";
 
+import { ExplainTip } from "@/components/ui/ExplainTip";
+import { explainCopy } from "@/helpers/explainCopy";
 import type { EducatorCourseOverview } from "@/helpers/educatorOverviewApi";
 import { BloomDifficultyBarChart } from "./BloomDifficultyBarChart";
 import { BloomRadarChart } from "./BloomRadarChart";
@@ -72,15 +74,22 @@ export function OverviewTab({ overview }: OverviewTabProps) {
       <ul className="grid list-none grid-cols-1 gap-6 p-0 xl:grid-cols-2">
         <li>
           <article className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
-            <h3 className="text-base font-bold text-ink">
-              Bloom&apos;s Taxonomy: Questions Coverage &amp; Average
-              Performance
-            </h3>
-            <p className="mt-1 text-sm text-text-secondary">
-              Both series use a 0–100% scale. Coverage is each Bloom
-              level&apos;s share of the question bank; performance is average
-              percent correct.
-            </p>
+            <header>
+              <h3 className="flex items-start justify-between gap-2 text-base font-bold text-ink">
+                <span className="min-w-0">
+                  Bloom&apos;s Taxonomy: Questions Coverage &amp; Average
+                  Performance
+                </span>
+                <ExplainTip label="About Bloom coverage">
+                  {explainCopy.bloomCoverage}
+                </ExplainTip>
+              </h3>
+              <p className="mt-1 text-sm text-text-secondary">
+                Both series use a 0–100% scale. Coverage is each Bloom
+                level&apos;s share of the question bank; performance is average
+                percent correct.
+              </p>
+            </header>
             {showBloomCoverage ? (
               <BloomRadarChart bloomCoverage={overview.bloomCoverage} />
             ) : (
@@ -90,9 +99,14 @@ export function OverviewTab({ overview }: OverviewTabProps) {
         </li>
         <li>
           <article className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
-            <h3 className="text-base font-bold text-ink">
-              Question Section Overview
-            </h3>
+            <header className="flex items-center justify-between gap-2">
+              <h3 className="min-w-0 text-base font-bold text-ink">
+                Question Section Overview
+              </h3>
+              <ExplainTip label="About the section chart">
+                {explainCopy.questionSections}
+              </ExplainTip>
+            </header>
             {showSections ? (
               <QuestionSectionPolarChart
                 questionSections={overview.questionSections}
@@ -104,9 +118,14 @@ export function OverviewTab({ overview }: OverviewTabProps) {
         </li>
         <li className="xl:col-span-2">
           <article className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
-            <h3 className="text-base font-bold text-ink">
-              Question by Bloom &amp; Difficulty
-            </h3>
+            <header className="flex items-center justify-between gap-2">
+              <h3 className="min-w-0 text-base font-bold text-ink">
+                Question by Bloom &amp; Difficulty
+              </h3>
+              <ExplainTip label="About Bloom and difficulty">
+                {explainCopy.bloomDifficulty}
+              </ExplainTip>
+            </header>
             {showBloomDifficulty ? (
               <BloomDifficultyBarChart
                 bloomDifficulty={overview.bloomDifficulty}
@@ -118,9 +137,14 @@ export function OverviewTab({ overview }: OverviewTabProps) {
         </li>
         <li className="xl:col-span-2">
           <article className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
-            <h3 className="text-base font-bold text-ink">
-              Intervention Rule Set Flag
-            </h3>
+            <header className="flex items-center justify-between gap-2">
+              <h3 className="min-w-0 text-base font-bold text-ink">
+                Intervention Rule Set Flag
+              </h3>
+              <ExplainTip label="About intervention flags">
+                {explainCopy.interventionFlags}
+              </ExplainTip>
+            </header>
             <p className="mt-1 text-sm text-text-secondary">
               Number of students flagged by each intervention rule.
             </p>

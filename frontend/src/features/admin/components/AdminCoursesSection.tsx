@@ -154,7 +154,9 @@ export function AdminCoursesSection({
       onCoursesChange([createdCourse, ...courses]);
       setCourseTitle("");
       setCourseDescription("");
-      showSuccess(`${createdCourse.title} was created as a draft.`);
+      showSuccess(
+        `${createdCourse.title} was created as a draft. Learners cannot see it until it has a section, 20 active questions, and is activated.`,
+      );
     } catch (error) {
       setFormError(
         errorMessageFromUnknown(error, "Could not create that course."),
@@ -193,8 +195,8 @@ export function AdminCoursesSection({
       await setCourseStatus(course.id, status);
       showSuccess(
         status === "active"
-          ? `${course.title} is now active.`
-          : `${course.title} was deactivated.`,
+          ? `${course.title} is now active. Learners who are enrolled can open the lesson and quiz.`
+          : `${course.title} was deactivated. New enrolments stop; people already enrolled can still open it as read-only.`,
       );
     } catch (error) {
       setActionError(

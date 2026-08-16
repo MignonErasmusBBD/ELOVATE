@@ -99,7 +99,9 @@ export function OrganisationAdminAssignments({
       ) {
         notifyAccountChanged();
       }
-      showSuccess("Org Admin assignments updated.");
+      showSuccess(
+        "Org Admin assignments updated. Added people are now in that organisation and can manage its people, private courses, and enrolments.",
+      );
     } catch (error) {
       onError(
         errorMessageFromUnknown(

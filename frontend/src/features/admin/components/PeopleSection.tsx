@@ -130,7 +130,9 @@ export function PeopleSection({
           organizationId,
         },
       ]);
-      showSuccess(`${placedPerson.fullName} was added to the organisation.`);
+      showSuccess(
+        `${placedPerson.fullName} was added to the organisation. They stay a Learner until you grant Educator or Org Admin.`,
+      );
     } catch (error) {
       setFormError(
         errorMessageFromUnknown(error, "Could not add that person."),
@@ -164,12 +166,12 @@ export function PeopleSection({
       if (isAssigned) {
         await assignRole(person.id, roleName);
         showSuccess(
-          `${displayRoleName(roleName)} assigned to ${person.fullName}.`,
+          `${displayRoleName(roleName)} assigned to ${person.fullName}. They keep Learner and gain the extra permissions for that role.`,
         );
       } else {
         await unassignRole(person.id, roleName);
         showSuccess(
-          `${displayRoleName(roleName)} removed from ${person.fullName}.`,
+          `${displayRoleName(roleName)} removed from ${person.fullName}. They remain a Learner in the organisation.`,
         );
       }
     } catch (error) {
@@ -205,8 +207,8 @@ export function PeopleSection({
       await setPersonStatus(person.id, status);
       showSuccess(
         status === "active"
-          ? `${person.fullName} is active again.`
-          : `${person.fullName} was deactivated.`,
+          ? `${person.fullName} is active again and can sign in.`
+          : `${person.fullName} was deactivated. Their account stays, but they cannot sign in until you activate them.`,
       );
     } catch (error) {
       setActionError(

@@ -152,7 +152,9 @@ export function LearningContentTab({
           contentBlocks,
         });
         setExpandedSectionId(created.id);
-        showSuccess("Learning section created.");
+        showSuccess(
+          "Learning section created. Learners will see it in the lesson once the course is active.",
+        );
       } else if (
         sectionModalMode.kind === "edit" &&
         editingSection !== undefined

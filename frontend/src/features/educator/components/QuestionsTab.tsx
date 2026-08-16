@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ExplainTip } from "@/components/ui/ExplainTip";
 import { SearchField } from "@/components/ui/SearchField";
 import { Spinner } from "@/components/ui/Spinner";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { useActionFeedback } from "@/features/platform";
 import { displayFormatCode } from "@/helpers/displayLabels";
+import { explainCopy } from "@/helpers/explainCopy";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import { itemsMatchingSearch } from "@/helpers/search";
 import { listLearningContentSections } from "@/helpers/learningContentApi";
@@ -228,7 +230,9 @@ export function QuestionsTab({
           options,
         });
         setExpandedQuestionId(created.id);
-        showSuccess("Question created.");
+        showSuccess(
+          "Question created and active. It can now be drawn into practice quizzes for this course.",
+        );
       } else if (
         questionModalMode.kind === "edit" &&
         editingQuestion !== undefined
@@ -264,10 +268,14 @@ export function QuestionsTab({
     try {
       if (question.status === "active") {
         await deactivateQuestion(question.id);
-        showSuccess("Question deactivated.");
+        showSuccess(
+          "Question deactivated. Existing quiz history is kept, but new quizzes will not draw this item.",
+        );
       } else {
         await activateQuestion(question.id);
-        showSuccess("Question activated.");
+        showSuccess(
+          "Question activated. New practice quizzes can draw this item again.",
+        );
       }
       setReloadToken((currentToken) => currentToken + 1);
     } catch (error) {
@@ -300,9 +308,12 @@ export function QuestionsTab({
       <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <h2
           id="questions-heading"
-          className="min-w-0 break-words text-xl font-bold tracking-tight text-ink"
+          className="flex min-w-0 items-center gap-1.5 break-words text-xl font-bold tracking-tight text-ink"
         >
           Questions for {courseTitle}
+          <ExplainTip label="About the question bank">
+            {explainCopy.questionsBank}
+          </ExplainTip>
         </h2>
         <button
           type="button"

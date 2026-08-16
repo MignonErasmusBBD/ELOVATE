@@ -370,7 +370,9 @@ export function EducatorDashboardPage() {
     setCoursesReloadToken((currentToken) => currentToken + 1);
     setOverviewReloadToken((currentToken) => currentToken + 1);
     setIsAddCourseModalOpen(false);
-    showSuccess(`${createdCourse.title} was created as a draft.`);
+    showSuccess(
+      `${createdCourse.title} was created as a draft. Learners cannot see it until you add a section, at least 20 active questions, and activate it.`,
+    );
   }
 
   const selectedCourse = useMemo(() => {

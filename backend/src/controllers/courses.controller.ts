@@ -165,7 +165,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'List courses',
     description:
-      'Select courses JOIN course_visibilities JOIN course_statuses. Includes the caller enrollment (isEnrolled, isRequired, dueAt) when present.\nFilter by owning_organization_id, visibility_code, search, and status_code (defaults to active; status=all includes deactivated when the caller has course.*.update or course.*.delete).\nPermission: course.community.read (all roles) and/or course.private.read (org_admin, educator, community_admin). Learners also see private courses they have an active enrollments row for.',
+      'Select courses JOIN course_visibilities JOIN course_statuses. Includes the caller enrollment only (isEnrolled, isRequired, dueAt).\nFilter by owning_organization_id, visibility_code, search, and status_code (defaults to active). status=all: authors with course.*.update or course.*.delete see drafts and deactivated; learners see active matching access plus deactivated courses they are enrolled in (drafts stay hidden).\nPermission: course.community.read (all roles) and/or course.private.read (org_admin, educator, community_admin). Learners also see private courses they have an active enrollments row for.',
   })
   list(
     @CurrentUser() actor: AuthUser,

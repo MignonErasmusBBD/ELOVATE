@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import { ExplainTip } from "@/components/ui/ExplainTip";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { explainCopy } from "@/helpers/explainCopy";
 import type { EducatorStudentSummary } from "../types";
 import { StudentCognitiveLevelChart } from "./StudentCognitiveLevelChart";
 
@@ -130,9 +132,14 @@ export function StudentDetailsModal({
         </ul>
 
         <section className="mt-6 rounded-2xl border border-border-ui p-5">
-          <h3 className="text-base font-bold text-ink">
-            Performance by Cognitive Level
-          </h3>
+          <header className="flex items-center justify-between gap-2">
+            <h3 className="min-w-0 text-base font-bold text-ink">
+              Performance by Cognitive Level
+            </h3>
+            <ExplainTip label="About this student cognitive chart">
+              {explainCopy.studentCognitive}
+            </ExplainTip>
+          </header>
           {hasCognitiveLevels ? (
             <StudentCognitiveLevelChart
               cognitiveLevels={student.cognitiveLevels}

@@ -138,7 +138,9 @@ export function CompaniesSection({
       ) {
         notifyAccountChanged();
       }
-      showSuccess(`${createdOrganization.name} was created.`);
+      showSuccess(
+        `${createdOrganization.name} was created. The people you selected are now in that organisation and have Org Admin.`,
+      );
     } catch (error) {
       onOrganizationsChange(previousOrganizations);
       onPeopleChange(previousPeople);
