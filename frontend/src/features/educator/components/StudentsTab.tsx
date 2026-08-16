@@ -18,7 +18,10 @@ import {
   listCourseEnrollments,
   type ElovateEnrollment,
 } from "@/helpers/enrollmentsApi";
-import { triggerMandatoryProgressFlags } from "@/helpers/studentDashboardApi";
+import {
+  getActiveMandatoryFlaggedUserIds,
+  triggerMandatoryProgressFlags,
+} from "@/helpers/studentDashboardApi";
 import type { EducatorStudentSummary } from "../types";
 import { StudentDetailsModal } from "./StudentDetailsModal";
 
@@ -99,14 +102,16 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
       setIsLoading(true);
       setLoadErrorMessage(undefined);
       try {
-        const [activeEnrollments, completedEnrollments] = await Promise.all([
+        const [activeEnrollments, completedEnrollments, flaggedIds] = await Promise.all([
           listCourseEnrollments({ courseId, status: "active" }),
           listCourseEnrollments({ courseId, status: "completed" }),
+          getActiveMandatoryFlaggedUserIds(courseId),
         ]);
         if (cancelled) {
           return;
         }
 
+        setFlaggedUserIds(new Set(flaggedIds));
         const nextStudents = [
           ...activeEnrollments,
           ...completedEnrollments,

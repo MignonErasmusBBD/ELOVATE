@@ -46,6 +46,18 @@ export class AnalyticsService {
     return this.analytics.studentCourseDashboard(userId, courseId, 'educator');
   }
 
+  async readMandatoryFlaggedUserIds(actor: AuthUser, courseId: string) {
+    requirePermission(actor, ['analytics.read.org']);
+    const course = await this.courses.findById(courseId);
+    if (course === undefined) {
+      throw new NotFoundException('Course not found');
+    }
+    this.requireCourseOverviewAccess(actor, course);
+    const activeFlaggedUserIds =
+      await this.recommendations.activeMandatoryFlaggedUserIds(courseId);
+    return { activeFlaggedUserIds };
+  }
+
   async runMandatoryProgressFlags(actor: AuthUser, courseId: string) {
     requirePermission(actor, ['analytics.read.org']);
     const course = await this.courses.findById(courseId);

@@ -10,7 +10,7 @@ import {
 } from './recommendation-templates';
 
 // Minimum completed quiz attempts for a mandatory enrollment to be considered progressing.
-const MIN_MANDATORY_QUIZ_ATTEMPTS = 3;
+const MIN_MANDATORY_QUIZ_ATTEMPTS = 4;
 
 // Minimum questions answered before a section is included in flag evaluation.
 const MIN_QUESTIONS_FOR_FLAG = 3;
@@ -206,6 +206,21 @@ export class RecommendationsRepository {
       });
     }
     return result;
+  }
+
+  async activeMandatoryFlaggedUserIds(courseId: string): Promise<string[]> {
+    const result = await this.postgres.query<{ student_id: string }>(
+      `SELECT sr.student_id
+       FROM student_recommendations sr
+       JOIN recommendation_statuses rs
+         ON rs.recommendation_status_id = sr.recommendation_status_id
+       WHERE sr.course_id = $1
+         AND sr.flag_type = 'mandatory_at_risk'
+         AND sr.target_ref IS NULL
+         AND rs.status_code = 'active'`,
+      [courseId],
+    );
+    return result.rows.map((r) => r.student_id);
   }
 
   async evaluateMandatoryProgressFlags(

@@ -184,6 +184,21 @@ export async function getStudentCourseDashboard(
   return dashboard;
 }
 
+export async function getActiveMandatoryFlaggedUserIds(
+  courseId: string,
+): Promise<string[]> {
+  const body = await elovateApiJson(
+    `/analytics/educator/courses/${encodeURIComponent(courseId)}/flags/mandatory-progress`,
+  );
+  if (isPlainObject(body) === false) {
+    return [];
+  }
+  const rawIds = "activeFlaggedUserIds" in body ? Reflect.get(body, "activeFlaggedUserIds") : undefined;
+  return Array.isArray(rawIds)
+    ? rawIds.filter((id): id is string => typeof id === "string")
+    : [];
+}
+
 export async function triggerMandatoryProgressFlags(
   courseId: string,
 ): Promise<MandatoryFlagResult> {
