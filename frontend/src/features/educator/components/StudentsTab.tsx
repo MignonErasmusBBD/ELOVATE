@@ -59,6 +59,7 @@ function toStudentSummary(enrollment: ElovateEnrollment): EducatorStudentSummary
     status: enrollment.status,
     enrolledAtLabel: formatEnrollmentDate(enrollment.enrolledAt),
     needsAttention: enrollment.status === "overdue",
+    isRequired: enrollment.isRequired,
     practiceAttemptCount: enrollment.practiceAttemptCount,
     practiceQuizPercent: enrollment.practiceQuizPercent,
     isRequired: enrollment.isRequired,
