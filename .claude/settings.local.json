@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:neon.com)"
+      "WebFetch(domain:neon.com)",
+      "Bash(cygpath -w /tmp/assets/screenshots/01-login.png)",
+      "Read(//c//**)",
+      "Read(//c/c/Users/bbdnet3018/Documents/Hackathon/2026/ELOVATE/assets/screenshots/**)",
+      "Read(//c/c/Users/bbdnet3018/Documents/Hackathon/2026/ELOVATE/assets/**)"
     ]
   }
 }

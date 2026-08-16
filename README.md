@@ -46,6 +46,8 @@ https://github.com/user-attachments/assets/aad51344-bb24-4ed4-a211-2b6583212621
 
 ## Step-by-step walkthrough for learners and educators
 
+> New to ELOVATE? See the full [How to Use guide](documentation/how-to-use.md) for a role-by-role breakdown of every feature.
+
 https://github.com/user-attachments/assets/217a5153-17c6-4b66-bca2-b9882c50ef1f
 
 
