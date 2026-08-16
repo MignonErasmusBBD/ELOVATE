@@ -18,6 +18,10 @@ ELOVATE helps organisations deliver skills training that adapts to each learner,
 
 [Try ELOVATE live](https://elovate-web-production.up.railway.app/) 
 
+## Elevator pitch
+
+https://github.com/user-attachments/assets/aad51344-bb24-4ed4-a211-2b6583212621
+
 ## Tech stack
 
 | Layer | Technologies |
@@ -39,7 +43,7 @@ ELOVATE helps organisations deliver skills training that adapts to each learner,
 <br>
 </div>
 
-## Demonstration click through
+## Step-by-step walkthrough of the system
 
 https://github.com/user-attachments/assets/217a5153-17c6-4b66-bca2-b9882c50ef1f
 
