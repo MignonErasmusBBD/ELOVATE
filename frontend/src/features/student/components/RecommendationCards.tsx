@@ -72,9 +72,11 @@ function ctaLabel(cta: RecommendationCta): string {
 function RecommendationItem({
   rec,
   courseId,
+  showLinks,
 }: {
   rec: StudentRecommendation;
   courseId: string;
+  showLinks: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const href = ctaHref(rec.cta, courseId, rec.sectionId);
@@ -113,7 +115,7 @@ function RecommendationItem({
         </p>
       )}
 
-      {href !== undefined && (
+      {showLinks && href !== undefined && (
         <Link
           href={href}
           className="mt-0.5 w-fit text-xs font-semibold text-coral hover:underline"
@@ -151,11 +153,13 @@ function groupByCategory(
 type RecommendationCardsProps = {
   recommendations: StudentRecommendation[];
   courseId: string;
+  showLinks?: boolean;
 };
 
 export function RecommendationCards({
   recommendations,
   courseId,
+  showLinks = true,
 }: RecommendationCardsProps) {
   if (recommendations.length === 0) return null;
 
@@ -209,6 +213,7 @@ export function RecommendationCards({
                     key={rec.id}
                     rec={rec}
                     courseId={courseId}
+                    showLinks={showLinks}
                   />
                 ))}
               </ul>

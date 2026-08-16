@@ -11,6 +11,7 @@ import {
 import { AttemptsTrendChart } from "@/features/student/components/AttemptsTrendChart";
 import { BreakdownTabs } from "@/features/student/components/BreakdownTabs";
 import { GrowthHighlights } from "@/features/student/components/GrowthHighlights";
+import { RecommendationCards } from "@/features/student/components/RecommendationCards";
 import type { EducatorStudentSummary } from "../types";
 
 type StudentDetailsModalProps = {
@@ -209,6 +210,16 @@ export function StudentDetailsModal({
                 viewerRole="educator"
               />
             </article>
+
+            {dashboard.recommendations.length > 0 && (
+              <article className="rounded-2xl border border-border-ui bg-surface p-5 md:p-6">
+                <RecommendationCards
+                  recommendations={dashboard.recommendations}
+                  courseId={courseId}
+                  showLinks={false}
+                />
+              </article>
+            )}
 
             <article className="rounded-2xl border border-border-ui bg-surface p-5 md:p-6">
               <BreakdownTabs
