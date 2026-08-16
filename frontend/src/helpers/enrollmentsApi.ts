@@ -14,10 +14,6 @@ import {
   readOptionalString,
   readRequiredString,
 } from "@/helpers/jsonFields";
-import {
-  parseEnrollmentStatus,
-  type EnrollmentStatus,
-} from "@/helpers/enrollmentStatus";
 
 export type { EnrollmentStatus };
 

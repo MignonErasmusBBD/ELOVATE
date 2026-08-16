@@ -27,14 +27,17 @@ export function QuizQuestionCard({
   const isCorrect = item.isCorrect === true;
   const correctOption = item.options.find((o) => o.isCorrect === true);
 
-  const shuffledOptions = useMemo(() => {
-    const copy = [...item.options];
-    for (let i = copy.length - 1; i > 0; i--) {
+  const shuffledOptionIds = useMemo(() => {
+    const ids = item.options.map((o) => o.id);
+    for (let i = ids.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
+      [ids[i], ids[j]] = [ids[j], ids[i]];
     }
-    return copy;
+    return ids;
   }, [item.id]);
+  const shuffledOptions = shuffledOptionIds
+    .map((id) => item.options.find((o) => o.id === id))
+    .filter((o): o is (typeof item.options)[number] => o !== undefined);
   const canSubmit =
     selectedOptionId !== undefined &&
     hasAnswered === false &&
