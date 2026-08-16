@@ -35,6 +35,19 @@ export class AnalyticsController {
     return this.analytics.readOwnCourseMastery(actor, courseId);
   }
 
+  @Get('me/courses/:courseId/dashboard')
+  @ApiOperation({
+    summary: 'Student performance dashboard',
+    description:
+      'Summary stats, last-10 trend, bloom/section/difficulty breakdowns, growth highlights, and recommendations from precomputed columns in student_course_profile and mastery tables.\nPermission: analytics.read.self (learner).',
+  })
+  myCourseDashboard(
+    @CurrentUser() actor: AuthUser,
+    @Param('courseId') courseId: string,
+  ) {
+    return this.analytics.readStudentCourseDashboard(actor, courseId);
+  }
+
   @Get('org/overview')
   @ApiQuery({ name: 'organizationId', required: false })
   @ApiQuery({ name: 'courseId', required: false })
