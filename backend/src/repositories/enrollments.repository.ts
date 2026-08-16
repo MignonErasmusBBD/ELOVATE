@@ -228,28 +228,33 @@ export class EnrollmentsRepository {
       conditions.push(`e.course_id = $${values.length}`);
     }
     await this.postgres.query(
-      `UPDATE enrollments e
+      `WITH outcomes AS (
+         SELECT
+           e.id,
+           CASE
+             WHEN e.due_at >= now() THEN 'active'
+             WHEN coalesce((
+               SELECT count(*)::int
+               FROM quiz_attempts qa
+               JOIN quiz_attempt_statuses st
+                 ON st.quiz_attempt_status_id = qa.quiz_attempt_status_id
+               WHERE qa.user_id = e.user_id
+                 AND qa.course_id = e.course_id
+                 AND st.status_code = 'completed'
+             ), 0) >= $1 THEN 'completed'
+             ELSE 'overdue'
+           END AS status_code
+         FROM enrollments e
+         JOIN enrollment_statuses current_es
+           ON current_es.enrollment_status_id = e.enrollment_status_id
+         WHERE ${conditions.join(' AND ')}
+       )
+       UPDATE enrollments e
        SET enrollment_status_id = target.enrollment_status_id
-       FROM enrollment_statuses current_es,
-       LATERAL (
-         SELECT CASE
-           WHEN e.due_at >= now() THEN 'active'
-           WHEN coalesce((
-             SELECT count(*)::int
-             FROM quiz_attempts qa
-             JOIN quiz_attempt_statuses st
-               ON st.quiz_attempt_status_id = qa.quiz_attempt_status_id
-             WHERE qa.user_id = e.user_id
-               AND qa.course_id = e.course_id
-               AND st.status_code = 'completed'
-           ), 0) >= $1 THEN 'completed'
-           ELSE 'overdue'
-         END AS status_code
-       ) outcome
-       JOIN enrollment_statuses target ON target.status_code = outcome.status_code
-       WHERE e.enrollment_status_id = current_es.enrollment_status_id
-         AND ${conditions.join(' AND ')}
-         AND target.status_code IS DISTINCT FROM current_es.status_code`,
+       FROM outcomes
+       JOIN enrollment_statuses target ON target.status_code = outcomes.status_code
+       WHERE e.id = outcomes.id
+         AND target.enrollment_status_id IS DISTINCT FROM e.enrollment_status_id`,
       values,
     );
   }
