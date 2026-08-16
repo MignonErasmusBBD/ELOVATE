@@ -6,6 +6,8 @@ import {
   isPlainObject,
   readErrorMessage,
   readObjectList,
+  readOptionalBoolean,
+  readOptionalString,
   readRequiredString,
 } from "@/helpers/jsonFields";
 
@@ -15,6 +17,8 @@ export type EnrollmentSummary = {
   id: string;
   courseId: string;
   status: string;
+  isRequired: boolean;
+  dueAt: string | undefined;
 };
 
 export type ElovateEnrollment = {
@@ -27,6 +31,8 @@ export type ElovateEnrollment = {
   userFullName: string;
   emailAddress: string;
   courseTitle: string;
+  isRequired: boolean;
+  dueAt: string | undefined;
 };
 
 export type ListEnrollmentsInput = {
@@ -64,7 +70,13 @@ function parseEnrollmentSummary(item: unknown): EnrollmentSummary | undefined {
   if (id === undefined || courseId === undefined || status === undefined) {
     return undefined;
   }
-  return { id, courseId, status };
+  return {
+    id,
+    courseId,
+    status,
+    isRequired: readOptionalBoolean(item, "isRequired") === true,
+    dueAt: readOptionalString(item, "dueAt"),
+  };
 }
 
 export function parseElovateEnrollment(
@@ -106,6 +118,8 @@ export function parseElovateEnrollment(
     userFullName,
     emailAddress,
     courseTitle,
+    isRequired: readOptionalBoolean(item, "isRequired") === true,
+    dueAt: readOptionalString(item, "dueAt"),
   };
 }
 

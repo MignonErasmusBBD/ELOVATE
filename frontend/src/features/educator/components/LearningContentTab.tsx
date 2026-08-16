@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { errorMessageFromUnknown } from "@/helpers/elovateApi";
 import {
   createLearningContentSection,
   deleteLearningContentSection,
@@ -8,7 +9,7 @@ import {
   replaceLearningContentSection,
   type LearningContentSection as ApiLearningContentSection,
 } from "@/helpers/learningContentApi";
-import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import { listQuestions } from "@/helpers/questionsApi";
 import type { LearningContentSection } from "../types";
 import {
   LearningContentFormModal,
@@ -18,6 +19,10 @@ import {
 type LearningContentTabProps = {
   courseId: string;
   courseTitle: string;
+  onReadinessChange?: (counts: {
+    sectionCount: number;
+    activeQuestionCount: number;
+  }) => void;
 };
 
 type SectionModalMode =
@@ -51,6 +56,7 @@ function previewText(section: LearningContentSection): string {
 export function LearningContentTab({
   courseId,
   courseTitle,
+  onReadinessChange,
 }: LearningContentTabProps) {
   const [sections, setSections] = useState<LearningContentSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,12 +78,21 @@ export function LearningContentTab({
       setIsLoading(true);
       setLoadErrorMessage(undefined);
       try {
-        const apiSections = await listLearningContentSections(courseId);
+        const [apiSections, activeQuestions] = await Promise.all([
+          listLearningContentSections(courseId),
+          listQuestions({ courseId, status: "active" }),
+        ]);
         if (cancelled) {
           return;
         }
         const nextSections = apiSections.map(toUiSection);
         setSections(nextSections);
+        if (onReadinessChange !== undefined) {
+          onReadinessChange({
+            sectionCount: nextSections.length,
+            activeQuestionCount: activeQuestions.length,
+          });
+        }
         setExpandedSectionId((currentId) => {
           if (
             currentId !== undefined &&
@@ -105,7 +120,7 @@ export function LearningContentTab({
     return () => {
       cancelled = true;
     };
-  }, [courseId, reloadToken]);
+  }, [courseId, onReadinessChange, reloadToken]);
 
   const editingSection =
     sectionModalMode.kind === "edit"
@@ -168,11 +183,14 @@ export function LearningContentTab({
   }
 
   return (
-    <section aria-labelledby="learning-content-heading" className="mt-6">
+    <section
+      aria-labelledby="learning-content-heading"
+      className="mt-6 min-w-0"
+    >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h2
           id="learning-content-heading"
-          className="text-xl font-bold tracking-tight text-ink"
+          className="min-w-0 break-words text-xl font-bold tracking-tight text-ink"
         >
           Learning content for {courseTitle}
         </h2>
@@ -212,22 +230,22 @@ export function LearningContentTab({
             const isExpanded = expandedSectionId === section.id;
 
             return (
-              <li key={section.id}>
-                <article className="rounded-2xl border border-border-ui bg-surface shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
+              <li key={section.id} className="min-w-0">
+                <article className="min-w-0 overflow-hidden rounded-2xl border border-border-ui bg-surface shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
                   <button
                     type="button"
-                    className="flex w-full items-start justify-between gap-3 px-5 py-4 text-left"
+                    className="flex w-full min-w-0 items-start justify-between gap-3 px-4 py-4 text-left sm:px-5"
                     onClick={() =>
                       setExpandedSectionId(isExpanded ? undefined : section.id)
                     }
                     aria-expanded={isExpanded}
                   >
                     <span className="min-w-0">
-                      <span className="block text-base font-bold text-ink">
+                      <span className="block break-words text-base font-bold text-ink">
                         {section.title}
                       </span>
                       {isExpanded === false ? (
-                        <span className="mt-1 line-clamp-2 block text-sm text-text-secondary">
+                        <span className="mt-1 line-clamp-2 block break-words text-sm text-text-secondary">
                           {previewText(section)}
                         </span>
                       ) : undefined}
@@ -238,23 +256,23 @@ export function LearningContentTab({
                   </button>
 
                   {isExpanded ? (
-                    <section className="border-t border-border-ui px-5 py-4">
+                    <section className="min-w-0 border-t border-border-ui px-4 py-4 sm:px-5">
                       <ul className="flex list-none flex-col gap-3 p-0">
                         {section.contentBlocks.map((block) => (
-                          <li key={block.id}>
+                          <li key={block.id} className="min-w-0">
                             {block.contentType === "code" ? (
-                              <pre className="overflow-x-auto rounded-lg border border-border-ui bg-page p-3 font-mono text-sm text-ink">
+                              <pre className="max-w-full overflow-x-auto rounded-lg border border-border-ui bg-page p-3 font-mono text-sm text-ink">
                                 <code>{block.bodyText}</code>
                               </pre>
                             ) : (
-                              <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
+                              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-text-secondary">
                                 {block.bodyText}
                               </p>
                             )}
                           </li>
                         ))}
                       </ul>
-                      <menu className="mt-4 flex list-none gap-2 p-0">
+                      <menu className="mt-4 flex list-none flex-wrap gap-2 p-0">
                         <li>
                           <button
                             type="button"

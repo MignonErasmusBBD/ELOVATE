@@ -15,6 +15,8 @@ type CourseRow = {
   visibility: string;
   status: string;
   quiz_question_count: number;
+  section_count: number;
+  active_question_count: number;
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -28,6 +30,8 @@ export type PublicCourse = {
   visibility: string;
   status: string;
   quizQuestionCount: number;
+  sectionCount: number;
+  activeQuestionCount: number;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -54,6 +58,21 @@ const courseSelectSql = `SELECT
   cv.visibility_code AS visibility,
   cs.status_code AS status,
   c.quiz_question_count,
+  (
+    SELECT count(*)::int
+    FROM course_sections section_count
+    WHERE section_count.course_id = c.id
+  ) AS section_count,
+  (
+    SELECT count(*)::int
+    FROM questions question_count
+    JOIN course_sections question_section
+      ON question_section.id = question_count.course_section_id
+    JOIN question_statuses question_status
+      ON question_status.question_status_id = question_count.question_status_id
+    WHERE question_section.course_id = c.id
+      AND question_status.status_code = 'active'
+  ) AS active_question_count,
   c.created_by,
   c.created_at,
   c.updated_at
@@ -70,6 +89,8 @@ function toPublicCourse(row: CourseRow): PublicCourse {
     visibility: row.visibility,
     status: row.status,
     quizQuestionCount: row.quiz_question_count,
+    sectionCount: row.section_count,
+    activeQuestionCount: row.active_question_count,
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -198,7 +219,7 @@ export class CoursesRepository {
        FROM course_visibilities cv
        CROSS JOIN course_statuses cs
        WHERE cv.visibility_code = $5
-         AND cs.status_code = 'deactivated'
+         AND cs.status_code = 'draft'
        RETURNING id`,
       [
         input.organizationId === undefined ? null : input.organizationId,
@@ -240,7 +261,10 @@ export class CoursesRepository {
     );
   }
 
-  async setStatus(courseId: string, statusCode: 'active' | 'deactivated') {
+  async setStatus(
+    courseId: string,
+    statusCode: 'active' | 'deactivated' | 'draft',
+  ) {
     await this.postgres.query(
       `UPDATE courses
        SET course_status_id = cs.course_status_id,

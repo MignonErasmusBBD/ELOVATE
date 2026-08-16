@@ -221,7 +221,7 @@ export function LessonPage({ courseId }: LessonPageProps) {
   }
 
   return (
-    <section className="mx-auto grid max-w-7xl gap-8 px-6 py-10 md:px-10 md:py-12 lg:grid-cols-[17rem_minmax(0,1fr)]">
+    <section className="mx-auto grid min-w-0 max-w-7xl gap-8 px-4 py-10 sm:px-6 md:px-10 md:py-12 lg:grid-cols-[17rem_minmax(0,1fr)]">
       <LessonSidebar
         units={units}
         selectedUnitId={selectedUnitId}
@@ -230,10 +230,10 @@ export function LessonPage({ courseId }: LessonPageProps) {
         onSelectUnit={setSelectedUnitId}
       />
 
-      <article className="rounded-2xl border border-border-ui bg-surface p-6 shadow-[0_8px_24px_rgba(30,27,51,0.06)] md:p-8">
+      <article className="min-w-0 overflow-hidden rounded-2xl border border-border-ui bg-surface p-4 shadow-[0_8px_24px_rgba(30,27,51,0.06)] sm:p-6 md:p-8">
         <header className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <section className="min-w-0">
-            <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
+            <h1 className="break-words text-3xl font-bold tracking-tight text-ink md:text-4xl">
               {lessonViewMode === "sub-tabs"
                 ? selectedUnit.title
                 : "Lesson content"}
@@ -326,7 +326,7 @@ export function LessonPage({ courseId }: LessonPageProps) {
               >
                 <h2
                   id={`${getUnitSectionId(unit.id)}-heading`}
-                  className="text-xl font-bold tracking-tight text-ink"
+                  className="break-words text-xl font-bold tracking-tight text-ink"
                 >
                   {unit.title}
                 </h2>

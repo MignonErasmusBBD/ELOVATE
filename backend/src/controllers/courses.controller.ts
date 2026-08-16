@@ -161,7 +161,7 @@ export class CoursesController {
   @ApiQuery({ name: 'organizationId', required: false, description: 'owning_organization_id' })
   @ApiQuery({ name: 'visibility', required: false, enum: ['private', 'community'] })
   @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: ['active', 'deactivated', 'all'] })
+  @ApiQuery({ name: 'status', required: false, enum: ['active', 'deactivated', 'draft', 'all'] })
   @ApiOperation({
     summary: 'List courses',
     description:
@@ -196,7 +196,7 @@ export class CoursesController {
   @ApiOperation({
     summary: 'Create course',
     description:
-      'Insert courses (course_visibility_id from course_visibilities, course_status_id defaults to deactivated). Community courses do not require an organisation. Private courses use the caller org.\nPermission: course.community.create (community_admin, org_admin, educator) OR course.private.create (org_admin, educator).',
+      'Insert courses (course_visibility_id from course_visibilities, course_status_id defaults to draft). Community courses do not require an organisation. Private courses use the caller org.\nPermission: course.community.create (community_admin, org_admin, educator) OR course.private.create (org_admin, educator).',
   })
   create(@CurrentUser() actor: AuthUser, @Body() dto: CreateCourseDto) {
     return this.courses.create(actor, {
@@ -261,9 +261,9 @@ export class CoursesController {
   @Post(':id/activate')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Activate a deactivated course',
+    summary: 'Activate a draft or deactivated course',
     description:
-      'Set course_status_id back to active.\nPermission: course.private.update / course.community.update.',
+      'Set course_status_id to active when the course has at least one section and 20 active questions.\nPermission: course.private.update / course.community.update.',
   })
   activate(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
     return this.courses.setStatus(actor, id, 'active');

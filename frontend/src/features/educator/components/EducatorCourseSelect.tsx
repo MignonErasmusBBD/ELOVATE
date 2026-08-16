@@ -13,11 +13,17 @@ type EducatorCourseSelectProps = {
   onSelectCourse: (courseId: string) => void;
 };
 
-function statusPillForCourse(status: ElovateCourseStatus) {
+function statusPillForCourse(status: ElovateCourseStatus): {
+  label: string;
+  tone: "success" | "warning";
+} {
   if (status === "active") {
-    return { label: "Active", tone: "success" as const };
+    return { label: "Active", tone: "success" };
   }
-  return { label: "Inactive", tone: "warning" as const };
+  if (status === "draft") {
+    return { label: "Draft", tone: "warning" };
+  }
+  return { label: "Inactive", tone: "warning" };
 }
 
 export function EducatorCourseSelect({
@@ -36,19 +42,29 @@ export function EducatorCourseSelect({
   const activeCourses = courses.filter(
     (course) => course.status === "active",
   );
+  const draftCourses = courses.filter((course) => course.status === "draft");
   const inactiveCourses = courses.filter(
     (course) => course.status === "deactivated",
   );
 
   return (
-    <label className="block max-w-xl">
+    <label className="block min-w-0 max-w-xl">
       <span className="text-sm font-semibold text-ink">Course</span>
-      <span className="mt-2 flex items-center gap-3">
+      <span className="mt-2 flex min-w-0 items-center gap-3">
         <select
           value={selectedCourseId}
           onChange={(event) => onSelectCourse(event.target.value)}
           className="min-w-0 flex-1 rounded-lg border border-border-ui bg-surface px-3 py-2.5 text-sm font-medium text-ink"
         >
+          {draftCourses.length === 0 ? undefined : (
+            <optgroup label="Draft">
+              {draftCourses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.title}
+                </option>
+              ))}
+            </optgroup>
+          )}
           {activeCourses.length === 0 ? undefined : (
             <optgroup label="Active">
               {activeCourses.map((course) => (

@@ -29,6 +29,10 @@ import {
 type QuestionsTabProps = {
   courseId: string;
   courseTitle: string;
+  onReadinessChange?: (counts: {
+    sectionCount: number;
+    activeQuestionCount: number;
+  }) => void;
 };
 
 type QuestionModalMode =
@@ -77,7 +81,11 @@ function toEducatorQuestion(
   };
 }
 
-export function QuestionsTab({ courseId, courseTitle }: QuestionsTabProps) {
+export function QuestionsTab({
+  courseId,
+  courseTitle,
+  onReadinessChange,
+}: QuestionsTabProps) {
   const [questions, setQuestions] = useState<EducatorQuestion[]>([]);
   const [sections, setSections] = useState<CourseSectionOption[]>([]);
   const [lookups, setLookups] = useState<QuestionFormLookups>({
@@ -147,6 +155,12 @@ export function QuestionsTab({ courseId, courseTitle }: QuestionsTabProps) {
         setSections(nextSections);
         setLookups(nextLookups);
         setQuestions(nextQuestions);
+        if (onReadinessChange !== undefined) {
+          onReadinessChange({
+            sectionCount: nextSections.length,
+            activeQuestionCount: activeQuestions.length,
+          });
+        }
         setExpandedQuestionId((currentId) => {
           if (
             currentId !== undefined &&
@@ -175,7 +189,7 @@ export function QuestionsTab({ courseId, courseTitle }: QuestionsTabProps) {
     return () => {
       cancelled = true;
     };
-  }, [courseId, reloadToken]);
+  }, [courseId, onReadinessChange, reloadToken]);
 
   const editingQuestion =
     questionModalMode.kind === "edit"
@@ -253,11 +267,11 @@ export function QuestionsTab({ courseId, courseTitle }: QuestionsTabProps) {
   }
 
   return (
-    <section aria-labelledby="questions-heading" className="mt-6">
+    <section aria-labelledby="questions-heading" className="mt-6 min-w-0">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h2
           id="questions-heading"
-          className="text-xl font-bold tracking-tight text-ink"
+          className="min-w-0 break-words text-xl font-bold tracking-tight text-ink"
         >
           Questions for {courseTitle}
         </h2>
@@ -296,11 +310,11 @@ export function QuestionsTab({ courseId, courseTitle }: QuestionsTabProps) {
             const isActive = question.status === "active";
 
             return (
-              <li key={question.id}>
-                <article className="rounded-2xl border border-border-ui bg-surface shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
+              <li key={question.id} className="min-w-0">
+                <article className="min-w-0 overflow-hidden rounded-2xl border border-border-ui bg-surface shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
                   <button
                     type="button"
-                    className="flex w-full items-start justify-between gap-3 px-5 py-4 text-left"
+                    className="flex w-full min-w-0 items-start justify-between gap-3 px-4 py-4 text-left sm:px-5"
                     onClick={() =>
                       setExpandedQuestionId(
                         isExpanded ? undefined : question.id,
@@ -309,7 +323,7 @@ export function QuestionsTab({ courseId, courseTitle }: QuestionsTabProps) {
                     aria-expanded={isExpanded}
                   >
                     <span className="min-w-0">
-                      <span className="block text-base font-bold text-ink">
+                      <span className="block break-words text-base font-bold text-ink">
                         {question.prompt}
                       </span>
                       <ul className="mt-2 flex list-none flex-wrap gap-2 p-0">
@@ -339,7 +353,7 @@ export function QuestionsTab({ courseId, courseTitle }: QuestionsTabProps) {
                   </button>
 
                   {isExpanded ? (
-                    <section className="border-t border-border-ui px-5 py-4">
+                    <section className="min-w-0 border-t border-border-ui px-4 py-4 sm:px-5">
                       <h3 className="text-sm font-semibold text-ink">
                         Options
                       </h3>
@@ -347,7 +361,7 @@ export function QuestionsTab({ courseId, courseTitle }: QuestionsTabProps) {
                         {question.options.map((option) => (
                           <li
                             key={option.id}
-                            className={`rounded-lg border px-3 py-2 text-sm ${
+                            className={`break-words rounded-lg border px-3 py-2 text-sm ${
                               option.isCorrect
                                 ? "border-emerald-300 bg-emerald-50 text-emerald-900"
                                 : "border-border-ui bg-page text-text-secondary"
@@ -362,7 +376,7 @@ export function QuestionsTab({ courseId, courseTitle }: QuestionsTabProps) {
                           </li>
                         ))}
                       </ul>
-                      <menu className="mt-4 flex list-none gap-2 p-0">
+                      <menu className="mt-4 flex list-none flex-wrap gap-2 p-0">
                         <li>
                           <button
                             type="button"

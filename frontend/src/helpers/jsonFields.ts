@@ -23,6 +23,34 @@ export function readOptionalString(
   return readRequiredString(body, key);
 }
 
+export function readOptionalBoolean(
+  body: object,
+  key: string,
+): boolean | undefined {
+  if (key in body === false) {
+    return undefined;
+  }
+  const field = Reflect.get(body, key);
+  if (typeof field !== "boolean") {
+    return undefined;
+  }
+  return field;
+}
+
+export function readOptionalNumber(
+  body: object,
+  key: string,
+): number | undefined {
+  if (key in body === false) {
+    return undefined;
+  }
+  const field = Reflect.get(body, key);
+  if (typeof field !== "number" || Number.isFinite(field) === false) {
+    return undefined;
+  }
+  return field;
+}
+
 export function readStringList(body: object, key: string): string[] {
   if (key in body === false) {
     return [];

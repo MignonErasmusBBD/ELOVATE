@@ -1,9 +1,15 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  canActivateCourse,
+  MIN_ACTIVE_QUESTIONS_TO_ACTIVATE,
+  MIN_COURSE_SECTIONS_TO_ACTIVATE,
+} from '../helpers/course-readiness';
 import { AuthUser } from '../helpers/auth-user';
 import { hasPermission, requirePermission } from '../helpers/require-permission';
 import { ContentViewSessionsRepository } from '../repositories/content-view-sessions.repository';
@@ -62,9 +68,12 @@ export class CoursesService {
         'Missing permission: course.community.read or course.private.read',
       );
     }
+    if (filters.status === 'draft' && this.canSeeNonActive(actor) === false) {
+      return { items: [] };
+    }
     if (
       filters.status === 'deactivated' &&
-      this.canSeeDeactivated(actor) === false
+      this.canSeeNonActive(actor) === false
     ) {
       // Learners can still see their own enrolled deactivated courses
       const enrolledAccess: CourseAccess = {
@@ -78,7 +87,7 @@ export class CoursesService {
     const items = await this.courses.list(filters, this.accessFor(actor));
     if (
       filters.status === 'all' &&
-      this.canSeeDeactivated(actor) === false
+      this.canSeeNonActive(actor) === false
     ) {
       return {
         items: items.filter((course) => course.status === 'active'),
@@ -183,13 +192,25 @@ export class CoursesService {
   async setStatus(
     actor: AuthUser,
     courseId: string,
-    statusCode: 'active' | 'deactivated',
+    statusCode: 'active' | 'deactivated' | 'draft',
   ) {
     const course = await this.requireCourse(courseId);
     if (statusCode === 'deactivated') {
       this.requireDeactivate(actor, course);
     } else {
       this.requireUpdate(actor, course);
+    }
+    if (statusCode === 'active') {
+      if (
+        canActivateCourse({
+          sectionCount: course.sectionCount,
+          activeQuestionCount: course.activeQuestionCount,
+        }) === false
+      ) {
+        throw new BadRequestException(
+          `A course needs at least ${MIN_COURSE_SECTIONS_TO_ACTIVATE} section and ${MIN_ACTIVE_QUESTIONS_TO_ACTIVATE} active questions before it can be activated.`,
+        );
+      }
     }
     await this.courses.setStatus(courseId, statusCode);
     return this.requireCourse(courseId);
@@ -361,7 +382,7 @@ export class CoursesService {
     };
   }
 
-  private canSeeDeactivated(actor: AuthUser): boolean {
+  private canSeeNonActive(actor: AuthUser): boolean {
     return hasPermission(actor, [
       'course.community.update',
       'course.community.delete',

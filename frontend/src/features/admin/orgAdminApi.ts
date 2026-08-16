@@ -94,10 +94,41 @@ export async function listOrgEnrolments(): Promise<AdminEnrolment[]> {
 export async function assignEnrolment(
   userId: string,
   courseId: string,
+  requirement: { isRequired: boolean; dueAt: string | undefined },
 ): Promise<AdminEnrolment | undefined> {
+  const requestBody: {
+    userId: string;
+    courseId: string;
+    isRequired: boolean;
+    dueAt?: string;
+  } = {
+    userId,
+    courseId,
+    isRequired: requirement.isRequired,
+  };
+  if (requirement.dueAt !== undefined && requirement.dueAt !== "") {
+    requestBody.dueAt = requirement.dueAt;
+  }
   const body = await elovateApiJson("/enrollments/assign", {
     method: "POST",
-    body: JSON.stringify({ userId, courseId }),
+    body: JSON.stringify(requestBody),
+  });
+  return parseAdminEnrolment(body);
+}
+
+export async function updateEnrolmentRequirement(
+  enrolmentId: string,
+  requirement: { isRequired: boolean; dueAt: string | undefined },
+): Promise<AdminEnrolment | undefined> {
+  const requestBody: { isRequired: boolean; dueAt?: string } = {
+    isRequired: requirement.isRequired,
+  };
+  if (requirement.dueAt !== undefined && requirement.dueAt !== "") {
+    requestBody.dueAt = requirement.dueAt;
+  }
+  const body = await elovateApiJson(`/enrollments/${enrolmentId}/requirement`, {
+    method: "PATCH",
+    body: JSON.stringify(requestBody),
   });
   return parseAdminEnrolment(body);
 }

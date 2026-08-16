@@ -21,7 +21,7 @@ export function LessonSidebar({
   onSelectUnit,
 }: LessonSidebarProps) {
   return (
-    <aside className="rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)] lg:sticky lg:top-6 lg:self-start">
+    <aside className="min-w-0 rounded-2xl border border-border-ui bg-surface p-5 shadow-[0_8px_24px_rgba(30,27,51,0.06)] lg:sticky lg:top-6 lg:self-start">
       <h2 className="text-sm font-bold tracking-tight text-ink">
         Lesson navigation
       </h2>
@@ -64,8 +64,8 @@ export function LessonSidebar({
                   aria-current={isSelected ? "true" : undefined}
                   className={
                     isSelected
-                      ? "w-full rounded-lg bg-ink px-3 py-2 text-left text-sm font-semibold text-white"
-                      : "w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-text-secondary hover:bg-page"
+                    ? "w-full break-words rounded-lg bg-ink px-3 py-2 text-left text-sm font-semibold text-white"
+                    : "w-full break-words rounded-lg px-3 py-2 text-left text-sm font-medium text-text-secondary hover:bg-page"
                   }
                 >
                   {unit.title}

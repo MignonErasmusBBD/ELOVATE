@@ -1,6 +1,6 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { IsUUID } from 'class-validator';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
 import { AuthGuard } from '../guards/auth.guard';
 import { AuthUser, CurrentUser } from '../helpers/auth-user';
 import { optionalText } from '../helpers/values';
@@ -14,6 +14,27 @@ class AssignDto {
   @ApiProperty()
   @IsUUID()
   courseId: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isRequired?: boolean;
+
+  @ApiPropertyOptional({ description: 'Calendar date YYYY-MM-DD in Africa/Johannesburg' })
+  @IsOptional()
+  @IsString()
+  dueAt?: string;
+}
+
+class UpdateRequirementDto {
+  @ApiProperty()
+  @IsBoolean()
+  isRequired: boolean;
+
+  @ApiPropertyOptional({ description: 'Calendar date YYYY-MM-DD in Africa/Johannesburg' })
+  @IsOptional()
+  @IsString()
+  dueAt?: string;
 }
 
 class StartCommunityDto {
@@ -79,10 +100,30 @@ export class EnrollmentsController {
   @ApiOperation({
     summary: 'Assign a user to a private course',
     description:
-      'Insert or re-activate enrollments (enrollment_status_id from enrollment_statuses where status_code = active).\nPermission: enrollment.assign (org_admin).\nV4 also has org_course_adoptions — not exposed; community courses use start-community.',
+      'Insert or re-activate enrollments. Optional is_required and due_at (not in the past, Africa/Johannesburg).\nPermission: enrollment.assign (org_admin).\nV4 also has org_course_adoptions — not exposed; community courses use start-community.',
   })
   assign(@CurrentUser() actor: AuthUser, @Body() dto: AssignDto) {
-    return this.enrollments.assign(actor, dto.userId, dto.courseId);
+    return this.enrollments.assign(actor, dto.userId, dto.courseId, {
+      isRequired: dto.isRequired === true,
+      dueAt: dto.dueAt,
+    });
+  }
+
+  @Patch(':id/requirement')
+  @ApiOperation({
+    summary: 'Set required and due date on an enrolment',
+    description:
+      'Update enrollments.is_required and enrollments.due_at. Due date cannot be in the past (Africa/Johannesburg).\nPermission: enrollment.assign (org_admin, same org).',
+  })
+  updateRequirement(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateRequirementDto,
+  ) {
+    return this.enrollments.updateRequirement(actor, id, {
+      isRequired: dto.isRequired,
+      dueAt: dto.dueAt,
+    });
   }
 
   @Post('start-community')

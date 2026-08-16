@@ -123,7 +123,7 @@ export function OrgAdminPage() {
           titlePlaceholder="Private course title"
           descriptionFieldId="private-course-description"
           searchInputId="courses-search"
-          visibilityLabel="Private"
+          visibilityLabel="Organisation"
           canCreate={true}
           createBlockedMessage={undefined}
           courses={directory.courses}

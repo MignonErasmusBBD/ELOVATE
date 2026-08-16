@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { CourseReadinessChecklist } from "@/components/ui/CourseReadinessChecklist";
 import { useCurrentUser } from "@/features/platform";
 import {
   createCourse,
   listCourses,
   type ElovateCourseStatus,
+  type ListCoursesInput,
 } from "@/helpers/coursesApi";
 import {
   EDUCATOR_PAGE_ROLES,
@@ -36,6 +38,8 @@ type EducatorCourseOption = {
   id: string;
   title: string;
   status: ElovateCourseStatus;
+  sectionCount: number;
+  activeQuestionCount: number;
 };
 
 export function EducatorDashboardPage() {
@@ -135,51 +139,35 @@ export function EducatorDashboardPage() {
       setCoursesErrorMessage(undefined);
 
       try {
-        const listInput = {
+        const listInput: ListCoursesInput = {
           visibility: courseVisibilityFilter,
           organizationId:
             courseVisibilityFilter === "private" ? organizationId : undefined,
+          status: "all",
         };
 
-        const settledCourseLists = await Promise.allSettled([
-          listCourses({ ...listInput, status: "active" }),
-          listCourses({ ...listInput, status: "deactivated" }),
-        ]);
+        const courses = await listCourses(listInput);
         if (cancelled) {
           return;
         }
 
-        const activeCourses =
-          settledCourseLists[0].status === "fulfilled"
-            ? settledCourseLists[0].value
-            : [];
-        const deactivatedCourses =
-          settledCourseLists[1].status === "fulfilled"
-            ? settledCourseLists[1].value
-            : [];
-
-        if (
-          settledCourseLists[0].status === "rejected" &&
-          settledCourseLists[1].status === "rejected"
-        ) {
-          setCourseOptions([]);
-          setSelectedCourseId("");
-          setCoursesErrorMessage("Could not load courses.");
-          return;
-        }
-
-        const nextOptions = [
-          ...activeCourses.map((course) => ({
+        const nextOptions = courses.map((course) => {
+          let status: ElovateCourseStatus = "active";
+          if (course.status === "deactivated" || course.status === "draft") {
+            status = course.status;
+          }
+          return {
             id: course.id,
             title: course.title,
-            status: "active" as const,
-          })),
-          ...deactivatedCourses.map((course) => ({
-            id: course.id,
-            title: course.title,
-            status: "deactivated" as const,
-          })),
-        ];
+            status,
+            sectionCount:
+              course.sectionCount === undefined ? 0 : course.sectionCount,
+            activeQuestionCount:
+              course.activeQuestionCount === undefined
+                ? 0
+                : course.activeQuestionCount,
+          };
+        });
         setCourseOptions(nextOptions);
         setSelectedCourseId((currentCourseId) => {
           const pendingSelectedCourseId = pendingSelectedCourseIdRef.current;
@@ -319,12 +307,35 @@ export function EducatorDashboardPage() {
     setIsAddCourseModalOpen(false);
   }
 
-  const selectedCourseTitle = useMemo(() => {
-    const selectedCourse = courseOptions.find(
-      (course) => course.id === selectedCourseId,
-    );
-    return selectedCourse === undefined ? undefined : selectedCourse.title;
+  const selectedCourse = useMemo(() => {
+    return courseOptions.find((course) => course.id === selectedCourseId);
   }, [courseOptions, selectedCourseId]);
+  const selectedCourseTitle =
+    selectedCourse === undefined ? undefined : selectedCourse.title;
+
+  const handleReadinessChange = useCallback(
+    (counts: { sectionCount: number; activeQuestionCount: number }) => {
+      setCourseOptions((currentOptions) =>
+        currentOptions.map((course) => {
+          if (course.id !== selectedCourseId) {
+            return course;
+          }
+          if (
+            course.sectionCount === counts.sectionCount &&
+            course.activeQuestionCount === counts.activeQuestionCount
+          ) {
+            return course;
+          }
+          return {
+            ...course,
+            sectionCount: counts.sectionCount,
+            activeQuestionCount: counts.activeQuestionCount,
+          };
+        }),
+      );
+    },
+    [selectedCourseId],
+  );
 
   if (isProfileLoading || profile === undefined) {
     return (
@@ -343,7 +354,7 @@ export function EducatorDashboardPage() {
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-10 md:px-10 md:py-12">
+    <section className="mx-auto min-w-0 max-w-7xl px-4 py-10 sm:px-6 md:px-10 md:py-12">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
@@ -412,6 +423,13 @@ export function EducatorDashboardPage() {
             }}
           />
         ) : undefined}
+        {selectedCourse === undefined ||
+        selectedCourse.status !== "draft" ? undefined : (
+          <CourseReadinessChecklist
+            sectionCount={selectedCourse.sectionCount}
+            activeQuestionCount={selectedCourse.activeQuestionCount}
+          />
+        )}
       </section>
 
       <section className="mt-6">
@@ -430,7 +448,7 @@ export function EducatorDashboardPage() {
         />
       </section>
 
-      <article className="mt-8 rounded-2xl border border-border-ui bg-surface p-4 shadow-[0_8px_24px_rgba(30,27,51,0.06)] md:p-6">
+      <article className="mt-8 min-w-0 overflow-hidden rounded-2xl border border-border-ui bg-surface p-4 shadow-[0_8px_24px_rgba(30,27,51,0.06)] md:p-6">
         <EducatorTabNav
           selectedTabId={selectedTabId}
           onSelectTab={handleSelectTab}
@@ -483,6 +501,7 @@ export function EducatorDashboardPage() {
                 ? "this course"
                 : selectedCourseTitle
             }
+            onReadinessChange={handleReadinessChange}
           />
         ) : undefined}
         {selectedCourseId !== "" &&
@@ -495,6 +514,7 @@ export function EducatorDashboardPage() {
                 ? "this course"
                 : selectedCourseTitle
             }
+            onReadinessChange={handleReadinessChange}
           />
         ) : undefined}
       </article>
