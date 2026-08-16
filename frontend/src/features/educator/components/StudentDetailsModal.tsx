@@ -217,6 +217,7 @@ export function StudentDetailsModal({
                   recommendations={dashboard.recommendations}
                   courseId={courseId}
                   showLinks={false}
+                  viewerRole="educator"
                 />
               </article>
             )}

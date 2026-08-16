@@ -14,7 +14,8 @@ import type {
 const PER_CATEGORY_CAP = 3;
 
 type CategoryConfig = {
-  label: string;
+  studentLabel: string;
+  educatorLabel: string;
   icon: React.ReactNode;
   borderColor: string;
   iconBg: string;
@@ -23,21 +24,24 @@ type CategoryConfig = {
 
 const categoryConfig: Record<RecommendationCategory, CategoryConfig> = {
   needs_reinforcement: {
-    label: "Needs reinforcement",
+    studentLabel: "Needs reinforcement",
+    educatorLabel: "Knowledge gap",
     icon: <BookIcon className="h-4 w-4" />,
     borderColor: "#bfdbfe",
     iconBg: "#eff6ff",
     iconColor: "#2563eb",
   },
   take_your_time: {
-    label: "Take your time",
+    studentLabel: "Take your time",
+    educatorLabel: "Engagement signal",
     icon: <ClockBoltIcon className="h-4 w-4" />,
     borderColor: "#fed7aa",
     iconBg: "#fff7ed",
     iconColor: "#ea580c",
   },
   talk_to_educator: {
-    label: "Talk to your educator",
+    studentLabel: "Talk to your educator",
+    educatorLabel: "Consider a check-in",
     icon: <MessageCircleIcon className="h-4 w-4" />,
     borderColor: "#bbf7b0",
     iconBg: "#f0fdf0",
@@ -73,10 +77,12 @@ function RecommendationItem({
   rec,
   courseId,
   showLinks,
+  viewerRole,
 }: {
   rec: StudentRecommendation;
   courseId: string;
   showLinks: boolean;
+  viewerRole: "student" | "educator";
 }) {
   const [expanded, setExpanded] = useState(false);
   const href = ctaHref(rec.cta, courseId, rec.sectionId);
@@ -91,7 +97,7 @@ function RecommendationItem({
         className="flex w-fit items-center gap-1 text-xs text-text-secondary hover:text-ink"
         aria-expanded={expanded}
       >
-        <span>Why am I seeing this?</span>
+        <span>{viewerRole === "educator" ? "Why is this flagged?" : "Why am I seeing this?"}</span>
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -154,12 +160,14 @@ type RecommendationCardsProps = {
   recommendations: StudentRecommendation[];
   courseId: string;
   showLinks?: boolean;
+  viewerRole?: "student" | "educator";
 };
 
 export function RecommendationCards({
   recommendations,
   courseId,
   showLinks = true,
+  viewerRole = "student",
 }: RecommendationCardsProps) {
   if (recommendations.length === 0) return null;
 
@@ -171,7 +179,7 @@ export function RecommendationCards({
         id="recommendations-heading"
         className="text-xl font-bold tracking-tight text-ink"
       >
-        Recommendations
+        {viewerRole === "educator" ? "Diagnostic flags" : "Recommendations"}
       </h2>
 
       <ul className="mt-4 flex flex-col gap-4">
@@ -198,7 +206,7 @@ export function RecommendationCards({
                   {cfg.icon}
                 </span>
                 <span className="text-sm font-semibold text-ink">
-                  {cfg.label}
+                  {viewerRole === "educator" ? cfg.educatorLabel : cfg.studentLabel}
                 </span>
                 <span className="ml-auto rounded-full px-2 py-0.5 text-xs font-medium text-ink"
                   style={{ background: "#E4E2EC" }}>
@@ -214,6 +222,7 @@ export function RecommendationCards({
                     rec={rec}
                     courseId={courseId}
                     showLinks={showLinks}
+                    viewerRole={viewerRole}
                   />
                 ))}
               </ul>
