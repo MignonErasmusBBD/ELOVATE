@@ -6,7 +6,9 @@ import {
   IsIn,
   IsInt,
   IsOptional,
+  IsPositive,
   IsString,
+  Max,
   MaxLength,
   Min,
   ValidateNested,
@@ -50,6 +52,13 @@ class UpdateCourseDto {
   @IsString()
   @MaxLength(280)
   description?: string;
+
+  @ApiProperty({ required: false, minimum: 1, maximum: 20, description: 'Questions drawn per practice quiz (1–20)' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  quizQuestionCount?: number;
 }
 
 class SectionContentBlockDto {
@@ -118,6 +127,13 @@ class CreateTopicDto {
   @ApiProperty()
   @IsString()
   name: string;
+}
+
+class RecordContentViewDto {
+  @ApiProperty({ description: 'Seconds spent reading the section (must be ≥ 1)' })
+  @IsInt()
+  @IsPositive()
+  durationSeconds: number;
 }
 
 @ApiTags('Courses')
@@ -205,6 +221,7 @@ export class CoursesController {
     return this.courses.update(actor, id, {
       title: dto.title,
       description: dto.description,
+      quizQuestionCount: dto.quizQuestionCount,
     });
   }
 
@@ -398,5 +415,21 @@ export class CoursesController {
     @Param('topicId') topicId: string,
   ) {
     return this.courses.removeTopic(actor, id, topicId);
+  }
+
+  @Post(':id/sections/:sectionId/view')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Record content view session',
+    description:
+      'Log how long a student spent reading a course section. Requires active enrollment.\nPermission: quiz.attempt (student).',
+  })
+  recordContentView(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') courseId: string,
+    @Param('sectionId') sectionId: string,
+    @Body() dto: RecordContentViewDto,
+  ) {
+    return this.courses.recordContentView(actor, courseId, sectionId, dto.durationSeconds);
   }
 }

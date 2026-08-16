@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { AuthUser } from '../helpers/auth-user';
 import { hasPermission, requirePermission } from '../helpers/require-permission';
+import { ContentViewSessionsRepository } from '../repositories/content-view-sessions.repository';
 import {
   CoursesContentRepository,
   PublicSection,
@@ -16,12 +17,15 @@ import {
   CoursesRepository,
   PublicCourse,
 } from '../repositories/courses.repository';
+import { EnrollmentsRepository } from '../repositories/enrollments.repository';
 
 @Injectable()
 export class CoursesService {
   constructor(
     private readonly courses: CoursesRepository,
     private readonly content: CoursesContentRepository,
+    private readonly enrollments: EnrollmentsRepository,
+    private readonly contentViewSessions: ContentViewSessionsRepository,
   ) {}
 
   async listCommunity(actor: AuthUser, search: string | undefined) {
@@ -133,7 +137,7 @@ export class CoursesService {
   async update(
     actor: AuthUser,
     courseId: string,
-    input: { title: string | undefined; description: string | undefined },
+    input: { title: string | undefined; description: string | undefined; quizQuestionCount: number | undefined },
   ) {
     const course = await this.requireCourse(courseId);
     this.requireUpdate(actor, course);
@@ -142,6 +146,10 @@ export class CoursesService {
     }
     if (input.description !== undefined) {
       await this.courses.updateDescription(courseId, input.description);
+    }
+    if (input.quizQuestionCount !== undefined) {
+      const clamped = Math.min(Math.max(Math.round(input.quizQuestionCount), 1), 20);
+      await this.courses.updateQuizQuestionCount(courseId, clamped);
     }
     return this.requireCourse(courseId);
   }
@@ -322,6 +330,25 @@ export class CoursesService {
     }
     await this.courses.touch(courseId);
     return { courseId, topicId, removed: true };
+  }
+
+  async recordContentView(
+    actor: AuthUser,
+    courseId: string,
+    sectionId: string,
+    durationSeconds: number,
+  ): Promise<void> {
+    requirePermission(actor, ['quiz.attempt']);
+    const enrolled = await this.enrollments.hasActiveEnrollment(actor.id, courseId);
+    if (enrolled === false) {
+      throw new ForbiddenException('An active enrollment is required');
+    }
+    await this.contentViewSessions.record({
+      userId: actor.id,
+      courseId,
+      courseSectionId: sectionId,
+      durationSeconds,
+    });
   }
 
   private accessFor(actor: AuthUser): CourseAccess {

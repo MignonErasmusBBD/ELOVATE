@@ -1,20 +1,46 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getCourse } from "@/helpers/coursesApi";
-import { getPracticeQuiz } from "../data/quizzes";
-import type { QuizOptionId, QuizPhase } from "../types";
+import {
+  completeQuiz,
+  generateQuiz,
+  startQuiz,
+  submitAnswer,
+  type AttemptItem,
+  type QuizAttempt,
+} from "@/helpers/quizzesApi";
+import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import type { QuizPhase } from "../types";
 import { BackToLessonLink } from "./BackToLessonLink";
+import { useQuizProgress } from "./QuizProgressContext";
 import { QuizQuestionCard } from "./QuizQuestionCard";
+import { QuizReviewCard } from "./QuizReviewCard";
 import { QuizScoreCard } from "./QuizScoreCard";
 import { QuizStartCard } from "./QuizStartCard";
+import { QuizSummaryCard } from "./QuizSummaryCard";
 
 type PracticeQuizPageProps = {
   courseId: string;
 };
 
 export function PracticeQuizPage({ courseId }: PracticeQuizPageProps) {
+  const { setQuizInProgress } = useQuizProgress();
   const [courseTitle, setCourseTitle] = useState<string | undefined>();
+  const [phase, setPhase] = useState<QuizPhase>("start");
+  const [attempt, setAttempt] = useState<QuizAttempt | undefined>();
+  const [currentItemIndex, setCurrentItemIndex] = useState(0);
+  const [localSelection, setLocalSelection] = useState<string | undefined>();
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  useEffect(() => {
+    const active =
+      phase === "question" ||
+      phase === "submitting" ||
+      phase === "completing" ||
+      phase === "loading";
+    setQuizInProgress(active);
+  }, [phase, setQuizInProgress]);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,152 +54,222 @@ export function PracticeQuizPage({ courseId }: PracticeQuizPageProps) {
     };
   }, [courseId]);
 
-  const practiceQuiz = getPracticeQuiz(courseId);
-  const questions = practiceQuiz.questions;
-  const totalQuestionCount = questions.length;
-
-  const [quizPhase, setQuizPhase] = useState<QuizPhase>("start");
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedOptionId, setSelectedOptionId] = useState<
-    QuizOptionId | undefined
-  >(undefined);
-  const [submittedAnswers, setSubmittedAnswers] = useState<
-    Partial<Record<string, QuizOptionId>>
-  >({});
-
-  const currentQuestion = questions[currentQuestionIndex];
-  const submittedOptionId =
-    currentQuestion === undefined
-      ? undefined
-      : submittedAnswers[currentQuestion.id];
-
-  const correctAnswerCount = questions.reduce((count, question) => {
-    const answer = submittedAnswers[question.id];
-    if (answer === question.correctOptionId) {
-      return count + 1;
+  const handleStartQuiz = useCallback(async () => {
+    setPhase("loading");
+    setErrorMessage(undefined);
+    try {
+      const generated = await generateQuiz(courseId);
+      const started = await startQuiz(generated.id);
+      setAttempt(started);
+      setCurrentItemIndex(0);
+      setLocalSelection(undefined);
+      setPhase("question");
+    } catch (err) {
+      setErrorMessage(errorMessageFromUnknown(err, "Failed to start quiz. Please try again."));
+      setPhase("error");
     }
-    return count;
-  }, 0);
+  }, [courseId]);
 
-  function loadQuestionSelection(questionIndex: number) {
-    const question = questions[questionIndex];
-    if (question === undefined) {
-      setSelectedOptionId(undefined);
+  const handleSelectOption = useCallback(
+    (optionId: string) => {
+      if (attempt === undefined) return;
+      const item = attempt.items[currentItemIndex];
+      if (item === undefined || item.selectedOptionId !== undefined) return;
+      setLocalSelection(optionId);
+    },
+    [attempt, currentItemIndex],
+  );
+
+  const handleSubmitAnswer = useCallback(async () => {
+    if (attempt === undefined || localSelection === undefined) return;
+    const item = attempt.items[currentItemIndex];
+    if (item === undefined || item.selectedOptionId !== undefined) return;
+
+    setPhase("submitting");
+    try {
+      const updated = await submitAnswer(attempt.id, item.id, localSelection);
+      setAttempt(updated);
+      setLocalSelection(undefined);
+      setPhase("question");
+    } catch (err) {
+      setErrorMessage(errorMessageFromUnknown(err, "Failed to submit answer. Please try again."));
+      setPhase("error");
+    }
+  }, [attempt, currentItemIndex, localSelection]);
+
+  const handleGoToNext = useCallback(async () => {
+    if (attempt === undefined) return;
+    const isLast = currentItemIndex >= attempt.items.length - 1;
+
+    if (isLast) {
+      setPhase("completing");
+      try {
+        const completed = await completeQuiz(attempt.id);
+        setAttempt(completed);
+        setPhase("results");
+      } catch (err) {
+        setErrorMessage(errorMessageFromUnknown(err, "Failed to complete quiz. Please try again."));
+        setPhase("error");
+      }
       return;
     }
 
-    setSelectedOptionId(submittedAnswers[question.id]);
+    setCurrentItemIndex((prev) => prev + 1);
+    setLocalSelection(undefined);
+  }, [attempt, currentItemIndex]);
+
+  const handleGoToPrev = useCallback(() => {
+    if (currentItemIndex === 0) return;
+    setCurrentItemIndex((prev) => prev - 1);
+    setLocalSelection(undefined);
+  }, [currentItemIndex]);
+
+  const handleRedo = useCallback(() => {
+    setAttempt(undefined);
+    setCurrentItemIndex(0);
+    setLocalSelection(undefined);
+    setErrorMessage(undefined);
+    setPhase("start");
+  }, []);
+
+  if (phase === "loading" || phase === "completing") {
+    return (
+      <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
+        <div className="flex min-h-48 items-center justify-center rounded-2xl border border-border-ui bg-surface p-8 shadow-[0_8px_24px_rgba(30,27,51,0.06)]">
+          <p className="text-base font-medium text-text-secondary">
+            {phase === "loading" ? "Generating your quiz…" : "Marking your quiz…"}
+          </p>
+        </div>
+      </section>
+    );
   }
 
-  function handleStartQuiz() {
-    setQuizPhase("question");
-    setCurrentQuestionIndex(0);
-    setSelectedOptionId(undefined);
-    setSubmittedAnswers({});
+  if (phase === "error") {
+    return (
+      <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
+        <div className="rounded-2xl border border-coral/40 bg-coral/10 p-8">
+          <p className="font-semibold text-ink">Something went wrong</p>
+          <p className="mt-2 text-sm text-text-secondary">
+            {errorMessage ?? "An unexpected error occurred."}
+          </p>
+          <button
+            type="button"
+            onClick={handleRedo}
+            className="mt-6 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110"
+          >
+            Try again
+          </button>
+        </div>
+      </section>
+    );
   }
 
-  function handleSubmitAnswer() {
-    if (currentQuestion === undefined || selectedOptionId === undefined) {
-      return;
-    }
-
-    if (submittedAnswers[currentQuestion.id] !== undefined) {
-      return;
-    }
-
-    setSubmittedAnswers((previousAnswers) => ({
-      ...previousAnswers,
-      [currentQuestion.id]: selectedOptionId,
-    }));
-  }
-
-  function handleGoToPreviousQuestion() {
-    if (currentQuestionIndex === 0) {
-      return;
-    }
-
-    const previousIndex = currentQuestionIndex - 1;
-    setCurrentQuestionIndex(previousIndex);
-    loadQuestionSelection(previousIndex);
-  }
-
-  function handleGoToNextQuestion() {
-    if (currentQuestion === undefined) {
-      return;
-    }
-
-    if (submittedAnswers[currentQuestion.id] === undefined) {
-      return;
-    }
-
-    const isLastQuestion = currentQuestionIndex >= totalQuestionCount - 1;
-    if (isLastQuestion) {
-      setQuizPhase("score");
-      return;
-    }
-
-    const nextIndex = currentQuestionIndex + 1;
-    setCurrentQuestionIndex(nextIndex);
-    loadQuestionSelection(nextIndex);
-  }
-
-  return (
-    <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
-      {quizPhase === "start" ? (
+  if (phase === "start") {
+    return (
+      <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
         <QuizStartCard
           courseTitle={courseTitle ?? "this course"}
           onStartQuiz={handleStartQuiz}
         />
-      ) : undefined}
+      </section>
+    );
+  }
 
-      {quizPhase === "question" && currentQuestion !== undefined ? (
-        <>
-          <QuizQuestionCard
-            question={currentQuestion}
-            questionNumber={currentQuestionIndex + 1}
-            totalQuestionCount={totalQuestionCount}
-            selectedOptionId={selectedOptionId}
-            submittedOptionId={submittedOptionId}
-            onSelectOption={setSelectedOptionId}
-            onSubmitAnswer={handleSubmitAnswer}
-          />
-          <nav
-            aria-label="Question navigation"
-            className="mt-6 flex flex-wrap items-center justify-between gap-3"
-          >
-            <button
-              type="button"
-              disabled={currentQuestionIndex === 0}
-              onClick={handleGoToPreviousQuestion}
-              className="rounded-lg border border-border-ui bg-surface px-4 py-2.5 text-sm font-semibold text-text-secondary hover:bg-page disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <p className="text-sm font-medium text-text-secondary">
-              {currentQuestionIndex + 1}/{totalQuestionCount}
-            </p>
-            <button
-              type="button"
-              disabled={submittedOptionId === undefined}
-              onClick={handleGoToNextQuestion}
-              className="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {currentQuestionIndex >= totalQuestionCount - 1
-                ? "See score"
-                : "Next Question"}
-            </button>
-          </nav>
-        </>
-      ) : undefined}
+  if (phase === "results" && attempt !== undefined) {
+    const correctCount = attempt.items.filter((i) => i.isCorrect === true).length;
+    const total = attempt.items.length;
+    const ratingDelta =
+      attempt.ratingAtCompletion !== undefined
+        ? attempt.ratingAtCompletion - attempt.ratingAtGeneration
+        : undefined;
+    const durationSeconds =
+      attempt.startedAt !== undefined && attempt.completedAt !== undefined
+        ? Math.round(
+            (new Date(attempt.completedAt).getTime() -
+              new Date(attempt.startedAt).getTime()) /
+              1000,
+          )
+        : undefined;
 
-      {quizPhase === "score" ? (
+    return (
+      <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
         <QuizScoreCard
           courseId={courseId}
-          correctAnswerCount={correctAnswerCount}
-          totalQuestionCount={totalQuestionCount}
+          correctAnswerCount={correctCount}
+          totalQuestionCount={total}
+          ratingDelta={ratingDelta}
+          durationSeconds={durationSeconds}
           backToLesson={<BackToLessonLink courseId={courseId} />}
+          onRedo={handleRedo}
         />
-      ) : undefined}
-    </section>
-  );
+
+        <QuizSummaryCard items={attempt.items} />
+
+        <section aria-label="Question review" className="mt-8 space-y-4">
+          <h2 className="text-lg font-bold tracking-tight text-ink">
+            Review your answers
+          </h2>
+          {attempt.items.map((item, idx) => (
+            <QuizReviewCard key={item.id} item={item} questionNumber={idx + 1} />
+          ))}
+        </section>
+      </section>
+    );
+  }
+
+  if (
+    (phase === "question" || phase === "submitting") &&
+    attempt !== undefined
+  ) {
+    const currentItem: AttemptItem | undefined = attempt.items[currentItemIndex];
+    if (currentItem === undefined) return null;
+
+    const isSubmitting = phase === "submitting";
+    const hasAnswered = currentItem.selectedOptionId !== undefined;
+    const isLast = currentItemIndex >= attempt.items.length - 1;
+
+    const effectiveSelection = hasAnswered
+      ? currentItem.selectedOptionId
+      : localSelection;
+
+    return (
+      <section className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
+        <QuizQuestionCard
+          item={currentItem}
+          questionNumber={currentItemIndex + 1}
+          totalQuestionCount={attempt.items.length}
+          selectedOptionId={effectiveSelection}
+          isSubmitting={isSubmitting}
+          onSelectOption={handleSelectOption}
+          onSubmitAnswer={handleSubmitAnswer}
+        />
+        <nav
+          aria-label="Question navigation"
+          className="mt-6 flex flex-wrap items-center justify-between gap-3"
+        >
+          <button
+            type="button"
+            disabled={currentItemIndex === 0 || isSubmitting}
+            onClick={handleGoToPrev}
+            className="rounded-lg border border-border-ui bg-surface px-4 py-2.5 text-sm font-semibold text-text-secondary hover:bg-page disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <p className="text-sm font-medium text-text-secondary">
+            {currentItemIndex + 1}/{attempt.items.length}
+          </p>
+          <button
+            type="button"
+            disabled={!hasAnswered || isSubmitting}
+            onClick={handleGoToNext}
+            className="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isLast ? "Submit Quiz" : "Next Question"}
+          </button>
+        </nav>
+      </section>
+    );
+  }
+
+  return null;
 }

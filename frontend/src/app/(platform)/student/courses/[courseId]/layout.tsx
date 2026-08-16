@@ -1,4 +1,4 @@
-import { CourseWorkspaceHeader } from "@/features/student/components/CourseWorkspaceHeader";
+import { CourseWorkspaceShell } from "@/features/student/components/CourseWorkspaceShell";
 
 export default async function StudentCourseWorkspaceLayout({
   children,
@@ -7,9 +7,6 @@ export default async function StudentCourseWorkspaceLayout({
   const { courseId } = await params;
 
   return (
-    <>
-      <CourseWorkspaceHeader courseId={courseId} />
-      {children}
-    </>
+    <CourseWorkspaceShell courseId={courseId}>{children}</CourseWorkspaceShell>
   );
 }

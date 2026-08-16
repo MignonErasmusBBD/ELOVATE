@@ -14,7 +14,7 @@ import {
   PublicAttempt,
   QuizzesRepository,
 } from '../repositories/quizzes.repository';
-import { QuestionsRepository } from '../repositories/questions.repository';
+import { PublicQuestion, QuestionsRepository } from '../repositories/questions.repository';
 
 @Injectable()
 export class QuizzesService {
@@ -31,26 +31,35 @@ export class QuizzesService {
     if (course === undefined || course.status !== 'active') {
       throw new NotFoundException('Course not found');
     }
-    const enrolled = await this.enrollments.hasActiveEnrollment(
-      actor.id,
-      courseId,
-    );
+    const enrolled = await this.enrollments.hasActiveEnrollment(actor.id, courseId);
     if (enrolled === false) {
-      throw new ForbiddenException(
-        'An active enrollment is required to generate a quiz',
-      );
+      throw new ForbiddenException('An active enrollment is required to generate a quiz');
     }
-    const selected = await this.questions.listActiveForCourse(courseId);
-    if (selected.length === 0) {
+    const allQuestions = await this.questions.listActiveForCourse(courseId);
+    if (allQuestions.length === 0) {
       throw new ConflictException('No active questions in this course');
     }
-    const generated: GeneratedQuestion[] = selected.map((question) => ({
-      id: question.id,
-      prompt: question.prompt,
-      bloomLevelId: question.bloomLevelId,
-      difficultyLevelId: question.difficultyLevelId,
-      topicIds: question.topicIds,
+
+    const [mastery, seenIds] = await Promise.all([
+      this.quizzes.getStudentMastery(actor.id, courseId),
+      this.quizzes.getSeenQuestionIds(actor.id, courseId),
+    ]);
+
+    const target = Math.min(course.quizQuestionCount, allQuestions.length);
+    const scored = allQuestions.map((q) => ({
+      question: q,
+      score: this.computeAdaptiveScore(q, mastery, seenIds),
     }));
+    const selected = this.weightedSample(scored, target);
+
+    const generated: GeneratedQuestion[] = selected.map((q) => ({
+      id: q.id,
+      prompt: q.prompt,
+      bloomLevelId: q.bloomLevelId,
+      difficultyLevelId: q.difficultyLevelId,
+      courseSectionId: q.courseSectionId,
+    }));
+
     const rating = await this.quizzes.currentRating(actor.id, courseId);
     const attemptId = await this.quizzes.insertGenerated({
       userId: actor.id,
@@ -59,6 +68,59 @@ export class QuizzesService {
       questions: generated,
     });
     return this.requireAttempt(attemptId);
+  }
+
+  private computeAdaptiveScore(
+    q: PublicQuestion,
+    mastery: {
+      sections: Map<string, { answered: number; correct: number }>;
+      bloom: Map<number, { answered: number; correct: number }>;
+      difficulty: Map<number, { answered: number; correct: number }>;
+    },
+    seenIds: Set<string>,
+  ): number {
+    const sectionM = mastery.sections.get(q.courseSectionId);
+    const sectionGap =
+      sectionM === undefined || sectionM.answered === 0
+        ? 0.5
+        : 1 - sectionM.correct / sectionM.answered;
+
+    const bloomM = mastery.bloom.get(q.bloomLevelId);
+    const bloomGap =
+      bloomM === undefined || bloomM.answered === 0
+        ? 0.5
+        : 1 - bloomM.correct / bloomM.answered;
+
+    const diffM = mastery.difficulty.get(q.difficultyLevelId);
+    const diffGap =
+      diffM === undefined || diffM.answered === 0
+        ? 0.5
+        : 1 - diffM.correct / diffM.answered;
+
+    return sectionGap * 0.4 + bloomGap * 0.3 + diffGap * 0.2 + (seenIds.has(q.id) ? -0.15 : 0.1);
+  }
+
+  private weightedSample<T>(
+    items: Array<{ question: T; score: number }>,
+    count: number,
+  ): T[] {
+    const pool = [...items];
+    const selected: T[] = [];
+    while (selected.length < count && pool.length > 0) {
+      const totalWeight = pool.reduce((s, x) => s + Math.max(x.score, 0.01), 0);
+      let r = Math.random() * totalWeight;
+      let pickedIdx = pool.length - 1;
+      for (let i = 0; i < pool.length; i++) {
+        r -= Math.max(pool[i].score, 0.01);
+        if (r <= 0) {
+          pickedIdx = i;
+          break;
+        }
+      }
+      selected.push(pool[pickedIdx].question);
+      pool.splice(pickedIdx, 1);
+    }
+    return selected;
   }
 
   async listOwn(

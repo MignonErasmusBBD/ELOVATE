@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCourse, type ElovateCourseSummary } from "@/helpers/coursesApi";
 import { CourseWorkspaceNav } from "./CourseWorkspaceNav";
+import { useQuizProgress } from "./QuizProgressContext";
 
 type CourseWorkspaceHeaderProps = {
   courseId: string;
@@ -15,6 +16,7 @@ type LoadState =
   | { status: "error" };
 
 export function CourseWorkspaceHeader({ courseId }: CourseWorkspaceHeaderProps) {
+  const { isQuizInProgress } = useQuizProgress();
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
   useEffect(() => {
@@ -62,6 +64,7 @@ export function CourseWorkspaceHeader({ courseId }: CourseWorkspaceHeaderProps) 
       courseId={courseId}
       courseTitle={state.course.title}
       hideQuizLinks={state.course.status === "deactivated"}
+      lockNav={isQuizInProgress}
     />
   );
 }

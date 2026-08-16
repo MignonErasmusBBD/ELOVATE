@@ -7,6 +7,7 @@ type CourseWorkspaceNavProps = {
   courseId: string;
   courseTitle: string;
   hideQuizLinks?: boolean;
+  lockNav?: boolean;
 };
 
 function getCourseWorkspaceLinks(courseId: string) {
@@ -39,6 +40,7 @@ export function CourseWorkspaceNav({
   courseId,
   courseTitle,
   hideQuizLinks = false,
+  lockNav = false,
 }: CourseWorkspaceNavProps) {
   const pathname = usePathname();
   const allLinks = getCourseWorkspaceLinks(courseId);
@@ -58,18 +60,41 @@ export function CourseWorkspaceNav({
               {courseTitle}
             </p>
           </section>
-          <Link
-            href="/courses"
-            className="rounded-lg border border-border-ui bg-surface px-3 py-2 text-sm font-semibold text-text-secondary hover:bg-page"
-          >
-            All courses
-          </Link>
+          {lockNav ? (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+              Quiz in progress
+            </p>
+          ) : (
+            <Link
+              href="/courses"
+              className="rounded-lg border border-border-ui bg-surface px-3 py-2 text-sm font-semibold text-text-secondary hover:bg-page"
+            >
+              All courses
+            </Link>
+          )}
         </section>
 
         <nav aria-label="Course sections">
           <ul className="flex list-none flex-wrap gap-2 p-0">
             {workspaceLinks.map((link) => {
               const isCurrent = link.match(pathname);
+
+              if (lockNav) {
+                return (
+                  <li key={link.id}>
+                    <span
+                      aria-disabled="true"
+                      className={
+                        isCurrent
+                          ? "inline-flex rounded-lg bg-ink/40 px-4 py-2 text-sm font-semibold text-white/70 cursor-not-allowed"
+                          : "inline-flex rounded-lg border border-border-ui bg-surface/60 px-4 py-2 text-sm font-medium text-text-secondary/50 cursor-not-allowed"
+                      }
+                    >
+                      {link.label}
+                    </span>
+                  </li>
+                );
+              }
 
               return (
                 <li key={link.id}>

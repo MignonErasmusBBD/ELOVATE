@@ -14,6 +14,7 @@ type CourseRow = {
   description: string | null;
   visibility: string;
   status: string;
+  quiz_question_count: number;
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -26,6 +27,7 @@ export type PublicCourse = {
   description: string | undefined;
   visibility: string;
   status: string;
+  quizQuestionCount: number;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -51,6 +53,7 @@ const courseSelectSql = `SELECT
   c.description,
   cv.visibility_code AS visibility,
   cs.status_code AS status,
+  c.quiz_question_count,
   c.created_by,
   c.created_at,
   c.updated_at
@@ -66,6 +69,7 @@ function toPublicCourse(row: CourseRow): PublicCourse {
     description: textFromDatabase(row.description),
     visibility: row.visibility,
     status: row.status,
+    quizQuestionCount: row.quiz_question_count,
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -244,6 +248,13 @@ export class CoursesRepository {
        FROM course_statuses cs
        WHERE courses.id = $1 AND cs.status_code = $2`,
       [courseId, statusCode],
+    );
+  }
+
+  async updateQuizQuestionCount(courseId: string, count: number) {
+    await this.postgres.query(
+      'UPDATE courses SET quiz_question_count = $2, updated_at = now() WHERE id = $1',
+      [courseId, count],
     );
   }
 

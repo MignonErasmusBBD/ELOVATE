@@ -30,6 +30,10 @@ type ItemRow = {
   selected_option_id: string | null;
   is_correct: boolean | null;
   answered_at: Date | null;
+  question_started_at: Date | null;
+  bloom_level: string | null;
+  difficulty_level: string | null;
+  section_title: string | null;
 };
 
 type ItemOptionRow = {
@@ -54,6 +58,10 @@ export type PublicAttemptItem = {
   selectedOptionId: string | undefined;
   isCorrect: boolean | undefined;
   answeredAt: Date | undefined;
+  questionStartedAt: Date | undefined;
+  bloomLevel: string | undefined;
+  difficultyLevel: string | undefined;
+  sectionTitle: string | undefined;
   options: PublicAttemptOption[];
 };
 
@@ -83,7 +91,7 @@ export type GeneratedQuestion = {
   prompt: string;
   bloomLevelId: number;
   difficultyLevelId: number;
-  topicIds: string[];
+  courseSectionId: string;
 };
 
 const attemptSelectSql = `SELECT
@@ -104,7 +112,6 @@ JOIN quiz_attempt_statuses st ON st.quiz_attempt_status_id = qa.quiz_attempt_sta
 function toPublicAttempt(
   row: AttemptRow,
   items: PublicAttemptItem[],
-  hideCorrect: boolean,
 ): PublicAttempt {
   return {
     id: row.id,
@@ -118,16 +125,22 @@ function toPublicAttempt(
     ratingAtGeneration: row.rating_at_generation,
     ratingAtCompletion:
       row.rating_at_completion === null ? undefined : row.rating_at_completion,
-    items: hideCorrect
-      ? items.map((item) => ({
+    // Reveal correctness only for items the student has already answered.
+    // Unanswered items during in_progress keep isCorrect hidden so students
+    // cannot snoop upcoming answers from the network response.
+    items: items.map((item) => {
+      const shouldHide =
+        row.status === 'generated' ||
+        (row.status === 'in_progress' && item.answeredAt === undefined);
+      if (shouldHide) {
+        return {
           ...item,
           isCorrect: undefined,
-          options: item.options.map((option) => ({
-            ...option,
-            isCorrect: undefined,
-          })),
-        }))
-      : items,
+          options: item.options.map((opt) => ({ ...opt, isCorrect: undefined })),
+        };
+      }
+      return item;
+    }),
   };
 }
 
@@ -162,7 +175,7 @@ export class QuizzesRepository {
     );
     const attempts: PublicAttempt[] = [];
     for (const row of result.rows) {
-      attempts.push(toPublicAttempt(row, [], this.shouldHideCorrect(row.status)));
+      attempts.push(toPublicAttempt(row, []));
     }
     return attempts;
   }
@@ -184,7 +197,6 @@ export class QuizzesRepository {
     return toPublicAttempt(
       row,
       attemptItems === undefined ? [] : attemptItems,
-      this.shouldHideCorrect(row.status),
     );
   }
 
@@ -236,14 +248,27 @@ export class QuizzesRepository {
   }
 
   async start(attemptId: string) {
-    await this.postgres.query(
-      `UPDATE quiz_attempts
-       SET started_at = now(),
-           quiz_attempt_status_id = st.quiz_attempt_status_id
-       FROM quiz_attempt_statuses st
-       WHERE quiz_attempts.id = $1 AND st.status_code = 'in_progress'`,
-      [attemptId],
-    );
+    await this.postgres.withTransaction(async (query) => {
+      await query(
+        `UPDATE quiz_attempts
+         SET started_at = now(),
+             quiz_attempt_status_id = st.quiz_attempt_status_id
+         FROM quiz_attempt_statuses st
+         WHERE quiz_attempts.id = $1 AND st.status_code = 'in_progress'`,
+        [attemptId],
+      );
+      await query(
+        `UPDATE quiz_attempt_items
+         SET question_started_at = now()
+         WHERE id = (
+           SELECT id FROM quiz_attempt_items
+           WHERE quiz_attempt_id = $1
+           ORDER BY id
+           LIMIT 1
+         )`,
+        [attemptId],
+      );
+    });
   }
 
   async answer(
@@ -258,18 +283,32 @@ export class QuizzesRepository {
     if (optionRow === undefined) {
       return undefined;
     }
-    const updated = await this.postgres.query<{ id: string }>(
+    const updated = await this.postgres.query<{ id: string; quiz_attempt_id: string }>(
       `UPDATE quiz_attempt_items
        SET selected_option_id = $2,
            is_correct = $3,
            answered_at = now()
        WHERE id = $1
-       RETURNING id`,
+       RETURNING id, quiz_attempt_id`,
       [attemptItemId, selectedOptionId, optionRow.is_correct],
     );
-    if (updated.rows[0] === undefined) {
+    const updatedRow = updated.rows[0];
+    if (updatedRow === undefined) {
       return undefined;
     }
+    await this.postgres.query(
+      `UPDATE quiz_attempt_items
+       SET question_started_at = now()
+       WHERE id = (
+         SELECT id FROM quiz_attempt_items
+         WHERE quiz_attempt_id = $1
+           AND selected_option_id IS NULL
+           AND question_started_at IS NULL
+         ORDER BY id
+         LIMIT 1
+       )`,
+      [updatedRow.quiz_attempt_id],
+    );
     return optionRow.is_correct;
   }
 
@@ -383,35 +422,35 @@ export class QuizzesRepository {
         [userId, courseId, newRating, answered, correctCount],
       );
 
-      const topicRows = await query<{ topic_id: string; is_correct: boolean | null }>(
-        `SELECT DISTINCT qt.topic_id, qi.is_correct, qi.question_id
+      const sectionRows = await query<{ course_section_id: string; is_correct: boolean | null }>(
+        `SELECT q.course_section_id, qi.is_correct
          FROM quiz_attempt_items qi
-         JOIN question_topics qt ON qt.question_id = qi.question_id
+         JOIN questions q ON q.id = qi.question_id
          WHERE qi.quiz_attempt_id = $1`,
         [attemptId],
       );
-      const topicRollup = new Map<string, { answered: number; correct: number }>();
-      for (const row of topicRows.rows) {
-        const current = topicRollup.get(row.topic_id);
+      const sectionRollup = new Map<string, { answered: number; correct: number }>();
+      for (const row of sectionRows.rows) {
+        const current = sectionRollup.get(row.course_section_id);
         const addCorrect = row.is_correct === true ? 1 : 0;
         if (current === undefined) {
-          topicRollup.set(row.topic_id, { answered: 1, correct: addCorrect });
+          sectionRollup.set(row.course_section_id, { answered: 1, correct: addCorrect });
         } else {
           current.answered += 1;
           current.correct += addCorrect;
         }
       }
-      for (const [topicId, stats] of topicRollup) {
+      for (const [sectionId, stats] of sectionRollup) {
         await query(
-          `INSERT INTO student_topic_mastery (
-             user_id, course_id, topic_id, questions_answered, correct_count, updated_at
+          `INSERT INTO student_section_mastery (
+             user_id, course_id, course_section_id, questions_answered, correct_count, updated_at
            )
            VALUES ($1, $2, $3, $4, $5, now())
-           ON CONFLICT (user_id, course_id, topic_id) DO UPDATE SET
-             questions_answered = student_topic_mastery.questions_answered + EXCLUDED.questions_answered,
-             correct_count = student_topic_mastery.correct_count + EXCLUDED.correct_count,
+           ON CONFLICT (user_id, course_id, course_section_id) DO UPDATE SET
+             questions_answered = student_section_mastery.questions_answered + EXCLUDED.questions_answered,
+             correct_count = student_section_mastery.correct_count + EXCLUDED.correct_count,
              updated_at = now()`,
-          [userId, courseId, topicId, stats.answered, stats.correct],
+          [userId, courseId, sectionId, stats.answered, stats.correct],
         );
       }
       for (const [difficultyLevelId, stats] of difficulty) {
@@ -463,6 +502,80 @@ export class QuizzesRepository {
     });
   }
 
+  async getStudentMastery(
+    userId: string,
+    courseId: string,
+  ): Promise<{
+    sections: Map<string, { answered: number; correct: number }>;
+    bloom: Map<number, { answered: number; correct: number }>;
+    difficulty: Map<number, { answered: number; correct: number }>;
+  }> {
+    const [sectionResult, bloomResult, difficultyResult] = await Promise.all([
+      this.postgres.query<{
+        course_section_id: string;
+        questions_answered: number;
+        correct_count: number;
+      }>(
+        `SELECT course_section_id, questions_answered, correct_count
+         FROM student_section_mastery
+         WHERE user_id = $1 AND course_id = $2`,
+        [userId, courseId],
+      ),
+      this.postgres.query<{
+        bloom_level_id: number;
+        questions_answered: number;
+        correct_count: number;
+      }>(
+        `SELECT bloom_level_id, questions_answered, correct_count
+         FROM student_bloom_mastery
+         WHERE user_id = $1 AND course_id = $2`,
+        [userId, courseId],
+      ),
+      this.postgres.query<{
+        difficulty_level_id: number;
+        questions_answered: number;
+        correct_count: number;
+      }>(
+        `SELECT difficulty_level_id, questions_answered, correct_count
+         FROM student_difficulty_mastery
+         WHERE user_id = $1 AND course_id = $2`,
+        [userId, courseId],
+      ),
+    ]);
+
+    const sections = new Map(
+      sectionResult.rows.map((r) => [
+        r.course_section_id,
+        { answered: r.questions_answered, correct: r.correct_count },
+      ]),
+    );
+    const bloom = new Map(
+      bloomResult.rows.map((r) => [
+        r.bloom_level_id,
+        { answered: r.questions_answered, correct: r.correct_count },
+      ]),
+    );
+    const difficulty = new Map(
+      difficultyResult.rows.map((r) => [
+        r.difficulty_level_id,
+        { answered: r.questions_answered, correct: r.correct_count },
+      ]),
+    );
+
+    return { sections, bloom, difficulty };
+  }
+
+  async getSeenQuestionIds(userId: string, courseId: string): Promise<Set<string>> {
+    const result = await this.postgres.query<{ question_id: string }>(
+      `SELECT DISTINCT qi.question_id
+       FROM quiz_attempt_items qi
+       JOIN quiz_attempts qa ON qa.id = qi.quiz_attempt_id
+       WHERE qa.user_id = $1 AND qa.course_id = $2`,
+      [userId, courseId],
+    );
+    return new Set(result.rows.map((r) => r.question_id));
+  }
+
   private shouldHideCorrect(status: string): boolean {
     return status === 'generated' || status === 'in_progress';
   }
@@ -479,15 +592,23 @@ export class QuizzesRepository {
       .join(', ');
     const itemResult = await this.postgres.query<ItemRow>(
       `SELECT qi.id, qi.quiz_attempt_id, qi.question_id, q.prompt,
-              qi.selected_option_id, qi.is_correct, qi.answered_at
+              qi.selected_option_id, qi.is_correct, qi.answered_at,
+              qi.question_started_at,
+              bl.level_name AS bloom_level,
+              dl.level_name AS difficulty_level,
+              cs.title AS section_title
        FROM quiz_attempt_items qi
        JOIN questions q ON q.id = qi.question_id
+       JOIN course_sections cs ON cs.id = q.course_section_id
+       LEFT JOIN bloom_levels bl ON bl.bloom_level_id = q.bloom_level_id
+       LEFT JOIN difficulty_levels dl ON dl.difficulty_level_id = q.difficulty_level_id
        WHERE qi.quiz_attempt_id IN (${placeholders})
        ORDER BY qi.id`,
       attemptIds,
     );
     const questionIds = itemResult.rows.map((row) => row.question_id);
     const optionMap = new Map<string, PublicAttemptOption[]>();
+
     if (questionIds.length > 0) {
       const uniqueQuestionIds: string[] = [];
       for (const questionId of questionIds) {
@@ -498,6 +619,7 @@ export class QuizzesRepository {
       const optionPlaceholders = uniqueQuestionIds
         .map((_id, index) => `$${index + 1}`)
         .join(', ');
+
       const optionResult = await this.postgres.query<ItemOptionRow>(
         `SELECT id, question_id, option_text, is_correct, position
          FROM question_options
@@ -505,6 +627,7 @@ export class QuizzesRepository {
          ORDER BY position`,
         uniqueQuestionIds,
       );
+
       for (const option of optionResult.rows) {
         const list = optionMap.get(option.question_id);
         const mapped = {
@@ -520,6 +643,7 @@ export class QuizzesRepository {
         }
       }
     }
+
     for (const row of itemResult.rows) {
       const options = optionMap.get(row.question_id);
       const item: PublicAttemptItem = {
@@ -530,6 +654,10 @@ export class QuizzesRepository {
           row.selected_option_id === null ? undefined : row.selected_option_id,
         isCorrect: booleanFromDatabase(row.is_correct),
         answeredAt: dateFromDatabase(row.answered_at),
+        questionStartedAt: dateFromDatabase(row.question_started_at),
+        bloomLevel: row.bloom_level === null ? undefined : row.bloom_level,
+        difficultyLevel: row.difficulty_level === null ? undefined : row.difficulty_level,
+        sectionTitle: row.section_title === null ? undefined : row.section_title,
         options: options === undefined ? [] : options,
       };
       const list = map.get(row.quiz_attempt_id);
@@ -553,7 +681,7 @@ export class QuizzesRepository {
     }
     const bloom = new Map<number, number>();
     const difficulty = new Map<number, number>();
-    const topics = new Map<string, number>();
+    const sections = new Map<string, number>();
     for (const question of questions) {
       const bloomCount = bloom.get(question.bloomLevelId);
       bloom.set(
@@ -565,10 +693,11 @@ export class QuizzesRepository {
         question.difficultyLevelId,
         difficultyCount === undefined ? 1 : difficultyCount + 1,
       );
-      for (const topicId of question.topicIds) {
-        const topicCount = topics.get(topicId);
-        topics.set(topicId, topicCount === undefined ? 1 : topicCount + 1);
-      }
+      const sectionCount = sections.get(question.courseSectionId);
+      sections.set(
+        question.courseSectionId,
+        sectionCount === undefined ? 1 : sectionCount + 1,
+      );
     }
     for (const [bloomLevelId, count] of bloom) {
       await query(
@@ -586,12 +715,12 @@ export class QuizzesRepository {
         [attemptId, difficultyLevelId, count / total, count],
       );
     }
-    for (const [topicId, count] of topics) {
+    for (const [sectionId, count] of sections) {
       await query(
-        `INSERT INTO quiz_topic_weights (
-           quiz_attempt_id, topic_id, target_weight, questions_allocated
+        `INSERT INTO quiz_section_weights (
+           quiz_attempt_id, course_section_id, target_weight, questions_allocated
          ) VALUES ($1, $2, $3, $4)`,
-        [attemptId, topicId, count / total, count],
+        [attemptId, sectionId, count / total, count],
       );
     }
   }
