@@ -23,6 +23,14 @@ ELOVATE helps organisations deliver skills training that adapts to each learner,
 
 https://github.com/user-attachments/assets/aad51344-bb24-4ed4-a211-2b6583212621
 
+## Team Members
+
+| Name | Email Address |
+| --- | --- |
+| Xadrian van Heerden | xadrian.vanheerden@bbd.co.za |
+| Tessa Engelbrecht | tessa.engelbrecht@bbd.co.za |
+| Mignon Erasmus | mignon.erasmus@bbd.co.za |
+
 ## Tech stack
 
 | Layer | Technologies |
@@ -33,18 +41,10 @@ https://github.com/user-attachments/assets/aad51344-bb24-4ed4-a211-2b6583212621
 | Auth | Better Auth, Google OAuth |
 | Tooling | pnpm (frontend), npm (backend), Docker Compose |
 
-## Team Members
-
-| Name | Email Address |
-| --- | --- |
-| Xadrian van Heerden | xadrian.vanheerden@bbd.co.za |
-| Tessa Engelbrecht | tessa.engelbrecht@bbd.co.za |
-| Mignon Erasmus | mignon.erasmus@bbd.co.za |
-
 <br>
 </div>
 
-## Step-by-step walkthrough of the system
+## Step-by-step walkthrough for learners and educators
 
 https://github.com/user-attachments/assets/217a5153-17c6-4b66-bca2-b9882c50ef1f
 
