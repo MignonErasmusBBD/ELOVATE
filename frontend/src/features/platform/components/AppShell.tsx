@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { MenuIcon } from "@/components/icons/MenuIcon";
 import { authClient } from "@/lib/auth-client";
 import { displayRoleName } from "@/helpers/displayLabels";
 import {
@@ -100,6 +101,7 @@ export function AppShell({ children }: AppShellProps) {
   const desktopContentOffsetClass = isSidebarCollapsed
     ? "lg:pl-[4.5rem]"
     : "lg:pl-72";
+  const appTopBarHeightClass = "h-[5.5rem]";
 
   return (
     <div className="min-h-dvh bg-page">
@@ -120,40 +122,47 @@ export function AppShell({ children }: AppShellProps) {
         }`}
       >
         <header
-          className={`flex items-center gap-3 border-b border-white/10 px-4 py-4 ${
-            isSidebarCollapsed ? "lg:justify-center lg:px-2" : ""
-          }`}
+          className={`flex shrink-0 items-center border-b border-white/10 px-2 ${appTopBarHeightClass}`}
         >
-          <Link
-            href="/courses"
-            className="min-w-0 focus-visible:outline-white"
-            onClick={() => setIsMobileNavOpen(false)}
+          <div
+            className={`flex w-full items-center gap-2 px-3 ${
+              isSidebarCollapsed ? "lg:justify-center lg:px-2" : "justify-between"
+            }`}
           >
-            {isSidebarCollapsed ? (
-              <span className="hidden text-sm font-bold tracking-wide lg:inline">
-                E
+            <Link
+              href="/courses"
+              className={`min-w-0 text-left focus-visible:outline-white ${
+                isSidebarCollapsed ? "lg:hidden" : ""
+              }`}
+              onClick={() => setIsMobileNavOpen(false)}
+            >
+              <span className="block truncate text-sm font-bold">
+                ELOVATE
               </span>
-            ) : undefined}
-            <span
-              className={`block truncate text-sm font-bold tracking-wide ${
-                isSidebarCollapsed ? "lg:hidden" : ""
-              }`}
+              <span className="mt-0.5 block truncate text-xs text-white/55">
+                Learning Platform
+              </span>
+            </Link>
+
+            <button
+              type="button"
+              aria-label={
+                isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+              }
+              aria-expanded={isSidebarCollapsed === false}
+              className="hidden size-9 shrink-0 items-center justify-center rounded-lg text-white/70 hover:bg-white/5 hover:text-white focus-visible:outline-white lg:inline-flex"
+              onClick={() =>
+                setIsSidebarCollapsed((current) => current === false)
+              }
             >
-              ELOVATE
-            </span>
-            <span
-              className={`mt-0.5 block text-xs text-white/55 ${
-                isSidebarCollapsed ? "lg:hidden" : ""
-              }`}
-            >
-              Learning Platform
-            </span>
-          </Link>
+              <MenuIcon className="size-5" />
+            </button>
+          </div>
         </header>
 
         <nav
           aria-label="Primary"
-          className="min-h-0 flex-1 overflow-y-auto px-2 py-4"
+          className="min-h-0 flex-1 overflow-y-auto px-2 pt-2 pb-4"
         >
           <ul className="flex list-none flex-col gap-5 p-0">
             {navSections.map((section) => (
@@ -212,29 +221,22 @@ export function AppShell({ children }: AppShellProps) {
             ))}
           </ul>
         </nav>
-
-        <footer className="hidden shrink-0 border-t border-white/10 p-3 lg:block">
-          <button
-            type="button"
-            onClick={() => setIsSidebarCollapsed((current) => !current)}
-            className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-white/70 hover:bg-white/5 hover:text-white focus-visible:outline-white"
-          >
-            {isSidebarCollapsed ? "»" : "« Collapse"}
-          </button>
-        </footer>
       </aside>
 
       <div
         className={`flex min-h-dvh min-w-0 flex-col transition-[padding] duration-200 ${desktopContentOffsetClass}`}
       >
-        <header className="sticky top-0 z-30 border-b border-border-ui bg-surface/95 backdrop-blur">
-          <div className="flex items-center gap-3 px-4 py-3 md:px-6">
+        <header
+          className={`sticky top-0 z-30 flex shrink-0 items-center border-b border-border-ui bg-surface/95 backdrop-blur ${appTopBarHeightClass}`}
+        >
+          <div className="flex w-full items-center gap-3 px-4 md:px-6">
             <button
               type="button"
-              className="rounded-lg border border-border-ui px-3 py-2 text-sm font-semibold text-ink hover:bg-page lg:hidden"
+              aria-label="Open navigation"
+              className="inline-flex size-9 items-center justify-center rounded-lg border border-border-ui text-ink hover:bg-page lg:hidden"
               onClick={() => setIsMobileNavOpen(true)}
             >
-              Menu
+              <MenuIcon className="size-5" />
             </button>
 
             <p className="min-w-0 flex-1 truncate text-sm text-text-secondary lg:hidden">
