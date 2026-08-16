@@ -31,6 +31,8 @@ export type ElovateEnrollment = {
   userFullName: string;
   emailAddress: string;
   courseTitle: string;
+  practiceAttemptCount: number;
+  practiceQuizPercent?: number;
   isRequired: boolean;
   dueAt: string | undefined;
 };
@@ -58,6 +60,20 @@ function readEnrolledAt(body: object): string | undefined {
     return field;
   }
   return undefined;
+}
+
+function readOptionalNumber(
+  body: object,
+  key: string,
+): number | undefined {
+  if (key in body === false) {
+    return undefined;
+  }
+  const field = Reflect.get(body, key);
+  if (typeof field !== "number" || Number.isFinite(field) === false) {
+    return undefined;
+  }
+  return field;
 }
 
 function parseEnrollmentSummary(item: unknown): EnrollmentSummary | undefined {
@@ -94,6 +110,8 @@ export function parseElovateEnrollment(
   const userFullName = readRequiredString(item, "userFullName");
   const emailAddress = readRequiredString(item, "emailAddress");
   const courseTitle = readRequiredString(item, "courseTitle");
+  const practiceAttemptCount = readOptionalNumber(item, "practiceAttemptCount");
+  const practiceQuizPercent = readOptionalNumber(item, "practiceQuizPercent");
 
   if (
     id === undefined ||
@@ -118,6 +136,9 @@ export function parseElovateEnrollment(
     userFullName,
     emailAddress,
     courseTitle,
+    practiceAttemptCount:
+      practiceAttemptCount === undefined ? 0 : practiceAttemptCount,
+    practiceQuizPercent,
     isRequired: readOptionalBoolean(item, "isRequired") === true,
     dueAt: readOptionalString(item, "dueAt"),
   };

@@ -83,7 +83,7 @@ export function StudentDetailsModal({
           </button>
         </header>
 
-        <ul className="mt-6 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-3">
+        <ul className="mt-6 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 lg:grid-cols-4">
           <li>
             <article className="rounded-xl border border-border-ui border-l-4 border-l-emerald-600 bg-surface px-4 py-3">
               <h3 className="text-xs font-semibold text-emerald-700">Status</h3>
@@ -112,6 +112,18 @@ export function StudentDetailsModal({
                 {student.practiceQuizPercent === undefined
                   ? "—"
                   : `${student.practiceQuizPercent}%`}
+              </p>
+            </article>
+          </li>
+          <li>
+            <article className="rounded-xl border border-border-ui border-l-4 border-l-ink bg-surface px-4 py-3">
+              <h3 className="text-xs font-semibold text-ink">
+                Practice Attempts
+              </h3>
+              <p className="mt-1 text-xl font-bold text-ink">
+                {student.practiceAttemptCount === undefined
+                  ? "—"
+                  : student.practiceAttemptCount}
               </p>
             </article>
           </li>

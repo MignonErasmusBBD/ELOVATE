@@ -69,7 +69,7 @@ export class EnrollmentsController {
   @ApiOperation({
     summary: 'List enrollments',
     description:
-      'Select enrollments joined to users/courses. With courseId: educators/org admins list students on that course (course.private.read / course.community.update / enrollment.assign). Without courseId: org-scoped list.\nPermission: enrollment.assign (org-wide) OR course authoring read when courseId is set.',
+      'Select enrollments joined to users/courses, plus completed quiz_attempts practiceAttemptCount and average practiceQuizPercent (from quiz_attempt_items). With courseId: educators/org admins list students on that course (course.private.read / course.community.update / enrollment.assign). Without courseId: org-scoped list.\nPermission: enrollment.assign (org-wide) OR course authoring read when courseId is set.',
   })
   list(
     @CurrentUser() actor: AuthUser,
@@ -90,7 +90,7 @@ export class EnrollmentsController {
   @ApiOperation({
     summary: 'Get one enrollment',
     description:
-      'Select enrollments by id.\nPermission: enrollment.read.self (own row) or enrollment.assign (org).',
+      'Select enrollments by id, including completed quiz_attempts practiceAttemptCount and average practiceQuizPercent when present.\nPermission: enrollment.read.self (own row) or enrollment.assign (org).',
   })
   getOne(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
     return this.enrollments.getOne(actor, id);

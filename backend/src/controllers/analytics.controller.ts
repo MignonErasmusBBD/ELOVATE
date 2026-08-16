@@ -113,4 +113,17 @@ export class AnalyticsController {
   ) {
     return this.analytics.readEducatorCourseOverview(actor, courseId);
   }
+
+  @Get('educator/courses/:courseId/practice-insights')
+  @ApiOperation({
+    summary: 'Educator course practice insights',
+    description:
+      'Derive completed quiz_attempts scores from quiz_attempt_items: class averages for attempts 1–6, course-wide average, ±2 SD outlier trajectories, normal density of learner mean scores, per-question success rates (too easy >95% / too hard <30%), plus rule-based insight strings.\nPermission: analytics.read.org (org_admin, educator) plus course.private.read / course.community.read for the course.',
+  })
+  educatorCoursePracticeInsights(
+    @CurrentUser() actor: AuthUser,
+    @Param('courseId') courseId: string,
+  ) {
+    return this.analytics.readEducatorCoursePracticeInsights(actor, courseId);
+  }
 }

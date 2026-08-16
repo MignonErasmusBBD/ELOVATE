@@ -20,6 +20,8 @@ type EnrollmentRow = {
   full_name: string | null;
   email: string;
   course_title: string;
+  practice_attempt_count: number | null;
+  practice_quiz_percent: number | null;
 };
 
 export type PublicEnrollment = {
@@ -34,6 +36,8 @@ export type PublicEnrollment = {
   userFullName: string;
   emailAddress: string;
   courseTitle: string;
+  practiceAttemptCount: number;
+  practiceQuizPercent: number | undefined;
 };
 
 export type EnrollmentListFilters = {
@@ -54,14 +58,42 @@ const enrollmentSelectSql = `SELECT
   es.status_code AS status,
   u.full_name,
   u.email,
-  c.title AS course_title
+  c.title AS course_title,
+  coalesce(practice.practice_attempt_count, 0)::int AS practice_attempt_count,
+  practice.practice_quiz_percent
 FROM enrollments e
 JOIN users u ON u.id = e.user_id
 JOIN courses c ON c.id = e.course_id
-JOIN enrollment_statuses es ON es.enrollment_status_id = e.enrollment_status_id`;
+JOIN enrollment_statuses es ON es.enrollment_status_id = e.enrollment_status_id
+LEFT JOIN (
+  SELECT
+    qa.user_id,
+    qa.course_id,
+    count(*)::int AS practice_attempt_count,
+    round(avg(attempt_scores.score_percent))::float AS practice_quiz_percent
+  FROM quiz_attempts qa
+  JOIN quiz_attempt_statuses st
+    ON st.quiz_attempt_status_id = qa.quiz_attempt_status_id
+  JOIN (
+    SELECT
+      qai.quiz_attempt_id,
+      (
+        count(qai.id) FILTER (WHERE qai.is_correct IS TRUE)::numeric
+        / count(qai.id)::numeric
+      ) * 100 AS score_percent
+    FROM quiz_attempt_items qai
+    GROUP BY qai.quiz_attempt_id
+    HAVING count(qai.id) > 0
+  ) attempt_scores ON attempt_scores.quiz_attempt_id = qa.id
+  WHERE st.status_code = 'completed'
+  GROUP BY qa.user_id, qa.course_id
+) practice
+  ON practice.user_id = e.user_id AND practice.course_id = e.course_id`;
 
 function toPublicEnrollment(row: EnrollmentRow): PublicEnrollment {
   const fullName = textFromDatabase(row.full_name);
+  const practiceAttemptCount =
+    row.practice_attempt_count === null ? 0 : row.practice_attempt_count;
   return {
     id: row.id,
     userId: row.user_id,
@@ -74,6 +106,11 @@ function toPublicEnrollment(row: EnrollmentRow): PublicEnrollment {
     userFullName: fullName === undefined ? row.email : fullName,
     emailAddress: row.email,
     courseTitle: row.course_title,
+    practiceAttemptCount,
+    practiceQuizPercent:
+      row.practice_quiz_percent === null
+        ? undefined
+        : Math.round(row.practice_quiz_percent),
   };
 }
 

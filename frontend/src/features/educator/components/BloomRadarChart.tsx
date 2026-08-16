@@ -2,6 +2,11 @@
 
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
+import {
+  formatBloomCoverageTooltip,
+  formatBloomPerformanceTooltip,
+  toBloomRadarSeriesPoints,
+} from "@/helpers/bloomRadarChart";
 import type { BloomCoveragePoint } from "../types";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -11,7 +16,8 @@ type BloomRadarChartProps = {
 };
 
 export function BloomRadarChart({ bloomCoverage }: BloomRadarChartProps) {
-  const categories = bloomCoverage.map((point) => point.levelName);
+  const radarPoints = toBloomRadarSeriesPoints(bloomCoverage);
+  const categories = radarPoints.map((point) => point.levelName);
 
   const options: ApexOptions = {
     chart: {
@@ -28,24 +34,52 @@ export function BloomRadarChart({ bloomCoverage }: BloomRadarChartProps) {
       categories,
     },
     yaxis: {
-      show: false,
+      min: 0,
+      max: 100,
+      tickAmount: 4,
+      labels: {
+        formatter: (value) => {
+          if (value === 0) {
+            return "";
+          }
+          return `${Math.round(value)}%`;
+        },
+      },
     },
     legend: {
       position: "bottom",
     },
     tooltip: {
       theme: "light",
+      y: {
+        formatter: (value, opts) => {
+          if (typeof value !== "number" || opts === undefined) {
+            return "";
+          }
+          const point = radarPoints[opts.dataPointIndex];
+          if (point === undefined) {
+            return `${Math.round(value)}%`;
+          }
+          if (opts.seriesIndex === 0) {
+            return formatBloomCoverageTooltip(
+              point.coveragePercent,
+              point.coverageCount,
+            );
+          }
+          return formatBloomPerformanceTooltip(point.performancePercent);
+        },
+      },
     },
   };
 
   const series = [
     {
-      name: "Coverage",
-      data: bloomCoverage.map((point) => point.coverageCount),
+      name: "Coverage (% of questions)",
+      data: radarPoints.map((point) => point.coveragePercent),
     },
     {
-      name: "Performance",
-      data: bloomCoverage.map((point) => point.performancePercent),
+      name: "Performance (% correct)",
+      data: radarPoints.map((point) => point.performancePercent),
     },
   ];
 

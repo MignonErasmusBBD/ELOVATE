@@ -76,6 +76,11 @@ export function OverviewTab({ overview }: OverviewTabProps) {
               Bloom&apos;s Taxonomy: Questions Coverage &amp; Average
               Performance
             </h3>
+            <p className="mt-1 text-sm text-text-secondary">
+              Both series use a 0–100% scale. Coverage is each Bloom
+              level&apos;s share of the question bank; performance is average
+              percent correct.
+            </p>
             {showBloomCoverage ? (
               <BloomRadarChart bloomCoverage={overview.bloomCoverage} />
             ) : (
