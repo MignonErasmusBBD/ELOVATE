@@ -12,13 +12,17 @@ type AttemptsTrendChartProps = {
   trendAttempts: TrendAttempt[];
   overallAvgScorePercent: number | undefined;
   totalAttempts: number;
+  viewerRole?: "learner" | "educator";
 };
 
 export function AttemptsTrendChart({
   trendAttempts,
   overallAvgScorePercent,
   totalAttempts,
+  viewerRole = "learner",
 }: AttemptsTrendChartProps) {
+  const isEducator = viewerRole === "educator";
+
   const heading = (
     <header className="flex items-center gap-2">
       <h2 className="text-xl font-bold tracking-tight text-ink">
@@ -35,8 +39,9 @@ export function AttemptsTrendChart({
       <section aria-labelledby="trend-heading">
         {heading}
         <p className="mt-6 rounded-xl border border-border-ui bg-page px-5 py-6 text-sm text-text-secondary">
-          Keep practising — your trend will appear here once you have completed
-          at least 3 quizzes.
+          {isEducator
+            ? "This learner needs at least 3 completed quizzes before a trend appears."
+            : "Keep practising — your trend will appear here once you have completed at least 3 quizzes."}
         </p>
       </section>
     );

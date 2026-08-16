@@ -119,3 +119,17 @@ export async function getStudentCourseDashboard(
   }
   return dashboard;
 }
+
+export async function getEducatorStudentCourseDashboard(
+  courseId: string,
+  userId: string,
+): Promise<StudentCourseDashboard> {
+  const body = await elovateApiJson(
+    `/analytics/educator/courses/${encodeURIComponent(courseId)}/students/${encodeURIComponent(userId)}/dashboard`,
+  );
+  const dashboard = parseStudentCourseDashboard(body);
+  if (dashboard === undefined) {
+    throw new Error("Educator student dashboard response was invalid.");
+  }
+  return dashboard;
+}

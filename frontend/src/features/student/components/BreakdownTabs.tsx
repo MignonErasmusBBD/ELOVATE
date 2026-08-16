@@ -11,6 +11,7 @@ type BreakdownTabsProps = {
   bloomBreakdown: BreakdownCategory[];
   sectionBreakdown: BreakdownCategory[];
   difficultyBreakdown: BreakdownCategory[];
+  viewerRole?: "learner" | "educator";
 };
 
 function masteryColor(scorePercent: number): string {
@@ -77,7 +78,9 @@ export function BreakdownTabs({
   bloomBreakdown,
   sectionBreakdown,
   difficultyBreakdown,
+  viewerRole = "learner",
 }: BreakdownTabsProps) {
+  const isEducator = viewerRole === "educator";
   const [activeTab, setActiveTab] = useState<Tab>("bloom");
 
   const tabs: { id: Tab; label: string }[] = [
@@ -136,7 +139,9 @@ export function BreakdownTabs({
 
       {currentCategories.length === 0 ? (
         <p className="mt-6 text-sm text-text-secondary">
-          No data yet — complete a quiz to see your breakdown.
+          {isEducator
+            ? "No breakdown data yet — this learner has not answered enough questions."
+            : "No data yet — complete a quiz to see your breakdown."}
         </p>
       ) : (
         <ul className="mt-5 flex flex-col gap-3" aria-label={`${activeTab} breakdown`}>
@@ -162,9 +167,9 @@ export function BreakdownTabs({
             {weakestCategory.categoryName}
           </p>
           <p className="mt-0.5 text-sm text-text-secondary">
-            Your {tabFocusLabel[activeTab]} score is{" "}
-            {Math.round(weakestCategory.scorePercent)}%. Practise more here to
-            reach the 70% target.
+            {isEducator
+              ? `This learner's ${tabFocusLabel[activeTab]} score is ${Math.round(weakestCategory.scorePercent)}%. Encourage more practice here to reach the 70% target.`
+              : `Your ${tabFocusLabel[activeTab]} score is ${Math.round(weakestCategory.scorePercent)}%. Practise more here to reach the 70% target.`}
           </p>
         </section>
       )}

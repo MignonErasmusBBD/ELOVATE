@@ -37,6 +37,8 @@ export const explainCopy = {
     "The solid curve is how learner averages are spread. The dotted curve is an ideal bell around the target mean. If the class mean sits left of the ideal line, scores are lower than the target.",
   practiceQuestionSuccess:
     "All shows the mix of too-hard, too-easy, and balanced items. Needs revision lists questions under 30% success. High success lists items over 95% that may no longer challenge learners.",
+  practiceGrowthHighlights:
+    "Cohort callouts from practice attempts — class average movement across attempt numbers, how many learners improved or dipped, and who is sitting at or above the 70% target.",
   questionsBank:
     "Only active questions are drawn into practice quizzes. Deactivate a question to retire it without deleting quiz history.",
   questionBloom:

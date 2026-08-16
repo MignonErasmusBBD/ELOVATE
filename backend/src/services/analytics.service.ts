@@ -30,6 +30,20 @@ export class AnalyticsService {
     return this.analytics.studentCourseDashboard(actor.id, courseId);
   }
 
+  async readEducatorStudentCourseDashboard(
+    actor: AuthUser,
+    courseId: string,
+    userId: string,
+  ) {
+    requirePermission(actor, ['analytics.read.org']);
+    const course = await this.courses.findById(courseId);
+    if (course === undefined) {
+      throw new NotFoundException('Course not found');
+    }
+    this.requireCourseOverviewAccess(actor, course);
+    return this.analytics.studentCourseDashboard(userId, courseId);
+  }
+
   async readOrganizationOverview(
     actor: AuthUser,
     organizationId: string | undefined,

@@ -20,6 +20,17 @@ type StudentsTabProps = {
   courseTitle: string;
 };
 
+type EnrollmentRequirementFilter = "all" | "mandatory" | "non-mandatory";
+
+const enrollmentRequirementFilters: {
+  id: EnrollmentRequirementFilter;
+  label: string;
+}[] = [
+  { id: "all", label: "All" },
+  { id: "mandatory", label: "Mandatory enrollment" },
+  { id: "non-mandatory", label: "Non-mandatory enrollment" },
+];
+
 function statusPillTone(
   status: EnrollmentStatus,
 ): "success" | "muted" | "warning" {
@@ -54,13 +65,29 @@ function toStudentSummary(enrollment: ElovateEnrollment): EducatorStudentSummary
     needsAttention: false,
     practiceAttemptCount: enrollment.practiceAttemptCount,
     practiceQuizPercent: enrollment.practiceQuizPercent,
+    isRequired: enrollment.isRequired,
     cognitiveLevels: [],
     interventionLabels: [],
   };
 }
 
+function matchesRequirementFilter(
+  student: EducatorStudentSummary,
+  filter: EnrollmentRequirementFilter,
+) {
+  if (filter === "all") {
+    return true;
+  }
+  if (filter === "mandatory") {
+    return student.isRequired;
+  }
+  return student.isRequired === false;
+}
+
 export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [requirementFilter, setRequirementFilter] =
+    useState<EnrollmentRequirementFilter>("all");
   const [students, setStudents] = useState<EducatorStudentSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadErrorMessage, setLoadErrorMessage] = useState<string | undefined>();
@@ -120,8 +147,11 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
   const selectedStudent = students.find(
     (student) => student.id === selectedStudentId,
   );
+  const requirementFilteredStudents = students.filter((student) =>
+    matchesRequirementFilter(student, requirementFilter),
+  );
   const visibleStudents = itemsMatchingSearch(
-    students,
+    requirementFilteredStudents,
     searchQuery,
     (student) => [student.fullName, student.emailAddress],
   );
@@ -136,13 +166,36 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
           Students for {courseTitle}
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
-          Enrolled learners on this course. Detailed quiz analytics will appear
-          here as progress data becomes available.
+          Enrolled learners on this course. Open a student for attempt trends,
+          performance breakdown, and growth highlights.
         </p>
       </header>
 
       {students.length > 0 ? (
-        <section className="mt-4">
+        <section className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <nav aria-label="Enrollment requirement filter">
+            <ul className="flex list-none flex-wrap gap-2 p-0">
+              {enrollmentRequirementFilters.map((filter) => {
+                const isSelected = filter.id === requirementFilter;
+                return (
+                  <li key={filter.id}>
+                    <button
+                      type="button"
+                      onClick={() => setRequirementFilter(filter.id)}
+                      aria-current={isSelected ? "true" : undefined}
+                      className={
+                        isSelected
+                          ? "rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white"
+                          : "rounded-full border border-border-ui bg-surface px-4 py-2 text-sm font-medium text-text-secondary hover:bg-page"
+                      }
+                    >
+                      {filter.label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
           <SearchField
             id="students-search"
             label="Search students"
@@ -176,7 +229,9 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
 
       {students.length > 0 && visibleStudents.length === 0 ? (
         <p className="mt-4 text-sm text-text-secondary">
-          No students match your search.
+          {requirementFilteredStudents.length === 0
+            ? "No students match this enrollment filter."
+            : "No students match your search."}
         </p>
       ) : undefined}
 
@@ -253,6 +308,7 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
 
       {selectedStudent === undefined ? undefined : (
         <StudentDetailsModal
+          courseId={courseId}
           student={selectedStudent}
           onClose={() => setSelectedStudentId(undefined)}
         />

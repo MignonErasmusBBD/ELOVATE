@@ -17,6 +17,7 @@ type GrowthHighlightsProps = {
   bestScorePercent: number | undefined;
   firstAttemptScorePercent: number | undefined;
   avgScorePercent: number | undefined;
+  viewerRole?: "learner" | "educator";
 };
 
 const typeConfig: Record<
@@ -64,8 +65,10 @@ function buildHighlights(props: GrowthHighlightsProps): Highlight[] {
     bestScorePercent,
     firstAttemptScorePercent,
     avgScorePercent,
+    viewerRole = "learner",
   } = props;
 
+  const isEducator = viewerRole === "educator";
   const list: Highlight[] = [];
 
   // --- Honesty (always first when genuinely applicable) ---
@@ -73,15 +76,17 @@ function buildHighlights(props: GrowthHighlightsProps): Highlight[] {
     list.push({
       type: "honesty",
       title: "Recent scores have dipped",
-      description:
-        "Your last few quizzes are below your earlier average. Check your weakest breakdown area and focus your next session there.",
+      description: isEducator
+        ? "Their last few quizzes are below their earlier average. Check their weakest breakdown area and focus the next session there."
+        : "Your last few quizzes are below your earlier average. Check your weakest breakdown area and focus your next session there.",
     });
   } else if (stalledFlag) {
     list.push({
       type: "honesty",
       title: "Scores have plateaued",
-      description:
-        "Your last 5 attempts are close together and still below 70%. A focused session on a specific category can break the pattern.",
+      description: isEducator
+        ? "Their last 5 attempts are close together and still below 70%. A focused session on a specific category can break the pattern."
+        : "Your last 5 attempts are close together and still below 70%. A focused session on a specific category can break the pattern.",
     });
   }
 
@@ -91,8 +96,9 @@ function buildHighlights(props: GrowthHighlightsProps): Highlight[] {
     list.push({
       type: "progress",
       title: `+${delta} percentage point${delta === 1 ? "" : "s"}`,
-      description:
-        "Your recent scores are ahead of where you started — you're trending in the right direction.",
+      description: isEducator
+        ? "Recent scores are ahead of where they started — they are trending in the right direction."
+        : "Your recent scores are ahead of where you started — you're trending in the right direction.",
     });
   } else if (
     firstAttemptScorePercent !== undefined &&
@@ -103,17 +109,21 @@ function buildHighlights(props: GrowthHighlightsProps): Highlight[] {
     list.push({
       type: "progress",
       title: `+${delta} points since attempt 1`,
-      description:
-        "Your overall average has climbed above your starting score — steady, consistent improvement.",
+      description: isEducator
+        ? "Their overall average has climbed above their starting score — steady, consistent improvement."
+        : "Your overall average has climbed above your starting score — steady, consistent improvement.",
     });
   }
 
   if (mostImprovedCategory !== undefined) {
     list.push({
       type: "progress",
-      title: `${mostImprovedCategory} is your biggest gain`,
-      description:
-        "This area has improved the most from your first attempts to your recent ones. Keep building on it.",
+      title: isEducator
+        ? `${mostImprovedCategory} is their biggest gain`
+        : `${mostImprovedCategory} is your biggest gain`,
+      description: isEducator
+        ? "This area has improved the most from their first attempts to their recent ones. Encourage them to keep building on it."
+        : "This area has improved the most from your first attempts to your recent ones. Keep building on it.",
     });
   }
 
@@ -122,15 +132,17 @@ function buildHighlights(props: GrowthHighlightsProps): Highlight[] {
     list.push({
       type: "consistency",
       title: `${streakAboveTarget} quizzes above 70% in a row`,
-      description:
-        "You're consistently hitting the target. Keep the habit going and protect this streak.",
+      description: isEducator
+        ? "They are consistently hitting the target. Encourage them to keep the habit going and protect this streak."
+        : "You're consistently hitting the target. Keep the habit going and protect this streak.",
     });
   } else if (avgScorePercent !== undefined && avgScorePercent >= 70) {
     list.push({
       type: "consistency",
       title: `${Math.round(avgScorePercent)}% overall average`,
-      description:
-        "You're sitting above the 70% target across all your practice — solid, sustained performance.",
+      description: isEducator
+        ? "They are sitting above the 70% target across all practice — solid, sustained performance."
+        : "You're sitting above the 70% target across all your practice — solid, sustained performance.",
     });
   }
 
@@ -139,8 +151,9 @@ function buildHighlights(props: GrowthHighlightsProps): Highlight[] {
     list.push({
       type: "momentum",
       title: `${Math.round(bestScorePercent)}% personal best`,
-      description:
-        "That's your highest single quiz score. Aim to make it your new floor, not your ceiling.",
+      description: isEducator
+        ? "That is their highest single quiz score. Aim to make it their new floor, not their ceiling."
+        : "That's your highest single quiz score. Aim to make it your new floor, not your ceiling.",
     });
   }
 
@@ -150,15 +163,17 @@ function buildHighlights(props: GrowthHighlightsProps): Highlight[] {
       list.push({
         type: "honesty",
         title: "Still early days",
-        description:
-          "With only a few attempts, trends aren't reliable yet. Keep practising to get a clearer picture.",
+        description: isEducator
+          ? "With only a few attempts, trends aren't reliable yet. More practice will give a clearer picture."
+          : "With only a few attempts, trends aren't reliable yet. Keep practising to get a clearer picture.",
       });
     } else {
       list.push({
         type: "honesty",
         title: "Scores naturally vary",
-        description:
-          "Quiz-to-quiz variation is normal — watch your trend line over time rather than any single result.",
+        description: isEducator
+          ? "Quiz-to-quiz variation is normal — watch their trend line over time rather than any single result."
+          : "Quiz-to-quiz variation is normal — watch your trend line over time rather than any single result.",
       });
     }
   }

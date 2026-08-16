@@ -48,6 +48,24 @@ export class AnalyticsController {
     return this.analytics.readStudentCourseDashboard(actor, courseId);
   }
 
+  @Get('educator/courses/:courseId/students/:userId/dashboard')
+  @ApiOperation({
+    summary: 'Educator view of a student course dashboard',
+    description:
+      'Same payload as GET /analytics/me/courses/:courseId/dashboard for the given learner: summary stats, last-10 trend, bloom/section/difficulty breakdowns, growth flags, recommendations.\nPermission: analytics.read.org (org_admin, educator) plus course.private.read / course.community.read for the course.',
+  })
+  educatorStudentCourseDashboard(
+    @CurrentUser() actor: AuthUser,
+    @Param('courseId') courseId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.analytics.readEducatorStudentCourseDashboard(
+      actor,
+      courseId,
+      userId,
+    );
+  }
+
   @Get('org/overview')
   @ApiQuery({ name: 'organizationId', required: false })
   @ApiQuery({ name: 'courseId', required: false })
