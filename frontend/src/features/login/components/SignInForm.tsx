@@ -41,6 +41,7 @@ export function SignInForm() {
   const [fieldErrors, setFieldErrors] = useState<SignInFieldErrors>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
 
   function buildFieldErrors(): SignInFieldErrors {
     return {
@@ -95,16 +96,22 @@ export function SignInForm() {
       <div className="flex flex-col gap-4">
         <button
           type="button"
-          onClick={() =>
+          disabled={isGoogleSigningIn}
+          onClick={() => {
+            setIsGoogleSigningIn(true);
             authClient.signIn.social({
               provider: "google",
               callbackURL: nextPath,
-            })
-          }
-          className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-ui bg-surface px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-page focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            });
+          }}
+          className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-ui bg-surface px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-page focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <GoogleIcon className="h-5 w-5 shrink-0" />
-          Continue with Google
+          {isGoogleSigningIn ? (
+            <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-border-ui border-t-ink" />
+          ) : (
+            <GoogleIcon className="h-5 w-5 shrink-0" />
+          )}
+          {isGoogleSigningIn ? "Redirecting…" : "Continue with Google"}
         </button>
 
         <div className="flex items-center gap-3">

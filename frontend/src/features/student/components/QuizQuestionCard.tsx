@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { QuestionMarkIcon } from "@/components/icons/QuestionMarkIcon";
 import type { AttemptItem } from "@/helpers/quizzesApi";
 import { CorrectReasonNotice } from "./CorrectReasonNotice";
@@ -25,6 +26,15 @@ export function QuizQuestionCard({
   const feedbackRevealed = hasAnswered && item.isCorrect !== undefined;
   const isCorrect = item.isCorrect === true;
   const correctOption = item.options.find((o) => o.isCorrect === true);
+
+  const shuffledOptions = useMemo(() => {
+    const copy = [...item.options];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }, [item.id]);
   const canSubmit =
     selectedOptionId !== undefined &&
     hasAnswered === false &&
@@ -77,7 +87,7 @@ export function QuizQuestionCard({
       <fieldset className="mt-6 border-0 p-0">
         <legend className="sr-only">Answer choices</legend>
         <ul className="flex list-none flex-col gap-3 p-0">
-          {item.options.map((option) => {
+          {shuffledOptions.map((option) => {
             const wasSelected =
               (hasAnswered ? item.selectedOptionId : selectedOptionId) ===
               option.id;
