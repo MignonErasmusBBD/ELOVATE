@@ -10,7 +10,7 @@ import {
 } from './recommendation-templates';
 
 // Minimum completed quiz attempts for a mandatory enrollment to be considered progressing.
-const MIN_MANDATORY_QUIZ_ATTEMPTS = 6;
+const MIN_MANDATORY_QUIZ_ATTEMPTS = 3;
 
 // Minimum questions answered before a section is included in flag evaluation.
 const MIN_QUESTIONS_FOR_FLAG = 3;
