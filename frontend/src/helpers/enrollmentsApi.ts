@@ -3,6 +3,10 @@ import {
   fetchElovateApi,
 } from "@/helpers/elovateApi";
 import {
+  parseEnrollmentStatus,
+  type EnrollmentStatus,
+} from "@/helpers/enrollmentStatus";
+import {
   isPlainObject,
   readErrorMessage,
   readObjectList,
@@ -11,7 +15,7 @@ import {
   readRequiredString,
 } from "@/helpers/jsonFields";
 
-export type EnrollmentStatus = "active" | "completed" | "withdrawn";
+export type { EnrollmentStatus };
 
 export type EnrollmentSummary = {
   id: string;
@@ -41,15 +45,6 @@ export type ListEnrollmentsInput = {
   courseId: string;
   status?: EnrollmentStatus;
 };
-
-function parseEnrollmentStatus(
-  value: string | undefined,
-): EnrollmentStatus | undefined {
-  if (value === "active" || value === "completed" || value === "withdrawn") {
-    return value;
-  }
-  return undefined;
-}
 
 function readEnrolledAt(body: object): string | undefined {
   if ("enrolledAt" in body === false) {

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { REQUIRED_PRACTICE_ATTEMPTS_FOR_COMPLETION } from '../helpers/enrollment-outcomes';
 import {
   dateFromDatabase,
   isUuid,
@@ -203,9 +204,59 @@ export class EnrollmentsRepository {
     return row.id;
   }
 
+  async applyDueDateOutcomes(filters?: {
+    enrollmentId?: string;
+    userId?: string;
+    courseId?: string;
+  }) {
+    const values: SqlParameter[] = [REQUIRED_PRACTICE_ATTEMPTS_FOR_COMPLETION];
+    const conditions: string[] = [
+      'e.is_required = true',
+      'e.due_at IS NOT NULL',
+      `current_es.status_code IN ('active', 'overdue')`,
+    ];
+    if (filters?.enrollmentId !== undefined) {
+      values.push(filters.enrollmentId);
+      conditions.push(`e.id = $${values.length}`);
+    }
+    if (filters?.userId !== undefined) {
+      values.push(filters.userId);
+      conditions.push(`e.user_id = $${values.length}`);
+    }
+    if (filters?.courseId !== undefined) {
+      values.push(filters.courseId);
+      conditions.push(`e.course_id = $${values.length}`);
+    }
+    await this.postgres.query(
+      `UPDATE enrollments e
+       SET enrollment_status_id = target.enrollment_status_id
+       FROM enrollment_statuses current_es,
+       LATERAL (
+         SELECT CASE
+           WHEN e.due_at >= now() THEN 'active'
+           WHEN coalesce((
+             SELECT count(*)::int
+             FROM quiz_attempts qa
+             JOIN quiz_attempt_statuses st
+               ON st.quiz_attempt_status_id = qa.quiz_attempt_status_id
+             WHERE qa.user_id = e.user_id
+               AND qa.course_id = e.course_id
+               AND st.status_code = 'completed'
+           ), 0) >= $1 THEN 'completed'
+           ELSE 'overdue'
+         END AS status_code
+       ) outcome
+       JOIN enrollment_statuses target ON target.status_code = outcome.status_code
+       WHERE e.enrollment_status_id = current_es.enrollment_status_id
+         AND ${conditions.join(' AND ')}
+         AND target.status_code IS DISTINCT FROM current_es.status_code`,
+      values,
+    );
+  }
+
   async setStatus(
     enrollmentId: string,
-    statusCode: 'active' | 'completed' | 'withdrawn',
+    statusCode: 'active' | 'completed' | 'withdrawn' | 'overdue',
   ) {
     await this.postgres.query(
       `UPDATE enrollments
@@ -238,7 +289,8 @@ export class EnrollmentsRepository {
       `SELECT e.id
        FROM enrollments e
        JOIN enrollment_statuses es ON es.enrollment_status_id = e.enrollment_status_id
-       WHERE e.user_id = $1 AND e.course_id = $2 AND es.status_code = 'active'
+       WHERE e.user_id = $1 AND e.course_id = $2
+         AND es.status_code IN ('active', 'completed', 'overdue')
        LIMIT 1`,
       [userId, courseId],
     );

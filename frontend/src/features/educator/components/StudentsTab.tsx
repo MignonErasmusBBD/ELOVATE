@@ -4,13 +4,19 @@ import { useEffect, useState } from "react";
 import { SearchField } from "@/components/ui/SearchField";
 import { Spinner } from "@/components/ui/Spinner";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { ExplainTip } from "@/components/ui/ExplainTip";
 import { errorMessageFromUnknown } from "@/helpers/elovateApi";
+import { explainCopy } from "@/helpers/explainCopy";
+import {
+  enrollmentStatusLabel,
+  enrollmentStatusTone,
+  type EnrollmentStatus,
+} from "@/helpers/enrollmentStatus";
 import { itemsMatchingSearch } from "@/helpers/search";
 import {
   formatEnrollmentDate,
   listCourseEnrollments,
   type ElovateEnrollment,
-  type EnrollmentStatus,
 } from "@/helpers/enrollmentsApi";
 import type { EducatorStudentSummary } from "../types";
 import { StudentDetailsModal } from "./StudentDetailsModal";
@@ -20,37 +26,12 @@ type StudentsTabProps = {
   courseTitle: string;
 };
 
-type EnrollmentRequirementFilter = "all" | "mandatory" | "non-mandatory";
-
-const enrollmentRequirementFilters: {
-  id: EnrollmentRequirementFilter;
-  label: string;
-}[] = [
-  { id: "all", label: "All" },
-  { id: "mandatory", label: "Mandatory enrollment" },
-  { id: "non-mandatory", label: "Non-mandatory enrollment" },
-];
-
-function statusPillTone(
-  status: EnrollmentStatus,
-): "success" | "muted" | "warning" {
-  if (status === "active") {
-    return "success";
-  }
-  if (status === "completed") {
-    return "muted";
-  }
-  return "warning";
+function statusPillTone(status: EnrollmentStatus) {
+  return enrollmentStatusTone(status);
 }
 
 function statusLabel(status: EnrollmentStatus) {
-  if (status === "active") {
-    return "Active";
-  }
-  if (status === "completed") {
-    return "Completed";
-  }
-  return "Withdrawn";
+  return enrollmentStatusLabel(status);
 }
 
 function toStudentSummary(enrollment: ElovateEnrollment): EducatorStudentSummary {
@@ -62,32 +43,16 @@ function toStudentSummary(enrollment: ElovateEnrollment): EducatorStudentSummary
     emailAddress: enrollment.emailAddress,
     status: enrollment.status,
     enrolledAtLabel: formatEnrollmentDate(enrollment.enrolledAt),
-    needsAttention: false,
+    needsAttention: enrollment.status === "overdue",
     practiceAttemptCount: enrollment.practiceAttemptCount,
     practiceQuizPercent: enrollment.practiceQuizPercent,
-    isRequired: enrollment.isRequired,
     cognitiveLevels: [],
     interventionLabels: [],
   };
 }
 
-function matchesRequirementFilter(
-  student: EducatorStudentSummary,
-  filter: EnrollmentRequirementFilter,
-) {
-  if (filter === "all") {
-    return true;
-  }
-  if (filter === "mandatory") {
-    return student.isRequired;
-  }
-  return student.isRequired === false;
-}
-
 export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [requirementFilter, setRequirementFilter] =
-    useState<EnrollmentRequirementFilter>("all");
   const [students, setStudents] = useState<EducatorStudentSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadErrorMessage, setLoadErrorMessage] = useState<string | undefined>();
@@ -102,18 +67,14 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
       setIsLoading(true);
       setLoadErrorMessage(undefined);
       try {
-        const [activeEnrollments, completedEnrollments] = await Promise.all([
-          listCourseEnrollments({ courseId, status: "active" }),
-          listCourseEnrollments({ courseId, status: "completed" }),
-        ]);
+        const enrollments = await listCourseEnrollments({ courseId });
         if (cancelled) {
           return;
         }
 
-        const nextStudents = [
-          ...activeEnrollments,
-          ...completedEnrollments,
-        ].map(toStudentSummary);
+        const nextStudents = enrollments
+          .filter((enrollment) => enrollment.status !== "withdrawn")
+          .map(toStudentSummary);
         setStudents(nextStudents);
         setSelectedStudentId((currentId) => {
           if (
@@ -147,11 +108,8 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
   const selectedStudent = students.find(
     (student) => student.id === selectedStudentId,
   );
-  const requirementFilteredStudents = students.filter((student) =>
-    matchesRequirementFilter(student, requirementFilter),
-  );
   const visibleStudents = itemsMatchingSearch(
-    requirementFilteredStudents,
+    students,
     searchQuery,
     (student) => [student.fullName, student.emailAddress],
   );
@@ -161,41 +119,21 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
       <header>
         <h2
           id="students-heading"
-          className="text-xl font-bold tracking-tight text-ink"
+          className="flex flex-wrap items-center gap-2 text-xl font-bold tracking-tight text-ink"
         >
           Students for {courseTitle}
+          <ExplainTip label="About due dates and completion">
+            {explainCopy.enrolmentDueOutcome}
+          </ExplainTip>
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
-          Enrolled learners on this course. Open a student for attempt trends,
-          performance breakdown, and growth highlights.
+          Enrolled learners on this course. Detailed quiz analytics will appear
+          here as progress data becomes available.
         </p>
       </header>
 
       {students.length > 0 ? (
-        <section className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <nav aria-label="Enrollment requirement filter">
-            <ul className="flex list-none flex-wrap gap-2 p-0">
-              {enrollmentRequirementFilters.map((filter) => {
-                const isSelected = filter.id === requirementFilter;
-                return (
-                  <li key={filter.id}>
-                    <button
-                      type="button"
-                      onClick={() => setRequirementFilter(filter.id)}
-                      aria-current={isSelected ? "true" : undefined}
-                      className={
-                        isSelected
-                          ? "rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white"
-                          : "rounded-full border border-border-ui bg-surface px-4 py-2 text-sm font-medium text-text-secondary hover:bg-page"
-                      }
-                    >
-                      {filter.label}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+        <section className="mt-4">
           <SearchField
             id="students-search"
             label="Search students"
@@ -229,9 +167,7 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
 
       {students.length > 0 && visibleStudents.length === 0 ? (
         <p className="mt-4 text-sm text-text-secondary">
-          {requirementFilteredStudents.length === 0
-            ? "No students match this enrollment filter."
-            : "No students match your search."}
+          No students match your search.
         </p>
       ) : undefined}
 
@@ -308,7 +244,6 @@ export function StudentsTab({ courseId, courseTitle }: StudentsTabProps) {
 
       {selectedStudent === undefined ? undefined : (
         <StudentDetailsModal
-          courseId={courseId}
           student={selectedStudent}
           onClose={() => setSelectedStudentId(undefined)}
         />

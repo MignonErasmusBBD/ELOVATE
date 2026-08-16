@@ -7,6 +7,10 @@ import { ExplainTip } from "@/components/ui/ExplainTip";
 import { Spinner } from "@/components/ui/Spinner";
 import { useActionFeedback, useCurrentUser } from "@/features/platform";
 import { listCourses, type ElovateCourseSummary } from "@/helpers/coursesApi";
+import {
+  parseEnrollmentStatus,
+  type EnrollmentStatus,
+} from "@/helpers/enrollmentStatus";
 import { explainCopy } from "@/helpers/explainCopy";
 import { PAGE_SHELL_CLASS } from "@/helpers/pageLayout";
 import { itemsMatchingSearch } from "@/helpers/search";
@@ -40,6 +44,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 type EnrollmentRequirement = {
   isRequired: boolean;
   dueAt: string | undefined;
+  enrollmentStatus: EnrollmentStatus | undefined;
 };
 
 function CourseGrid({
@@ -72,6 +77,7 @@ function CourseGrid({
                 status={course.status ?? "active"}
                 isRequired={requirement?.isRequired === true}
                 dueAt={requirement?.dueAt}
+                enrollmentStatus={requirement?.enrollmentStatus}
                 onEnrol={
                   showEnrolButton
                     ? () => onEnrol(course.id)
@@ -121,7 +127,7 @@ export function CoursesPage() {
         );
         const enrollments = listIncludesEnrollment
           ? []
-          : await listMyEnrollments("active");
+          : await listMyEnrollments();
 
         if (cancelled) return;
         setActiveCourses(
@@ -140,15 +146,21 @@ export function CoursesPage() {
               nextRequirements.set(course.id, {
                 isRequired: course.isRequired === true,
                 dueAt: course.dueAt,
+                enrollmentStatus: course.enrollmentStatus,
               });
             }
           }
         } else {
           for (const enrollment of enrollments) {
+            const enrollmentStatus = parseEnrollmentStatus(enrollment.status);
+            if (enrollmentStatus === "withdrawn") {
+              continue;
+            }
             nextEnrolledIds.add(enrollment.courseId);
             nextRequirements.set(enrollment.courseId, {
               isRequired: enrollment.isRequired,
               dueAt: enrollment.dueAt,
+              enrollmentStatus,
             });
           }
         }

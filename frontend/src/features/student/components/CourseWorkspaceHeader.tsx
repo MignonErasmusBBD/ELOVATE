@@ -66,6 +66,8 @@ export function CourseWorkspaceHeader({ courseId }: CourseWorkspaceHeaderProps) 
       courseTitle={state.course.title}
       hideQuizLinks={state.course.status === "deactivated"}
       lockNav={isQuizInProgress}
+      isRequired={state.course.isRequired === true}
+      enrollmentStatus={state.course.enrollmentStatus}
     />
   );
 }

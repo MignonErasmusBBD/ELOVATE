@@ -27,6 +27,7 @@ export class EnrollmentsService {
 
   async listOwn(actor: AuthUser, status: string | undefined) {
     requirePermission(actor, ['enrollment.read.self']);
+    await this.enrollments.applyDueDateOutcomes({ userId: actor.id });
     const items = await this.enrollments.list({
       organizationId: undefined,
       courseId: undefined,
@@ -63,6 +64,9 @@ export class EnrollmentsService {
         'Can only list enrollments in your own organisation',
       );
     }
+    await this.enrollments.applyDueDateOutcomes({
+      userId: filters.userId,
+    });
     const items = await this.enrollments.list({
       organizationId: actor.organizationId,
       courseId: undefined,
@@ -123,6 +127,7 @@ export class EnrollmentsService {
       );
     }
 
+    await this.enrollments.applyDueDateOutcomes({ courseId });
     const items = await this.enrollments.list({
       organizationId: undefined,
       courseId,
@@ -133,6 +138,7 @@ export class EnrollmentsService {
   }
 
   async getOne(actor: AuthUser, enrollmentId: string) {
+    await this.enrollments.applyDueDateOutcomes({ enrollmentId });
     const enrollment = await this.requireEnrollment(enrollmentId);
     const isOwn = enrollment.userId === actor.id;
     const sameOrg = enrollment.organizationId === actor.organizationId;
@@ -256,6 +262,7 @@ export class EnrollmentsService {
     }
     const parsedRequirement = this.requireValidRequirement(requirement);
     await this.enrollments.setRequirement(enrollmentId, parsedRequirement);
+    await this.enrollments.applyDueDateOutcomes({ enrollmentId });
     return this.requireEnrollment(enrollmentId);
   }
 

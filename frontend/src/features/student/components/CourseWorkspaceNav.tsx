@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ExplainTip } from "@/components/ui/ExplainTip";
+import { explainCopy } from "@/helpers/explainCopy";
+import {
+  enrollmentStatusLabel,
+  type EnrollmentStatus,
+} from "@/helpers/enrollmentStatus";
 import { WORKSPACE_BAR_CLASS } from "@/helpers/pageLayout";
 
 type CourseWorkspaceNavProps = {
@@ -10,6 +15,8 @@ type CourseWorkspaceNavProps = {
   courseTitle: string;
   hideQuizLinks?: boolean;
   lockNav?: boolean;
+  isRequired?: boolean;
+  enrollmentStatus?: EnrollmentStatus;
 };
 
 function getCourseWorkspaceLinks(courseId: string) {
@@ -43,6 +50,8 @@ export function CourseWorkspaceNav({
   courseTitle,
   hideQuizLinks = false,
   lockNav = false,
+  isRequired = false,
+  enrollmentStatus,
 }: CourseWorkspaceNavProps) {
   const pathname = usePathname();
   const allLinks = getCourseWorkspaceLinks(courseId);
@@ -61,6 +70,32 @@ export function CourseWorkspaceNav({
             <p className="mt-1 truncate text-xl font-bold tracking-tight text-ink md:text-2xl">
               {courseTitle}
             </p>
+            {isRequired === false &&
+            enrollmentStatus !== "completed" &&
+            enrollmentStatus !== "overdue" ? undefined : (
+              <p className="mt-2 flex flex-wrap items-center gap-2">
+                {isRequired ? (
+                  <span className="inline-flex items-center rounded-full border-2 border-red-500 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+                    Required
+                  </span>
+                ) : undefined}
+                {enrollmentStatus === "completed" ||
+                enrollmentStatus === "overdue" ? (
+                  <span
+                    className={
+                      enrollmentStatus === "completed"
+                        ? "inline-flex items-center rounded-full border-2 border-emerald-500 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"
+                        : "inline-flex items-center rounded-full border-2 border-red-500 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700"
+                    }
+                  >
+                    {enrollmentStatusLabel(enrollmentStatus)}
+                  </span>
+                ) : undefined}
+                <ExplainTip label="About required due dates">
+                  {explainCopy.enrolmentDueOutcome}
+                </ExplainTip>
+              </p>
+            )}
           </section>
           {lockNav ? (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">

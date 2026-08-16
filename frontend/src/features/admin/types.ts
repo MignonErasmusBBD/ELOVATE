@@ -2,7 +2,7 @@ export type CompanyStatus = "active" | "suspended";
 
 export type PersonStatus = "active" | "deactivated";
 
-export type EnrolmentStatus = "active" | "completed" | "withdrawn";
+export type EnrolmentStatus = "active" | "completed" | "withdrawn" | "overdue";
 
 export type AdminPerson = {
   id: string;

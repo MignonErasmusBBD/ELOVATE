@@ -1,4 +1,8 @@
 import { ElovateApiError, fetchElovateApi } from "@/helpers/elovateApi";
+import {
+  parseEnrollmentStatus,
+  type EnrollmentStatus,
+} from "@/helpers/enrollmentStatus";
 import { readOptionalBoolean, readOptionalNumber } from "@/helpers/jsonFields";
 
 export type ElovateCourseStatus = "active" | "deactivated" | "draft";
@@ -15,6 +19,7 @@ export type ElovateCourseSummary = {
   isEnrolled?: boolean;
   isRequired?: boolean;
   dueAt?: string;
+  enrollmentStatus?: EnrollmentStatus;
 };
 
 const courseInFlight = new Map<
@@ -81,6 +86,9 @@ export function parseCourseSummary(
     isEnrolled: readOptionalBoolean(item, "isEnrolled"),
     isRequired: readOptionalBoolean(item, "isRequired"),
     dueAt: readOptionalString(item, "dueAt"),
+    enrollmentStatus: parseEnrollmentStatus(
+      readOptionalString(item, "enrollmentStatus"),
+    ),
   };
 }
 

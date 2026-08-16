@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { Spinner } from "@/components/ui/Spinner";
 import {
+  enrollmentStatusLabel,
+  type EnrollmentStatus,
+} from "@/helpers/enrollmentStatus";
+import {
   courseCardUrgencyClassName,
   dueDateLabel,
   dueUrgency,
@@ -19,6 +23,7 @@ type CourseCardProps = {
   status: string;
   isRequired?: boolean;
   dueAt?: string;
+  enrollmentStatus?: EnrollmentStatus;
   iconName?: CourseIconName;
   onEnrol?: () => Promise<void>;
 };
@@ -93,12 +98,16 @@ const TRUNCATE_AT = 150;
 function CourseRequirementTags({
   isRequired,
   dueAt,
+  enrollmentStatus,
 }: Readonly<{
   isRequired: boolean;
   dueAt: string | undefined;
+  enrollmentStatus: EnrollmentStatus | undefined;
 }>) {
   const urgency = dueAt === undefined ? undefined : dueUrgency(dueAt);
-  if (isRequired === false && dueAt === undefined) {
+  const showOutcome =
+    enrollmentStatus === "completed" || enrollmentStatus === "overdue";
+  if (isRequired === false && dueAt === undefined && showOutcome === false) {
     return undefined;
   }
   return (
@@ -110,7 +119,22 @@ function CourseRequirementTags({
           </span>
         </li>
       ) : undefined}
-      {dueAt === undefined || urgency === undefined ? undefined : (
+      {enrollmentStatus === "completed" || enrollmentStatus === "overdue" ? (
+        <li>
+          <span
+            className={
+              enrollmentStatus === "completed"
+                ? "inline-flex items-center rounded-full border-2 border-emerald-500 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"
+                : "inline-flex items-center rounded-full border-2 border-red-500 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700"
+            }
+          >
+            {enrollmentStatusLabel(enrollmentStatus)}
+          </span>
+        </li>
+      ) : undefined}
+      {dueAt === undefined ||
+      urgency === undefined ||
+      enrollmentStatus === "completed" ? undefined : (
         <li>
           <span
             className={`inline-flex items-center rounded-full border-2 px-2 py-0.5 text-xs font-semibold ${dueUrgencyClassName(urgency)}`}
@@ -131,6 +155,7 @@ export function CourseCard({
   status,
   isRequired = false,
   dueAt,
+  enrollmentStatus,
   iconName,
   onEnrol,
 }: CourseCardProps) {
@@ -165,7 +190,11 @@ export function CourseCard({
         <figure className="m-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-coral text-white">
           <CourseIcon iconName={resolvedIcon} className="h-5 w-5" />
         </figure>
-        <CourseRequirementTags isRequired={isRequired} dueAt={dueAt} />
+        <CourseRequirementTags
+          isRequired={isRequired}
+          dueAt={dueAt}
+          enrollmentStatus={enrollmentStatus}
+        />
       </header>
       <h2 className="mt-4 break-words text-lg font-bold tracking-tight text-ink">
         {title}
